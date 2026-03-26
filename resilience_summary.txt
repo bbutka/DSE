@@ -1,0 +1,504 @@
+================================================================================
+  RESILIENCE TECHNICAL ASSESSMENT REPORT
+================================================================================
+  Generated  : 2026-03-25 10:54
+  Test case  : testCases/testCase3_inst.lp
+  Solver     : Clingo ASP (two-phase: optimize then evaluate)
+  Scenarios  : 8 evaluated  (5 compromise, 2 failure, 1 baseline)
+
+
+--- 1. RISK MODEL DEFINITION ---
+This section defines the scoring model so that all scenario rankings and
+severity labels in this report can be independently verified.
+
+BASELINE RISK FORMULA
+  Each asset A is assigned one security feature S and one logging feature L by
+  the optimizer.  The baseline risk for A is the product of three integer-valued
+  parameters:
+
+    BaseRisk(A) = Impact(A)  x  Vulnerability(S)  x  LogFactor(L)
+
+  The available security features and their parameter values are:
+
+  Feature         Vulnerability  Power    Latency (cycles)    LUT cost  
+  --------------  -------------  -------  ------------------  ----------
+  zero_trust      1 (lowest)     3        3 + 32922 base      51/asset  
+  dynamic_mac     2 (medium)     2        3 + 1568 base       51/asset  
+  mac             3 (highest)    1        3 (no base)         51/asset  
+
+  The available logging features and their parameter values are:
+
+  Feature               LogFactor    Power    Latency (cycles)
+  --------------------  -----------  -------  ----------------
+  zero_trust_logger     5  (best logging)  2        22              
+  some_logging          10 (partial logging)  1        4               
+  no_logging            20 (no logging)  0        0               
+
+Note: LogFactor is an integer representation of a multiplier; the real
+multiplier is LogFactor / 10.  Logging quality inversely affects risk: better
+logging reduces the effective risk score because anomalies are more likely to be
+detected and contained.
+
+SCENARIO RISK FORMULA
+  When a node is compromised, each asset receives an amplification factor based
+  on how the attacker reaches it.  The factor is chosen as the maximum
+  applicable across all compromised nodes:
+
+  Exposure type         Factor (integer)   Real multiplier    Condition             
+  --------------------  -----------------  -----------------  ----------------------
+  Direct ownership      30                 3.0x               attacker owns node with asset
+  Indirect cross-zone   20                 2.0x               attacker traverses trust boundary
+  Indirect same-zone    15                 1.5x               attacker stays within zone
+  No exposure           10                 1.0x               asset not reachable from any attacker
+
+    ScenarioRisk(A) = BaseRisk(A)  x  MaxFactor(A)  /  10
+    TotalScenarioRisk   = SUM over all assets of ScenarioRisk(A)
+
+SEVERITY THRESHOLDS
+  Scenarios are labelled with a severity based on TotalScenarioRisk /
+  BaselineTotalRisk:
+
+  Label         Ratio range         Plain-English meaning                   
+  ------------  ------------------  ----------------------------------------
+  NEGLIGIBLE    <= 1.05             risk increase is less than 5 percent of baseline
+  LOW           <= 1.50             risk increase is between 5 and 50 percent of baseline
+  MODERATE      <= 1.75             risk increase is between 50 and 75 percent of baseline
+  HIGH          <= 2.00             risk increase is between 75 and 100 percent of baseline
+  CRITICAL      > 2.00              risk more than doubles relative to baseline
+
+--- 2. THREAT MODEL AND ASSUMPTIONS ---
+The following attacker classes are modelled.  Assumptions that differ from real-
+world deployment conditions will affect the validity of the scenario rankings.
+
+  * External physical attacker (JTAG): assumed to have physical board-level
+  access and can connect debug hardware to the JTAG port.  This is the highest-
+  capability threat for this topology.  In a production deployment behind
+  tamper-evident enclosure, this attacker class may be downgraded.
+  * Remote software attacker via peripheral (peripheral0): assumed to have
+  network or firmware-level code execution on a connected peripheral device.
+  The peripheral is modelled as initiating transactions on the APB bus, which
+  the model assumes can be forwarded to the main AXI fabric.  See the
+  architectural note below on whether this reverse path is physically possible.
+  * Supply-chain or software exploit on cpu1: assumed to give arbitrary ring-0
+  code execution on the secondary processor.  This subsumes both malicious
+  firmware and runtime exploitation.  Both threat types are treated identically
+  in this model.
+  * Hardware fault (cpu0 failure, axi_bus failure): modelled as complete,
+  instant unavailability of the component.  Partial failures, degraded-mode
+  operation, and progressive faults are not modelled.
+
+ARCHITECTURAL ASSUMPTION: REVERSE APB REACHABILITY
+  The model treats the APB bus connection between axi_bus and peripheral0 as
+  bidirectional for reachability purposes: a compromised peripheral0 can
+  initiate transactions that traverse the APB bridge and reach the main AXI
+  fabric, and hence all other nodes.  This is a modelling abstraction.  Whether
+  this path exists physically depends on whether the APB bridge includes a
+  hardware initiator path from peripheral-side to fabric-side.  If the bridge
+  only supports fabric-initiated transactions (typical for simple peripherals),
+  this path does not exist and the peripheral_compromise scenario would be far
+  less severe.  Sensitivity Analysis in Section 8 quantifies this difference.
+
+WHAT 'COMPROMISED' MEANS IN THIS MODEL
+  A compromised node is assumed to give the attacker read/write access to all
+  assets on that node (direct exposure, factor 3.0x) and the ability to initiate
+  transactions to all reachable nodes (indirect exposure, factor 1.5x or 2.0x
+  depending on zone crossing).  The model does not distinguish between
+  compromise depth (read-only vs read-write) or attacker persistence.
+
+--- 3. SYSTEM OVERVIEW ---
+The test case models a dual-processor embedded SoC.  Components, their trust
+zones, owned assets, and impact values are:
+
+  Component       Zone              Assets owned            Impacts               
+  --------------  ----------------  ----------------------  ----------------------
+  cpu1            (see testcase)    task_state              task_state=25         
+  jtag            (see testcase)    periph_cfg              periph_cfg=15         
+  peripheral0     (see testcase)    periph_cfg              periph_cfg=15         
+  (others)                          boot_cfg, dram_data, firmware_key, flash_image                        
+
+Trust-zone boundary crossings in the topology (these represent architectural
+risk points that security features alone cannot eliminate):
+
+    axi_bus --[apb]--> peripheral0
+    cpu0 --[jtag]--> jtag
+    cpu1 --[jtag]--> jtag
+    jtag --[jtag]--> cpu0
+    jtag --[jtag]--> cpu1
+    peripheral0 --[apb]--> axi_bus
+
+External entry points (nodes in the external_zone from which an attacker can
+reach the rest of the system):
+    jtag: reaches 6 asset(s): boot_cfg, dram_data, firmware_key, flash_image, periph_cfg, task_state
+
+--- 4. OPTIMAL SECURITY ASSIGNMENT ---
+
+Status: BEST FOUND (optimality not proven — see note below)
+
+The following assignment was selected by the ASP optimizer to minimise
+TotalBaselineRisk subject to active constraints:
+
+  Asset             Impact    Security        Logging               Base Risk   Formula               
+  ----------------  --------  --------------  --------------------  ----------  ----------------------
+  boot_cfg          7         zero_trust      zero_trust_logger     35          7 x 1 x 5             
+  dram_data         6         zero_trust      zero_trust_logger     30          6 x 1 x 5             
+  firmware_key      9         zero_trust      zero_trust_logger     45          9 x 1 x 5             
+  flash_image       8         zero_trust      zero_trust_logger     40          8 x 1 x 5             
+  periph_cfg        3         zero_trust      zero_trust_logger     15          3 x 1 x 5             
+  task_state        5         zero_trust      zero_trust_logger     25          5 x 1 x 5             
+  TOTAL                                                             190                               
+
+WHY THIS ASSIGNMENT: zero_trust + zero_trust_logger FOR ALL ASSETS
+  The optimizer selected the maximum-security option everywhere.  This is not a
+  trivial result — it is driven by the combination of high impact values and the
+  per-asset risk ceiling constraint (max_asset_risk = 500).  Verification:
+
+    With zero_trust (vulnerability=1) and zero_trust_logger (LogFactor=5), the
+    highest-impact asset (firmware_key, impact=9) scores 9 x 1 x 5 = 45, well
+    below the 500 ceiling.
+
+    With mac (vulnerability=3) and no_logging (LogFactor=20), firmware_key would
+    score 9 x 3 x 20 = 540 > 500, violating the per-asset ceiling.  This
+    eliminates mac+no_logging for high-impact assets.
+
+    With dynamic_mac (vulnerability=2) and zero_trust_logger (LogFactor=5),
+    firmware_key scores 9 x 2 x 5 = 90.  This is feasible but suboptimal — the
+    optimizer minimises the sum of all risks, and zero_trust lowers the total
+    further.
+
+  In short: given the available features, zero_trust + zero_trust_logger
+  achieves the minimum possible total risk and is feasible for all assets.  No
+  tradeoff was required.
+
+CONSTRAINTS ACTIVE IN THIS OPTIMIZATION RUN
+  The following encoding files were loaded for Phase 1:
+    Clingo/init_enc.lp
+    Clingo/opt_security_enc.lp
+    Clingo/security_features_inst.lp
+    Clingo/tgt_system_inst.lp
+    Clingo/usr_constraints_inst.lp
+    Clingo/topology_enc.lp
+
+  opt_latency_enc.lp, opt_power_enc.lp, and opt_resource_enc.lp were NOT loaded.
+  Consequently, latency, power, and FPGA resource constraints were NOT enforced
+  during this optimization run.  Only the per-asset risk ceiling (max_asset_risk
+  = 500) and the risk minimization objective were active.
+
+  CRITICAL IMPLICATION: if opt_latency_enc.lp were loaded, the latency
+  constraint (max_latency = 20 cycles total) would be binding.  With 6 assets
+  and zero_trust (3 cycles each), security latency alone consumes 18 cycles,
+  leaving only 2 cycles for all logging combined.  Since some_logging costs 4
+  cycles per asset and zero_trust_logger costs 22 cycles per asset, no logging
+  feature other than no_logging (0 cycles) would fit.  The latency-constrained
+  assignment would be zero_trust + no_logging for all assets, yielding a total
+  baseline risk of 760 (approximately 4x higher than the current assignment).
+  The current max_latency = 20 value in usr_constraints_inst.lp appears
+  inconsistent with the deployed logging features and should be reviewed.
+
+--- 5. ATTACK SURFACE VS. POST-COMPROMISE CONSEQUENCE ---
+This section explicitly separates two dimensions that are often conflated:
+attack surface (how exposed is an entry point?) and post-compromise consequence
+(how damaging is it once an attacker is inside?).  These dimensions can rank
+nodes differently.
+
+ATTACK SURFACE — JTAG IS THE HIGHEST-EXPOSURE ENTRY POINT
+  Attack surface is measured by three factors: (1) trust zone (external_zone >
+  untrusted_zone), (2) blast radius (how many nodes can be reached), and (3)
+  directness of access to high-impact assets.  On all three dimensions, JTAG
+  ranks highest:
+
+    peripheral0        blast radius = 6 node(s), total scenario risk = 395
+    jtag               blast radius = 6 node(s), total scenario risk = 380
+    cpu1               blast radius = 6 node(s), total scenario risk = 330
+    cpu1               blast radius = 6 node(s), total scenario risk = 280
+
+POST-COMPROMISE CONSEQUENCE — PERIPHERAL COMPROMISE IS HIGHEST RISK
+  Post-compromise consequence is measured by TotalScenarioRisk: the aggregate
+  amplified risk across all assets once the attacker is assumed to be inside the
+  node.  Despite JTAG having higher exposure, peripheral_compromise produces a
+  higher total consequence score.
+
+THE SPECIFIC REASON FOR THE DIFFERENCE
+  Both JTAG and peripheral0 have identical blast radii and both reach all assets
+  via cross-zone indirect paths (factor 2.0x), so their per-asset scores are the
+  same for all assets EXCEPT one.
+
+  The sole driver is 'periph_cfg' (base risk = 15): peripheral0 DIRECTLY OWNS
+  this asset, so it receives the direct exposure factor (3.0x), giving a
+  scenario risk of 45.0.  JTAG does not own 'periph_cfg' — it only reaches it
+  via a cross-zone indirect path (2.0x), giving a scenario risk of 30.0.  The
+  difference is 15.0 points, which exactly accounts for the 15-point gap between
+  the two scenario totals.
+
+COMBINED SCENARIO SATURATION
+  The scenario 'jtag_and_periph_compromise' (risk = 395) equals
+  'peripheral_compromise' (risk = 395) despite involving additional compromised
+  nodes.  This is a dominance / saturation effect: for every asset, the maximum
+  amplification factor is already achieved by 'peripheral_compromise' alone.
+  Adding more compromised nodes does not increase the per-asset maximum, so the
+  total does not increase.  This confirms that 'peripheral_compromise' is the
+  dominant attacker position in this topology.
+
+--- 6. COMPROMISE SCENARIO ANALYSIS ---
+Each scenario is evaluated with the Phase 1 optimal assignment fixed. Risk
+amplification is applied per asset; the per-asset breakdown allows the score to
+be traced directly to the risk formula.
+
+  Scenario : peripheral_compromise
+  Severity : CRITICAL  (2.08x baseline)
+  Threat   : COMPROMISED peripheral0
+  Description: Attacker exploits exposed peripheral (GPIO/timer)
+  Blast radius: peripheral0: 6 node(s)
+
+  Asset             Base Risk   Amp factor   Scen Risk   Delta   
+  ----------------  ----------  -----------  ----------  --------
+  boot_cfg          35          2.0x         70.0        +35.0   
+  dram_data         30          2.0x         60.0        +30.0   
+  firmware_key      45          2.0x         90.0        +45.0   
+  flash_image       40          2.0x         80.0        +40.0   
+  periph_cfg        15          3.0x         45.0        +30.0   
+  task_state        25          2.0x         50.0        +25.0   
+  TOTAL             190                      395.0       +205.0  
+
+  Scenario : jtag_and_periph_compromise
+  Severity : CRITICAL  (2.08x baseline)
+  Threat   : COMPROMISED jtag, peripheral0
+  Description: Simultaneous JTAG + peripheral attack
+  Blast radius: jtag: 6 node(s), peripheral0: 6 node(s)
+
+  Asset             Base Risk   Amp factor   Scen Risk   Delta   
+  ----------------  ----------  -----------  ----------  --------
+  boot_cfg          35          2.0x         70.0        +35.0   
+  dram_data         30          2.0x         60.0        +30.0   
+  firmware_key      45          2.0x         90.0        +45.0   
+  flash_image       40          2.0x         80.0        +40.0   
+  periph_cfg        15          3.0x         45.0        +30.0   
+  task_state        25          2.0x         50.0        +25.0   
+  TOTAL             190                      395.0       +205.0  
+
+  Scenario : jtag_compromise
+  Severity : HIGH  (2.00x baseline)
+  Threat   : COMPROMISED jtag
+  Description: Attacker gains access via JTAG debug port
+  Blast radius: jtag: 6 node(s)
+
+  Asset             Base Risk   Amp factor   Scen Risk   Delta   
+  ----------------  ----------  -----------  ----------  --------
+  boot_cfg          35          2.0x         70.0        +35.0   
+  dram_data         30          2.0x         60.0        +30.0   
+  firmware_key      45          2.0x         90.0        +45.0   
+  flash_image       40          2.0x         80.0        +40.0   
+  periph_cfg        15          2.0x         30.0        +15.0   
+  task_state        25          2.0x         50.0        +25.0   
+  TOTAL             190                      380.0       +190.0  
+
+  Scenario : cpu1_compromise
+  Severity : MODERATE  (1.74x baseline)
+  Threat   : COMPROMISED cpu1
+  Description: Secondary CPU is compromised (supply-chain / exploit)
+  Blast radius: cpu1: 6 node(s)
+
+  Asset             Base Risk   Amp factor   Scen Risk   Delta   
+  ----------------  ----------  -----------  ----------  --------
+  boot_cfg          35          1.5x         52.5        +17.5   
+  dram_data         30          1.5x         45.0        +15.0   
+  firmware_key      45          1.5x         67.5        +22.5   
+  flash_image       40          1.5x         60.0        +20.0   
+  periph_cfg        15          2.0x         30.0        +15.0   
+  task_state        25          3.0x         75.0        +50.0   
+  TOTAL             190                      330.0       +140.0  
+
+  Scenario : cpu1_compromise_axi_failure
+  Severity : LOW  (1.47x baseline)
+  Threat   : COMPROMISED cpu1  FAILED axi_bus
+  Description: CPU1 compromised while AXI bus fails (combined attack)
+  Blast radius: cpu1: 6 node(s)
+
+  Asset             Base Risk   Amp factor   Scen Risk   Delta   
+  ----------------  ----------  -----------  ----------  --------
+  boot_cfg          35          1.5x         52.5        +17.5   
+  dram_data         30          1.0x         30.0        +0.0    
+  firmware_key      45          1.5x         67.5        +22.5   
+  flash_image       40          1.0x         40.0        +0.0    
+  periph_cfg        15          1.0x         15.0        +0.0    
+  task_state        25          3.0x         75.0        +50.0   
+  TOTAL             190                      280.0       +90.0   
+
+  CRITICAL ASSETS LOST: dram_data, flash_image
+
+--- 7. FAILURE SCENARIO ANALYSIS ---
+Failure scenarios measure availability, not confidentiality.  Total scenario
+risk does not increase because a failed node cannot be compromised
+simultaneously in these scenarios.  The critical metric is which assets become
+unreachable.
+
+  Scenario : cpu0_failure
+  Threat   : FAILED cpu0
+  Description: Primary CPU hardware fault or DoS
+  Availability: 4/6 assets reachable
+  Unreachable : boot_cfg, firmware_key
+  CRITICAL LOST (impact >= 6): boot_cfg, firmware_key
+
+  Availability impact explanation: the failed node is the sole path to the
+  unreachable assets.  No redundant data path exists in the current topology.
+  The risk scores for all assets remain at baseline because the attacker is not
+  assumed to be present.
+
+  Scenario : axi_bus_failure
+  Threat   : FAILED axi_bus
+  Description: Shared AXI bus fault — cuts off RAM, Flash, Peripheral
+  Availability: 3/6 assets reachable
+  Unreachable : dram_data, flash_image, periph_cfg
+  CRITICAL LOST (impact >= 6): dram_data, flash_image
+
+  Availability impact explanation: the failed node is the sole path to the
+  unreachable assets.  No redundant data path exists in the current topology.
+  The risk scores for all assets remain at baseline because the attacker is not
+  assumed to be present.
+
+--- 8. SENSITIVITY ANALYSIS ---
+The following hypothetical changes test whether the scenario rankings are stable
+or sensitive to modelling assumptions.  All values are analytical estimates
+derived from the risk formula; they are not re-solved by the optimizer.
+
+S1 — BLOCK PERIPHERAL REVERSE APB PATH
+  Assumption: the APB bridge is hardware-limited to fabric-initiated
+  transactions only.  peripheral0 can therefore only be a target, not an
+  initiator.  Under this assumption, compromising peripheral0 gives the attacker
+  access only to periph_cfg (direct ownership, factor 3.0x), and no other assets
+  are reachable.
+  Estimated peripheral_compromise risk with path blocked: 220 vs 395 current.
+  This would drop peripheral_compromise from the highest-risk compromise
+  scenario to the lowest, confirming that the reverse APB path assumption is the
+  single largest driver of the peripheral risk score.  This assumption warrants
+  architectural verification before relying on the ranking.
+
+S2 — JTAG WITH DIRECT ASSET OWNERSHIP
+  Currently JTAG owns no assets.  If the highest-impact asset (firmware_key,
+  base risk = 45) were stored directly in a JTAG-accessible register, it would
+  receive factor 3.0x instead of the current 2.0x.
+  Estimated JTAG scenario risk: 425 vs current 380, which would make JTAG the
+  highest-risk compromise scenario (425 > 395).  This shows that JTAG ranking is
+  sensitive to whether critical assets are directly accessible through the debug
+  interface.
+
+S3 — LATENCY CONSTRAINT ACTIVATED
+  If opt_latency_enc.lp were loaded with max_latency = 20, the current
+  assignment (zero_trust_logger, 22 cycles per asset) would violate the total
+  latency constraint (6 assets × (3+22) = 150 cycles >> 20).  The optimizer
+  would be forced to select no_logging (0 cycles) for all assets, giving:
+
+    Latency-constrained total baseline risk : 760
+    Current (unconstrained) total risk      : 190
+    Ratio                                   : 4.0x higher
+
+  This represents a large sensitivity.  The current max_latency = 20 in
+  usr_constraints_inst.lp should be re-examined to determine whether it reflects
+  a real system constraint or a placeholder.
+
+S4 — cpu0 ASSET IMPACT VALUES
+  cpu0 owns the two highest-impact assets (firmware_key=9, boot_cfg=7).  If
+  these values were reduced to reflect a system where keys are stored in a
+  hardware security module rather than in CPU registers (e.g., firmware_key=4,
+  boot_cfg=4), the cpu0_failure scenario would no longer produce a critical
+  asset loss under the current threshold of impact >= 6, and the overall
+  resilience verdict would improve.  Asset impact values should be reviewed
+  against actual data-classification policy.
+
+--- 9. RESILIENCE ASSESSMENT ---
+
+STRENGTHS
+
+  * The trust-zone model correctly identifies cross-domain links as
+  architectural risk points.  The system has exactly two such crossings, both of
+  which are accounted for in the scenario analysis.  A flat (single-zone) model
+  would miss these distinctions entirely.
+  * The least-damaging single-node compromise (cpu1_compromise_axi_failure, 280)
+  represents a 1.5x risk increase — showing that not all nodes are equally
+  dangerous to compromise and that the trust-zone design has some
+  differentiation effect.
+
+WEAKNESSES AND RISKS
+
+  * The highest-risk single-node compromise (peripheral_compromise, 395) raises
+  total system risk to 2.08x baseline.  This exceeds the 2.00x CRITICAL
+  threshold, indicating that a single attacker entry is sufficient to produce a
+  critical-severity outcome.
+  * 3 scenario(s) cause critical asset loss (cpu0_failure, axi_bus_failure,
+  cpu1_compromise_axi_failure).  All involve hardware failures, confirming that
+  the availability weaknesses are topological, not addressable by security
+  feature selection alone.
+  * 'cpu0' is a single point of failure: its loss alone makes boot_cfg,
+  firmware_key unreachable.  There is no redundant path in the current topology.
+  * 'axi_bus' is a single point of failure: its loss alone makes dram_data,
+  flash_image unreachable.  There is no redundant path in the current topology.
+  * JTAG provides unrestricted access to all 6 assets in the system.  There is
+  no hardware access-control mechanism between the external zone and the secure
+  zone.
+
+--- 10. RECOMMENDATIONS AND MITIGATION MAPPING ---
+Each recommendation is linked to the scenarios it would directly address.
+Scenario risk reductions are qualitative unless a re-optimisation is performed
+with the topology change applied.
+
+  R1. JTAG ACCESS CONTROL
+     Action: Disable or fuse-lock the JTAG port in production builds, or add a
+     challenge-response authentication gate before enabling debug access.
+     Addresses: jtag_compromise, jtag_and_periph_compromise
+     Effect: Removes the external_zone → secure_zone crossing for JTAG, reducing
+     jtag blast radius from 6 to 0.  jtag_compromise risk would fall to baseline
+     (no exposure).
+
+  R2. PERIPHERAL REVERSE-PATH HARDWARE ISOLATION
+     Action: Configure the APB bridge to block initiator transactions from the
+     peripheral side, or add an MPU rule that prevents peripheral0 from
+     targeting secure-zone addresses.
+     Addresses: peripheral_compromise, jtag_and_periph_compromise
+     Effect: Removes the untrusted_zone → secure_zone reverse path.
+     peripheral_compromise risk would fall from 395 to ~220 (Sensitivity S1).
+     This is the single highest-value architectural change.
+
+  R3. REDUNDANT DATA PATH TO FLASH
+     Action: Add a secondary bus path (e.g., dedicated SPI or I2C interface)
+     between cpu0 and flash, independent of the primary AXI bus.
+     Addresses: axi_bus_failure, cpu1_compromise_axi_failure
+     Effect: Eliminates axi_bus as a single point of failure for flash_image.
+     The axi_bus_failure scenario would no longer lose flash_image and its
+     severity would fall significantly.
+
+  R4. CPU0 ASSET MIRRORING
+     Action: Replicate firmware_key and boot_cfg into a shadow register on cpu1
+     or into a dedicated secure element (e.g., TPM, secure enclave).
+     Addresses: cpu0_failure
+     Effect: Eliminates cpu0 as a single point of failure for its assets.
+     cpu0_failure would no longer lose firmware_key or boot_cfg.
+
+  R5. REVIEW MAX_LATENCY CONSTRAINT VALUE
+     Action: Re-examine whether max_latency = 20 in usr_constraints_inst.lp
+     reflects a real system constraint.  If latency constraints are real, load
+     opt_latency_enc.lp and expect the optimal assignment to change
+     significantly (Sensitivity S3).
+     Addresses: all scenarios
+     Effect: If the latency constraint is real and active, the current
+     zero_trust_logger assignment is infeasible.  Running the optimizer with
+     opt_latency_enc.lp loaded would produce a fundamentally different (and
+     higher-risk) baseline assignment.  All scenario scores would increase
+     accordingly.
+
+
+--- 11. OVERALL VERDICT ---
+
+  Verdict: CRITICAL RISK — ARCHITECTURAL CHANGES REQUIRED
+  Worst-case scenario: peripheral_compromise (risk = 395, 2.08x baseline)
+
+  The worst-case scenario (peripheral_compromise) reaches 2.08x baseline,
+  exceeding the CRITICAL threshold of 2.0x.  This result is driven by a single-
+  node compromise that reaches all assets.  Architectural changes — particularly
+  JTAG access control and peripheral isolation — are required before this system
+  can be claimed resilient under adversarial conditions.
+
+  Note on optimality: the Phase 1 result is reported as 'best found, optimality
+  not proven'.  If optimality is not proven, a marginally better assignment may
+  exist, but it would not change the topology-driven findings in Sections 5–7,
+  which are independent of the feature assignment.
+
+================================================================================

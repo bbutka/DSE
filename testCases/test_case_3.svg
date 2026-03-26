@@ -1,0 +1,215 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+  <defs>
+    <style>
+      .title { font: 700 30px Arial, Helvetica, sans-serif; fill: #122033; }
+      .subtitle { font: 400 16px Arial, Helvetica, sans-serif; fill: #23374d; }
+      .zonehead { font: 700 22px Arial, Helvetica, sans-serif; fill: white; }
+      .zonetext { font: 400 14px Arial, Helvetica, sans-serif; fill: #1f2d3d; }
+      .cardtitle { font: 700 22px Arial, Helvetica, sans-serif; fill: #182a3b; }
+      .cardsub { font: 400 14px Arial, Helvetica, sans-serif; fill: #35506b; }
+      .label { font: 700 15px Arial, Helvetica, sans-serif; fill: #1c2b39; }
+      .small { font: 400 13px Arial, Helvetica, sans-serif; fill: #33485c; }
+      .legend { font: 400 14px Arial, Helvetica, sans-serif; fill: #223244; }
+      .impact { font: 700 13px Arial, Helvetica, sans-serif; fill: #7a4300; }
+      .foot { font: 400 12px Arial, Helvetica, sans-serif; fill: #4a5b6d; }
+    </style>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#113d73"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1e8a47"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d33a2c"/>
+    </marker>
+    </defs>
+
+  <rect x="0" y="0" width="1600" height="1100" fill="#ffffff"/>
+
+  <text x="48" y="55" class="title">System Architecture &amp; Trust Zones</text>
+  <text x="48" y="86" class="subtitle">Test Case 3 • Dual-CPU SoC with AXI Bus, Memory, Peripheral &amp; JTAG</text>
+
+  <!-- info box -->
+  <g>
+    <rect x="1015" y="26" rx="10" ry="10" width="525" height="64" fill="#f7f9fc" stroke="#d8e0ea"/>
+    <text x="1040" y="55" class="label">Trust Zones:</text>
+    <text x="1138" y="55" class="subtitle">hardware regions with different security levels</text>
+    <text x="1040" y="79" class="subtitle">Crossing a boundary increases attack surface and requires protection.</text>
+  </g>
+
+  <!-- SECURE ZONE -->
+  <g>
+    <rect x="40" y="120" rx="18" ry="18" width="760" height="680" fill="#eef6ff" stroke="#5aa1ff" stroke-width="2" stroke-dasharray="8 6"/>
+    <text x="72" y="165" class="zonehead" style="fill:#1458b8">SECURE ZONE</text>
+    <text x="72" y="192" class="subtitle">Trusted Execution Environment</text>
+  </g>
+
+  <!-- UNTRUSTED ZONE -->
+  <g>
+    <rect x="815" y="120" rx="18" ry="18" width="425" height="680" fill="#fff3f1" stroke="#ff7368" stroke-width="2" stroke-dasharray="8 6"/>
+    <text x="850" y="165" class="zonehead" style="fill:#d63e36">UNTRUSTED ZONE</text>
+    <text x="850" y="192" class="subtitle">Memory-Mapped Peripheral</text>
+  </g>
+
+  <!-- EXTERNAL ZONE -->
+  <g>
+    <rect x="1255" y="120" rx="18" ry="18" width="305" height="680" fill="#f0fbf2" stroke="#57b878" stroke-width="2" stroke-dasharray="8 6"/>
+    <text x="1288" y="165" class="zonehead" style="fill:#1f8a45">EXTERNAL ZONE</text>
+    <text x="1288" y="192" class="subtitle">Physical Debug Interface</text>
+  </g>
+
+  <!-- cpu0 -->
+  <g>
+    <rect x="96" y="205" rx="14" ry="14" width="290" height="225" fill="#ffffff" stroke="#194f93" stroke-width="2.2"/>
+    <text x="150" y="250" class="cardtitle">cpu0</text>
+    <text x="150" y="275" class="cardsub">Primary CPU</text>
+    <rect x="118" y="300" rx="8" ry="8" width="245" height="54" fill="#f8fbff" stroke="#d6e2f0"/>
+    <text x="134" y="334" class="label">firmware_key</text>
+    <rect x="279" y="314" rx="8" ry="8" width="68" height="26" fill="#ffd34e" stroke="#e0aa00"/>
+    <text x="295" y="332" class="impact">HIGH</text>
+
+    <rect x="118" y="364" rx="8" ry="8" width="245" height="54" fill="#f8fbff" stroke="#d6e2f0"/>
+    <text x="134" y="398" class="label">boot_cfg</text>
+    <rect x="279" y="378" rx="8" ry="8" width="92" height="26" fill="#ffe28f" stroke="#d2b55d"/>
+    <text x="295" y="396" class="impact">MEDIUM</text>
+
+    <rect x="108" y="438" rx="10" ry="10" width="266" height="36" fill="#d7ebff"/>
+    <text x="191" y="462" class="label">Zone: secure</text>
+  </g>
+
+  <!-- cpu1 -->
+  <g>
+    <rect x="416" y="205" rx="14" ry="14" width="290" height="182" fill="#ffffff" stroke="#194f93" stroke-width="2.2"/>
+    <text x="470" y="250" class="cardtitle">cpu1</text>
+    <text x="470" y="275" class="cardsub">Secondary CPU</text>
+    <rect x="438" y="300" rx="8" ry="8" width="245" height="54" fill="#f8fbff" stroke="#d6e2f0"/>
+    <text x="454" y="334" class="label">task_state</text>
+    <rect x="601" y="314" rx="8" ry="8" width="92" height="26" fill="#ffe28f" stroke="#d2b55d"/>
+    <text x="617" y="332" class="impact">MEDIUM</text>
+
+    <rect x="428" y="364" rx="10" ry="10" width="266" height="36" fill="#d7ebff"/>
+    <text x="511" y="388" class="label">Zone: secure</text>
+  </g>
+
+  <!-- AXI bus -->
+  <g>
+    <rect x="95" y="500" rx="12" ry="12" width="600" height="72" fill="#164f8f" stroke="#0d3763" stroke-width="2.2"/>
+    <text x="330" y="542" style="font:700 24px Arial, Helvetica, sans-serif; fill:white;">axi_bus</text>
+    <text x="255" y="565" style="font:400 15px Arial, Helvetica, sans-serif; fill:#dcecff;">AXI Interconnect (Shared Resource)</text>
+  </g>
+
+  <!-- ram -->
+  <g>
+    <rect x="96" y="628" rx="14" ry="14" width="225" height="170" fill="#ffffff" stroke="#194f93" stroke-width="2.2"/>
+    <text x="170" y="672" class="cardtitle">ram</text>
+    <rect x="116" y="703" rx="8" ry="8" width="185" height="56" fill="#fffaf0" stroke="#ead7ad"/>
+    <text x="132" y="736" class="label">dram_data</text>
+    <text x="132" y="755" class="small" fill="#9b5300">MEDIUM impact</text>
+    <rect x="108" y="766" rx="10" ry="10" width="200" height="28" fill="#d7ebff"/>
+    <text x="160" y="785" class="small" style="font-weight:700">Zone: secure</text>
+  </g>
+
+  <!-- flash -->
+  <g>
+    <rect x="384" y="628" rx="14" ry="14" width="225" height="170" fill="#ffffff" stroke="#194f93" stroke-width="2.2"/>
+    <text x="452" y="672" class="cardtitle">flash</text>
+    <rect x="404" y="703" rx="8" ry="8" width="185" height="56" fill="#fffaf0" stroke="#ead7ad"/>
+    <text x="420" y="736" class="label">flash_image</text>
+    <text x="420" y="755" class="small" fill="#9b5300">HIGH impact</text>
+    <rect x="396" y="766" rx="10" ry="10" width="200" height="28" fill="#d7ebff"/>
+    <text x="448" y="785" class="small" style="font-weight:700">Zone: secure</text>
+  </g>
+
+  <!-- peripheral -->
+  <g>
+    <rect x="890" y="615" rx="14" ry="14" width="250" height="170" fill="#ffffff" stroke="#da4336" stroke-width="2.2"/>
+    <text x="953" y="660" class="cardtitle">peripheral0</text>
+    <text x="943" y="682" class="cardsub">GPIO / Timers (APB)</text>
+    <rect x="915" y="707" rx="8" ry="8" width="195" height="52" fill="#fff8f7" stroke="#f0ccc8"/>
+    <text x="933" y="738" class="label">periph_cfg</text>
+    <text x="933" y="756" class="small" fill="#b04800">HIGH impact</text>
+    <rect x="903" y="765" rx="10" ry="10" width="225" height="28" fill="#ffd7d3"/>
+    <text x="968" y="784" class="small" style="font-weight:700">Zone: untrusted</text>
+  </g>
+
+  <!-- jtag -->
+  <g>
+    <rect x="1320" y="350" rx="14" ry="14" width="175" height="140" fill="#ffffff" stroke="#2f9e57" stroke-width="2.2"/>
+    <text x="1382" y="396" class="cardtitle">jtag</text>
+    <text x="1350" y="422" class="cardsub">Debug Port (TAP)</text>
+    <rect x="1340" y="446" rx="10" ry="10" width="135" height="28" fill="#d7f3df"/>
+    <text x="1376" y="465" class="small" style="font-weight:700">Zone: external</text>
+  </g>
+
+  <!-- connections -->
+  <line x1="241" y1="430" x2="241" y2="500" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)" marker-start="url(#arrowBlue)"/>
+  <text x="255" y="470" class="small">I-Cache / D-Cache / IRQ</text>
+
+  <line x1="561" y1="387" x2="561" y2="500" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)" marker-start="url(#arrowBlue)"/>
+  <text x="574" y="446" class="small">I-Cache / D-Cache / IRQ</text>
+
+  <line x1="209" y1="628" x2="209" y2="572" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)" marker-start="url(#arrowBlue)"/>
+  <line x1="496" y1="628" x2="496" y2="572" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)" marker-start="url(#arrowBlue)"/>
+
+  <!-- AXI to peripheral / APB crossing -->
+  <line x1="695" y1="536" x2="1015" y2="536" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <line x1="1015" y1="536" x2="1015" y2="615" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <text x="1030" y="582" class="small">APB</text>
+
+  <!-- JTAG to CPUs -->
+  <line x1="1320" y1="396" x2="706" y2="396" stroke="#1e8a47" stroke-width="4" marker-end="url(#arrowGreen)"/>
+  <line x1="1320" y1="430" x2="386" y2="430" stroke="#1e8a47" stroke-width="4" marker-end="url(#arrowGreen)"/>
+  <text x="1165" y="389" class="label" fill="#1e8a47">JTAG</text>
+  <text x="1070" y="424" class="small" fill="#1e8a47">Debug / Trace → cpu0 / cpu1</text>
+
+  <!-- boundary callouts -->
+  <g>
+    <rect x="1030" y="485" rx="8" ry="8" width="140" height="42" fill="#ef3f33"/>
+    <text x="1052" y="512" style="font:700 15px Arial, Helvetica, sans-serif; fill:white;">Trust Boundary</text>
+    <rect x="1028" y="535" rx="8" ry="8" width="225" height="78" fill="#ffffff"/>
+    <text x="1055" y="565" class="label">secure ↔ untrusted</text>
+    <text x="1055" y="588" class="small">axi_bus → peripheral0</text>
+    <text x="1055" y="608" class="small">(AXI to APB bridge)</text>
+  </g>
+
+  <g>
+    <rect x="1095" y="620" rx="8" ry="8" width="140" height="42" fill="#ef3f33"/>
+    <text x="1117" y="647" style="font:700 15px Arial, Helvetica, sans-serif; fill:white;">Trust Boundary</text>
+    <rect x="1093" y="670" rx="8" ry="8" width="225" height="78" fill="#ffffff"/>
+    <text x="1120" y="700" class="label">external ↔ secure</text>
+    <text x="1120" y="723" class="small">jtag → cpu0 / cpu1</text>
+    <text x="1120" y="743" class="small">(Debug access)</text>
+  </g>
+
+  <!-- footer trust section -->
+  <g>
+    <rect x="40" y="830" rx="10" ry="10" width="1520" height="138" fill="#f7f8fa" stroke="#d8dde6"/>
+    <text x="60" y="860" class="label">Trust Zone Boundaries &amp; Crossing Links</text>
+
+    <rect x="60" y="878" rx="10" ry="10" width="360" height="80" fill="#ffffff" stroke="#e0e5ed"/>
+    <text x="85" y="911" class="label">secure ↔ untrusted</text>
+    <text x="85" y="938" class="subtitle">axi_bus → peripheral0  (AXI→APB bridge)</text>
+
+    <rect x="440" y="878" rx="10" ry="10" width="360" height="80" fill="#ffffff" stroke="#e0e5ed"/>
+    <text x="465" y="911" class="label">external ↔ secure</text>
+    <text x="465" y="938" class="subtitle">jtag → cpu0 / cpu1  (Debug access)</text>
+
+    <rect x="835" y="878" rx="10" ry="10" width="690" height="80" fill="#edf3fb" stroke="#d7e2ee"/>
+    <text x="860" y="911" class="subtitle">Boundary crossings enable functionality but increase attack surface.</text>
+    <text x="860" y="938" class="subtitle">Best-found security assignment in the revised report: zero_trust + zero_trust_logger per asset.</text>
+  </g>
+
+  <!-- legend -->
+  <g>
+    <text x="40" y="995" class="label">Legend</text>
+    <rect x="125" y="979" width="26" height="26" rx="4" fill="#d7ebff" stroke="#6ea9df"/><text x="160" y="998" class="legend">secure zone</text>
+    <rect x="290" y="979" width="26" height="26" rx="4" fill="#ffd7d3" stroke="#e28f87"/><text x="325" y="998" class="legend">untrusted zone</text>
+    <rect x="495" y="979" width="26" height="26" rx="4" fill="#d7f3df" stroke="#88c59d"/><text x="530" y="998" class="legend">external zone</text>
+    <line x1="700" y1="992" x2="760" y2="992" stroke="#113d73" stroke-width="4" marker-end="url(#arrowBlue)"/><text x="775" y="998" class="legend">data / control path</text>
+    <line x1="975" y1="992" x2="1035" y2="992" stroke="#d33a2c" stroke-width="4" stroke-dasharray="8 6" marker-end="url(#arrowRed)"/><text x="1050" y="998" class="legend">trust boundary crossing</text>
+  </g>
+
+  <text x="40" y="1040" class="foot">Notes: This editable SVG follows the validated architecture: secure = cpu0, cpu1, axi_bus, ram, flash; untrusted = peripheral0; external = jtag.</text>
+  <text x="40" y="1060" class="foot">Reverse APB reachability is intentionally not shown as a hardware guarantee. It is a modeling abstraction discussed separately in the report.</text>
+</svg>

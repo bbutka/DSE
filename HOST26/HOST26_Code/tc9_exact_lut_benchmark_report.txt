@@ -1,0 +1,47 @@
+====================================================================================
+tc9 Exact LUT Replacement Benchmark
+====================================================================================
+
+Equation replacement check
+  Original size-5 integer inputs from ASP's selected tc9 model:
+    P1=589, P2=589, P3=384, P4=589, P5=589
+  Original ASP output:
+    combined_prob_norm(1,-21)
+  Exact LUT output for the same inputs:
+    combined_prob_norm_size5_lut(589,589,384,589,589,462160)
+
+Original ASP Phase 1
+  Cost tuple: (530,)
+  combined_prob_norm(1): -21
+  new_prob_denormalized(c1): 230
+  Total max-risk sum: 356
+
+  c1: security=mac logging=no_logging
+  c2: security=mac logging=no_logging
+  c3: security=dynamic_mac logging=no_logging
+  c4: security=mac logging=no_logging
+  c5: security=mac logging=no_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+Exact-LUT Phase 1
+  Cost tuple: (750,)
+  combined_prob_norm(1): 780
+  new_prob_denormalized(c1): 1010
+  Total max-risk sum: 520
+  Resources: LUTs=7808, FFs=6962, DSPs=22, LUTRAM=203, BRAM=10, Power=106
+
+  c1: security=zero_trust logging=no_logging
+  c2: security=zero_trust logging=no_logging
+  c3: security=zero_trust logging=no_logging
+  c4: security=zero_trust logging=no_logging
+  c5: security=zero_trust logging=some_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+Comparison to existing benchmarks
+  Exact-LUT total max-risk sum: 520
+  Python helper exact total risk: 2688
+  CP-SAT exact total risk: 525

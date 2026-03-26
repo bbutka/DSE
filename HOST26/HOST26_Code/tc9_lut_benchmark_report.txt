@@ -1,0 +1,70 @@
+================================================================================
+tc9 LUT Phase 1 Benchmark
+================================================================================
+
+Reference model
+  Exact Python helper over Clingo's approximate-optimal Phase 1 frontier
+  Runtime (s): 0.499
+  Frontier quality: approximate-optimal frontier size = 40
+  Exact total risk: 2688
+  Resources: LUTs=7808, FFs=6962, DSPs=22, LUTRAM=203, BRAM=10, Power=106
+
+  c1: security=mac logging=some_logging
+  c2: security=mac logging=some_logging
+  c3: security=mac logging=some_logging
+  c4: security=mac logging=some_logging
+  c5: security=zero_trust logging=no_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+LUT/log-sum Phase 1
+  Runtime (s): 12.811
+  Frontier quality: approximate-optimal frontier size = 1
+  Approximate optimal cost tuple: (59641992, 794871, 455, 41889, 43900, 264, 1565, 78, 899)
+  Exact total risk after Python finish: 515
+  Resources: LUTs=41889, FFs=43900, DSPs=264, LUTRAM=1565, BRAM=78, Power=899
+  Group log-sums: {1: 59641992}
+  Member probabilities (scaled): {'c1': 179487, 'c2': 179487, 'c3': 179487, 'c4': 179487, 'c5': 76923}
+
+  c1: security=zero_trust logging=no_logging
+  c2: security=zero_trust logging=no_logging
+  c3: security=zero_trust logging=no_logging
+  c4: security=zero_trust logging=no_logging
+  c5: security=zero_trust logging=some_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=zero_trust_logger
+  c8: security=mac logging=no_logging
+
+CP-SAT exact Phase 1
+  Runtime (s): 14.075
+  Frontier quality: exact-optimal frontier size = 1
+  Exact total risk: 525
+  Resources: LUTs=13670, FFs=21382, DSPs=66, LUTRAM=1413, BRAM=62, Power=254
+
+  c1: security=zero_trust logging=no_logging
+  c2: security=zero_trust logging=no_logging
+  c3: security=zero_trust logging=no_logging
+  c4: security=zero_trust logging=no_logging
+  c5: security=zero_trust logging=some_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+Comparison
+  Same architecture as precise-helper: False
+  Same architecture as CP-SAT: False
+  Exact risk delta vs precise-helper: -2173
+  Exact risk delta vs CP-SAT: -10
+
+Per-asset exact max-risk comparison
+  Asset      Helper      LUT   CP-SAT
+  -------- -------- -------- --------
+  c1r1          566       51       51
+  c2r1          566       51       51
+  c3r1          340       31       31
+  c4r1          453       41       41
+  c5r1          453       41       41
+  c6r1           50       50       50
+  c7r1           20       10       20
+  c8r1          240      240      240

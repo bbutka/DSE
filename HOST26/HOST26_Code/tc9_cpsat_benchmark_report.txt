@@ -1,0 +1,51 @@
+================================================================================
+tc9 CP-SAT Phase 1 Benchmark
+================================================================================
+
+Reference model
+  Exact Python helper over Clingo's approximate-optimal Phase 1 frontier
+  Runtime (s): 0.194
+  Frontier quality: approximate-optimal frontier size = 40
+  Exact total risk: 2688
+  Resources: LUTs=7808, FFs=6962, DSPs=22, LUTRAM=203, BRAM=10, Power=106
+
+  c1: security=mac logging=some_logging
+  c2: security=mac logging=some_logging
+  c3: security=mac logging=some_logging
+  c4: security=mac logging=some_logging
+  c5: security=zero_trust logging=no_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+CP-SAT exact Phase 1
+  Runtime (s): 9.996
+  Frontier quality: exact-optimal frontier size = 1
+  Exact total risk: 525
+  Resources: LUTs=13670, FFs=21382, DSPs=66, LUTRAM=1413, BRAM=62, Power=254
+
+  c1: security=zero_trust logging=no_logging
+  c2: security=zero_trust logging=no_logging
+  c3: security=zero_trust logging=no_logging
+  c4: security=zero_trust logging=no_logging
+  c5: security=zero_trust logging=some_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+
+Comparison
+  Same selected architecture: False
+  Exact risk improvement: 2688 -> 525 (delta -2163)
+
+Known-flow normalized path products
+  Non-component path nodes are held at normalized probability 1.0 in this benchmark.
+  Source           Flow               Path                                            Product
+  ---------------- ------------------ ------------------------------------ ------------------
+  precise_helper   dma_to_c1          dma -> noc0 -> c1                      0.282051 (11/39)
+  precise_helper   dma_to_c6          dma -> noc1 -> c6                       0.076923 (1/13)
+  precise_helper   sys_cpu_to_c1      sys_cpu -> noc0 -> c1                  0.282051 (11/39)
+  precise_helper   sys_cpu_to_c4      sys_cpu -> noc0 -> c4                  0.282051 (11/39)
+  cpsat            dma_to_c1          dma -> noc0 -> c1                       0.179487 (7/39)
+  cpsat            dma_to_c6          dma -> noc1 -> c6                       0.076923 (1/13)
+  cpsat            sys_cpu_to_c1      sys_cpu -> noc0 -> c1                   0.179487 (7/39)
+  cpsat            sys_cpu_to_c4      sys_cpu -> noc0 -> c4                   0.179487 (7/39)

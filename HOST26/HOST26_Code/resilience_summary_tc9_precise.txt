@@ -1,0 +1,69 @@
+==============================================================================
+  testCase9 Precise Risk Report
+==============================================================================
+
+  This run uses Clingo to enumerate the approximate-optimal frontier and
+  Python Fraction arithmetic to compute redundancy-adjusted Phase 1 risk.
+
+  Phase 1 precise selection
+    Approx-optimal frontier size : 40
+    Approximate objective cost   : (530,)
+    Rounded exact total risk     : 2688
+
+    Group 1 combined normalized prob : 11359.147672 (1024870000000/90224199)
+    c1 denormalized group probability  : 11325.168980 (26200110250/2313441)
+    c2 denormalized group probability  : 11325.168980 (26200110250/2313441)
+    c3 denormalized group probability  : 11325.168980 (26200110250/2313441)
+    c4 denormalized group probability  : 11325.168980 (26200110250/2313441)
+    c5 denormalized group probability  : 11325.168980 (26200110250/2313441)
+
+  Comp   Security       Logging            Read    Write      Max
+  ------ -------------- -------------- -------- -------- --------
+  c1     mac            some_logging        113      566      566
+  c2     mac            some_logging        566      227      566
+  c3     mac            some_logging        340      340      340
+  c4     mac            some_logging        340      453      453
+  c5     zero_trust     no_logging          453      113      453
+  c6     zero_trust     some_logging         50       30       50
+  c7     zero_trust     some_logging         10       20       20
+  c8     mac            no_logging          120      240      240
+
+  Resource totals for selected candidate
+    LUTs   : 7808
+    FFs    : 6962
+    DSPs   : 22
+    LUTRAM : 203
+    BRAM   : 10
+    Power  : 106
+
+  Phase 2 optimal placement
+    Firewalls     : pep_group, pep_standalone
+    Policy servers: ps0
+    Total cost    : 450
+
+  Phase 3 scenario totals
+  Scenario                       Total Risk  Control Plane
+  ------------------------------ ---------- --------------
+  baseline                           2688.0             OK
+  sys_cpu_compromise                 5366.0             OK
+  dma_compromise                     5366.0             OK
+  c1_compromise                      4891.0             OK
+  c6_compromise                      4117.0             OK
+  c8_compromise                      4402.0             OK
+  full_group_compromise              7609.0             OK
+  noc0_failure                       2688.0             OK
+  noc1_failure                       2688.0             OK
+  c8_failure                         2688.0             OK
+  dma_compromise_noc1                5366.0             OK
+  ps0_compromise                     6720.0           COMP
+  ps1_compromise                     6255.0           COMP
+  ps0_failure                        3225.6            DEG
+  all_ps_failure                     3225.6            DEG
+  pep_group_bypass                   6255.0            DEG
+  pep_standalone_bypass              3153.0            DEG
+  ps0_comp_ps1_fail                  6720.0           COMP
+
+  Notes
+    - Phase 1 risk is recomputed in Python to avoid Clingo-side integer
+      overflow and repeated truncation in the redundancy product.
+    - Phase 2 is solved with proven minimum-cost mode in this runner.

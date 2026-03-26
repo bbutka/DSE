@@ -1,0 +1,108 @@
+============================================================================================
+tc9 Multiplication Comparison
+============================================================================================
+
+Original ASP selected design
+  c1: security=mac logging=no_logging
+  c2: security=mac logging=no_logging
+  c3: security=dynamic_mac logging=no_logging
+  c4: security=mac logging=no_logging
+  c5: security=mac logging=no_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+  Approximate cost tuple: (530,)
+
+Python exact helper selected design
+  c1: security=mac logging=some_logging
+  c2: security=mac logging=some_logging
+  c3: security=mac logging=some_logging
+  c4: security=mac logging=some_logging
+  c5: security=zero_trust logging=no_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=some_logging
+  c8: security=mac logging=no_logging
+  Approximate frontier size: 40
+
+LUT/log-sum selected design
+  c1: security=zero_trust logging=no_logging
+  c2: security=zero_trust logging=no_logging
+  c3: security=zero_trust logging=no_logging
+  c4: security=zero_trust logging=no_logging
+  c5: security=zero_trust logging=some_logging
+  c6: security=zero_trust logging=some_logging
+  c7: security=zero_trust logging=zero_trust_logger
+  c8: security=mac logging=no_logging
+  Approximate cost tuple: (59641992, 794871, 455, 41889, 43900, 264, 1565, 78, 899)
+
+M1. original_prob = vulnerability * logging
+  Comp   Original ASP Python exact   LUT design
+  ------ ------------ ------------ ------------
+  c1              600          300          200
+  c2              600          300          200
+  c3              400          300          200
+  c4              600          300          200
+  c5              600          200          100
+  c6              100          100          100
+  c7              100          100           50
+  c8              600          600          600
+
+M2. original_register_risk = impact * vulnerability * logging / 10
+  Asset          Original ASP       Python exact         LUT design
+  -------- ------------------ ------------------ ------------------
+  c1r1       60.000000 (60/1) / 300.000000 (300/1)   30.000000 (30/1) / 150.000000 (150/1)   20.000000 (20/1) / 100.000000 (100/1)
+  c2r1     300.000000 (300/1) / 120.000000 (120/1) 150.000000 (150/1) / 60.000000 (60/1)   100.000000 (100/1) / 40.000000 (40/1)  
+  c3r1     120.000000 (120/1) / 120.000000 (120/1)   90.000000 (90/1) / 90.000000 (90/1)     60.000000 (60/1) / 60.000000 (60/1)  
+  c4r1     180.000000 (180/1) / 240.000000 (240/1)   90.000000 (90/1) / 120.000000 (120/1)   60.000000 (60/1) / 80.000000 (80/1)  
+  c5r1     240.000000 (240/1) / 60.000000 (60/1)     80.000000 (80/1) / 20.000000 (20/1)     40.000000 (40/1) / 10.000000 (10/1)  
+  c6r1       50.000000 (50/1) / 30.000000 (30/1)     50.000000 (50/1) / 30.000000 (30/1)     50.000000 (50/1) / 30.000000 (30/1)  
+  c7r1       10.000000 (10/1) / 20.000000 (20/1)     10.000000 (10/1) / 20.000000 (20/1)       5.000000 (5/1) / 10.000000 (10/1)  
+  c8r1     120.000000 (120/1) / 240.000000 (240/1) 120.000000 (120/1) / 240.000000 (240/1) 120.000000 (120/1) / 240.000000 (240/1)
+
+M3. original_prob_normalized = (original_prob - mu) * 1000 / (omega - mu)
+    Group components only, because they feed the risky chained product.
+  Comp   Original ASP int             Python exact    LUT prob/1000
+  ------ ---------------- ------------------------ ----------------
+  c1                  589    589.743590 (23000/39)          179.487
+  c2                  589    589.743590 (23000/39)          179.487
+  c3                  384     384.615385 (5000/13)          179.487
+  c4                  589    589.743590 (23000/39)          179.487
+  c5                  589    589.743590 (23000/39)           76.923
+
+M4. Chained redundancy multiplication
+  Original ASP formula:
+    combined_prob_norm = P1 * P2 * P3 * P4 * P5 / 100000000
+    Integer factors used by ASP: [589, 589, 384, 589, 589]
+    Raw integer numerator from ASP factors: 46216005212544
+    Original ASP emitted combined_prob_norm(1,-21)
+  Python exact on the same original ASP design:
+    combined_prob_norm = 465242.700575 (13992050000000/30074733)
+  Python exact helper selected design:
+    combined_prob_norm = 11359.147672 (1024870000000/90224199)
+  LUT/log-sum selected design:
+    member_log_weight = {'c1': 12097858, 'c2': 12097858, 'c3': 12097858, 'c4': 12097858, 'c5': 11250560}
+    group_ln_sum      = 59641992
+    exact product after Python finish:
+    combined_prob_norm = 798.344577 (24010000000/30074733)
+
+M5. Denormalization
+  new_prob_denormalized = combined_prob_norm * 975 / 1000 + 250
+  Original ASP emitted: 230
+  Python exact on original ASP design: 453861.633061 (349994036750/771147)
+  Python exact helper selected design: 11325.168980 (26200110250/2313441)
+  LUT/log-sum selected design: 1028.385963 (793036750/771147)
+
+M6. Group new_risk = impact * denormalized_prob / 100
+  Asset          Original ASP   Python exact on ASP design    Helper exact design         LUT design
+  -------- ------------------ ---------------------------- ---------------------- ------------------
+  c1r1                   2/11                   4539/22693                113/566              10/51
+  c2r1                   11/4                   22693/9077                566/227              51/21
+  c3r1                    6/6                  13616/13616                340/340              31/31
+  c4r1                    6/9                  13616/18154                340/453              31/41
+  c5r1                    9/2                   18154/4539                453/113              41/10
+
+Totals
+  Original ASP selected design total risk (raw ASP): 356
+  Python exact on original ASP design: 95620
+  Python exact helper selected design: 2688
+  LUT/log-sum selected design: 515
