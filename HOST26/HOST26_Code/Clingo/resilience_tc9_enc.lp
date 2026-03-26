@@ -83,46 +83,70 @@ indirect_exposure_same(A, N, 15) :-
 %%    PS conflict → inconsistent deny/allow (slight elevation)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% If Phase 2 placement is provided by the runner, only deployed PEPs/PSes
+% participate in the resilience model. Otherwise fall back to the testcase
+% topology facts so the encoding still works standalone.
+phase2_context_present :- deployed_pep(_).
+phase2_context_present :- deployed_ps(_).
+
+active_policy_server(PS) :- deployed_ps(PS).
+active_policy_server(PS) :- policy_server(PS), not phase2_context_present.
+
+active_policy_enforcement_point(FWL) :- deployed_pep(FWL).
+active_policy_enforcement_point(FWL) :- policy_enforcement_point(FWL), not phase2_context_present.
+
+active_pep_guards(FWL, C) :-
+    active_policy_enforcement_point(FWL),
+    pep_guards(FWL, C).
+
+active_ps_governs_pep(PS, FWL) :-
+    active_policy_server(PS),
+    active_policy_enforcement_point(FWL),
+    ps_governs_pep(PS, FWL).
+
 % Policy server compromised
-ps_compromised(PS) :- compromised(PS), policy_server(PS).
+ps_compromised(PS) :- compromised(PS), active_policy_server(PS).
 
 % PEP is bypassed if its governing PS is compromised,
 % or if the PEP itself is directly compromised/failed
-pep_bypassed(FWL) :- compromised(FWL), policy_enforcement_point(FWL).
-pep_bypassed(FWL) :- ps_compromised(PS), ps_governs_pep(PS, FWL).
+pep_bypassed(FWL) :- compromised(FWL), active_policy_enforcement_point(FWL).
+pep_bypassed(FWL) :- ps_compromised(PS), active_ps_governs_pep(PS, FWL).
 
 % When PEP is bypassed, all masters gain unmediated access to IPs behind it
 % (factor 25 = 2.5× — between cross-domain indirect and direct)
 unmediated_exposure(A, M, 25) :-
     master(M), pep_bypassed(PEP),
-    pep_guards(PEP, C), asset(C, A, _),
+    active_pep_guards(PEP, C), asset(C, A, _),
     not compromised(M),
     not failed(C), not failed(M).
 
 % PS failure → stale policy (factor 12 = 1.2×)
 stale_policy_exposure(A, 12) :-
-    failed(PS), policy_server(PS),
-    governs(PS, FWL), not failed(FWL),
-    pep_guards(FWL, C), asset(C, A, _),
+    failed(PS), active_policy_server(PS),
+    active_ps_governs_pep(PS, FWL), not failed(FWL),
+    active_pep_guards(FWL, C), asset(C, A, _),
     not pep_bypassed(FWL).
 
 % Only ps1 remains but ps0 (which has signed policy) is down
 % → unsigned-only policy risk (factor 11 = 1.1×)
 unsigned_only_exposure(A, 11) :-
+    active_policy_server(ps1),
     failed(ps0), not failed(ps1),
     not unsigned_ps(ps1),  % ps1 is also unsigned → same risk
-    pep_guards(_, C), asset(C, A, _).
+    active_pep_guards(_, C), asset(C, A, _).
 
 unsigned_only_exposure(A, 11) :-
+    active_policy_server(ps1),
     failed(ps0), not failed(ps1),
     unsigned_ps(ps1),
-    pep_guards(_, C), asset(C, A, _).
+    active_pep_guards(_, C), asset(C, A, _).
 
 % PS conflict: both PSes up, but ps0 is compromised → conflicting decisions
 % Model as slightly elevated indirect exposure (factor 13 = 1.3×)
 ps_conflict_exposure(A, 13) :-
+    active_policy_server(ps1),
     ps_compromised(ps0), not failed(ps1),
-    pep_guards(_, C), asset(C, A, _).
+    active_pep_guards(_, C), asset(C, A, _).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -200,17 +224,17 @@ component_bus_cut(C) :-
 
 % How many policy servers remain operational
 active_ps_count(N) :-
-    N = #count { PS : policy_server(PS), not failed(PS), not compromised(PS) }.
+    N = #count { PS : active_policy_server(PS), not failed(PS), not compromised(PS) }.
 
 % A PEP has a healthy governor if some governing PS is alive and not compromised
 has_healthy_governor(FWL) :-
-    ps_governs_pep(PS, FWL),
+    active_ps_governs_pep(PS, FWL),
     not failed(PS),
     not ps_compromised(PS).
 
 % Any PEP currently lacking a healthy governing PS
 ungovernerd_pep(FWL) :-
-    policy_enforcement_point(FWL),
+    active_policy_enforcement_point(FWL),
     not failed(FWL),
     not has_healthy_governor(FWL).
 

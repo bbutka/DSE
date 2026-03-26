@@ -178,9 +178,9 @@
 ==============================================================================
   D. PHASE 2 — ZTA PLACEMENT AND MODE-AWARE POLICY
 ==============================================================================
-  Total ZTA hardware cost: 630
+  Total ZTA hardware cost: 450
   Firewalls placed   : pep_group, pep_standalone
-  Policy servers     : ps0, ps1
+  Policy servers     : ps0
 
   Governance (policy server -> IP):
     ps0 governs c1
@@ -191,11 +191,6 @@
     ps0 governs c6
     ps0 governs c7
     ps0 governs c8
-    ps1 governs c1
-    ps1 governs c2
-    ps1 governs c3
-    ps1 governs c4
-    ps1 governs c5
 
   Protected paths (master -> IP, via placed FWs):
     dma        -> c1
@@ -263,7 +258,7 @@
   c8_failure                             520.0    1.00x   ok  2/0/1
   dma_compromise_noc1                   1030.0    1.98x   ok  3/0/0
   ps0_compromise                        1300.0    2.50x COMP  3/0/0
-  ps1_compromise                         835.0    1.61x COMP  3/0/0
+  ps1_compromise                         520.0    1.00x   ok  3/0/0
   ps0_failure                            624.0    1.20x  DEG  3/0/0
   all_ps_failure                         624.0    1.20x  DEG  3/0/0
   pep_group_bypass                       835.0    1.61x  DEG  3/0/0
@@ -296,17 +291,15 @@
   ps0_compromise                        1300.0  (2.50x)
     PEPs bypassed    : ['pep_group', 'pep_standalone']
     Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1', 'c6r1', 'c7r1', 'c8r1']
-    Ungoverned PEPs  : ['pep_standalone']
-    Active PS count  : 1
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
     Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
-  ps1_compromise                         835.0  (1.61x)
-    PEPs bypassed    : ['pep_group']
-    Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1']
+  ps1_compromise                         520.0  (1.00x)
     Active PS count  : 1
     Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
   ps0_failure                            624.0  (1.20x)
-    Ungoverned PEPs  : ['pep_standalone']
-    Active PS count  : 1
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
     Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
   all_ps_failure                         624.0  (1.20x)
     Ungoverned PEPs  : ['pep_group', 'pep_standalone']
@@ -315,12 +308,12 @@
   pep_group_bypass                       835.0  (1.61x)
     PEPs bypassed    : ['pep_group']
     Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1']
-    Active PS count  : 2
+    Active PS count  : 1
     Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
   pep_standalone_bypass                  985.0  (1.89x)
     PEPs bypassed    : ['pep_standalone']
     Unmediated access: ['c6r1', 'c7r1', 'c8r1']
-    Active PS count  : 2
+    Active PS count  : 1
     Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
   ps0_comp_ps1_fail                     1300.0  (2.50x)
     PEPs bypassed    : ['pep_group', 'pep_standalone']
@@ -338,13 +331,10 @@
     * PEP bypass scenarios show the 2.5x unmediated amplification that
       would result if an attacker bypasses the firewall hardware directly
       (e.g., DMA address-range manipulation).
-    * ps0_comp_ps1_fail is the worst control-plane scenario: ps0 is
-      compromised AND ps1 (the backup) has failed, leaving no trusted
-      policy authority.
-    * RECOMMENDATION: ps1 should be architecturally independent of ps0
-      (separate hardware, separate signing key), and ps1 should also
-      enforce signed policies.
-
+    * Worst control-plane scenario observed: ps0_compromise.
+    * Phase 2 placed only ps0. There is no deployed backup policy server
+      for pep_group, so ps0 remains a single point of control-plane failure.
+      Recommendation: deploy an independent signed backup PS for pep_group.
 
   --- E3. Redundancy Group Effectiveness ---
   Single member compromise : 1.66x baseline
@@ -400,10 +390,9 @@
   all_ps_failure                     : 624.0  (1.20x)  CP=DEG
   ps0_comp_ps1_fail                  : 1300.0  (2.50x)  CP=COMP
 
-  ps0_failure alone is low-impact (stale policy, 1.2x) because ps1 can
-  continue serving pep_group.  ps0 compromise is high-impact (both PEPs
-  bypassed).  Loss of BOTH PSes causes all PEPs to become ungoverned.
-
+  ps0_failure is the dominant availability case because Phase 2 did not
+  deploy ps1. Both PEPs become ungoverned and fall back to stale policy.
+  ps0 compromise remains the highest-impact control-plane compromise.
 
   --- F4. Redundancy group size sensitivity (qualitative) ---
 
@@ -446,7 +435,7 @@
   All masters implicitly      FWs gate all access         Op-specific ACLs
   trusted by location         Elevated mode isolation     Attested DMA
   No operation separation     Role-based grants           Signed ps1 policy
-  No control plane            Two PSes (ps0 signed)       Separate c8 bus/PEP
+  No control plane            Single deployed ps0       Separate c8 bus/PEP
   No redundancy model         5-member group              Dual-path noc0 redundancy
 
 

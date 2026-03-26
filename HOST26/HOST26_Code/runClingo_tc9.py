@@ -13,7 +13,7 @@ Phase 2  — ZTA policy synthesis
           and mode-aware access decisions.
 
 Phase 3  — Resilience scenarios  (architecture + control-plane)
-          Evaluates 17 scenarios covering:
+          Evaluates 18 scenarios covering:
             * bus-master compromise/failure
             * redundancy group attacks
             * standalone IP attacks
@@ -60,7 +60,7 @@ PHASE1_FILES = [
     lp("security_features_inst.lp"),
     lp("tgt_system_tc9_inst.lp"),
     lp("init_enc.lp"),
-    lp("opt_redundancy_exact_lut_enc.lp"),
+    lp("opt_redundancy_generic_enc.lp"),
     lp("opt_latency_enc.lp"),
     lp("opt_power_enc.lp"),
     lp("opt_resource_enc.lp"),
@@ -166,6 +166,17 @@ class Phase2Result:
     critical_exceptions:     list = field(default_factory=list)
     total_cost:              int  = 0
     satisfiable:             bool = False
+    optimal:                 bool = False
+
+    def as_phase3_facts(self) -> str:
+        lines = []
+        for fw in sorted(set(self.placed_fws)):
+            lines.append(f"deployed_pep({fw}).")
+        for ps in sorted(set(self.placed_ps)):
+            lines.append(f"deployed_ps({ps}).")
+        for master, ip, op in sorted(set(self.final_allows)):
+            lines.append(f"p2_allow({master}, {ip}, {op}).")
+        return "\n".join(lines)
 
 
 @dataclass
@@ -205,7 +216,7 @@ class ScenarioResult:
 
 def phase1_optimise() -> Phase1Result:
     print("[Phase 1] Grounding and optimising...")
-    ctl = clingo.Control(["-n", "0"])
+    ctl = clingo.Control(["-n", "0", "--opt-mode=optN", "--warn=none"])
     for f in PHASE1_FILES:
         ctl.load(f)
     ctl.ground([("base", [])])
@@ -218,7 +229,7 @@ def phase1_optimise() -> Phase1Result:
         result.optimal = model.optimality_proven
 
     sr = ctl.solve(on_model=on_model)
-    result.optimal = sr.satisfiable and not sr.unknown
+    result.optimal = sr.satisfiable and not sr.unknown and result.optimal
 
     if sr.unsatisfiable:
         raise RuntimeError("Phase 1 UNSAT")
@@ -249,16 +260,18 @@ def phase1_optimise() -> Phase1Result:
 
 def phase2_zta(p1: Phase1Result) -> Phase2Result:
     print("[Phase 2] ZTA policy synthesis...")
-    ctl = clingo.Control(["-n", "1"])
+    ctl = clingo.Control(["-n", "0", "--opt-mode=optN", "--warn=none"])
     for f in PHASE2_FILES:
         ctl.load(f)
     ctl.add("p1", [], p1.as_p1_facts())
     ctl.ground([("base", []), ("p1", [])])
 
-    result, found = Phase2Result(), []
+    result, last_model = Phase2Result(), []
 
     def on_model(model):
-        found.extend(model.symbols(shown=True))
+        nonlocal last_model
+        last_model = list(model.symbols(shown=True))
+        result.optimal = model.optimality_proven
 
     sr = ctl.solve(on_model=on_model)
     result.satisfiable = not sr.unsatisfiable
@@ -267,7 +280,9 @@ def phase2_zta(p1: Phase1Result) -> Phase2Result:
         print("[Phase 2] WARNING: UNSAT")
         return result
 
-    for sym in found:
+    result.optimal = result.satisfiable and not sr.unknown and result.optimal
+
+    for sym in last_model:
         n, a = sym.name, sym.arguments
         if   n == "place_fw"           and len(a)==1: result.placed_fws.append(str(a[0]))
         elif n == "place_ps"           and len(a)==1: result.placed_ps.append(str(a[0]))
@@ -295,8 +310,9 @@ def phase2_zta(p1: Phase1Result) -> Phase2Result:
         elif n == "critical_exception" and len(a)==5: result.critical_exceptions.append(tuple(str(x) for x in a))
         elif n == "total_zta_cost"     and len(a)==1: result.total_cost = a[0].number
 
-    print(f"[Phase 2] Done. FWs={result.placed_fws}  PS={result.placed_ps}  "
-          f"cost={result.total_cost}  excess_privileges={len(result.excess_privileges)}")
+    print(f"[Phase 2] Done. Optimal={result.optimal}  FWs={result.placed_fws}  "
+          f"PS={result.placed_ps}  cost={result.total_cost}  "
+          f"excess_privileges={len(result.excess_privileges)}")
     return result
 
 
@@ -304,12 +320,16 @@ def phase2_zta(p1: Phase1Result) -> Phase2Result:
 # Phase 3
 # ---------------------------------------------------------------------------
 
-def phase3_scenario(sc: dict, p1: Phase1Result) -> ScenarioResult:
-    ctl = clingo.Control(["-n", "1"])
+def phase3_scenario(sc: dict, p1: Phase1Result, p2: Phase2Result) -> ScenarioResult:
+    ctl = clingo.Control(["-n", "1", "--warn=none"])
     for f in PHASE3_FILES:
         ctl.load(f)
 
     facts = p1.as_p1_facts()
+    if p2.satisfiable:
+        p2_facts = p2.as_phase3_facts()
+        if p2_facts:
+            facts += "\n" + p2_facts
     for node in sc["compromised"]:
         facts += f"\ncompromised({node})."
     for node in sc["failed"]:
@@ -328,7 +348,7 @@ def phase3_scenario(sc: dict, p1: Phase1Result) -> ScenarioResult:
     for sym in found:
         n, a = sym.name, sym.arguments
         if   n == "scenario_asset_risk"  and len(a)==2: res.scenario_risks[str(a[0])] = a[1].number
-        elif n == "scenario_total_risk"  and len(a)==1: res.total_risk_scaled = a[1].number if len(a)>1 else a[0].number
+        elif n == "scenario_total_risk"  and len(a)==1: res.total_risk_scaled = a[0].number
         elif n == "blast_radius"         and len(a)==2: res.blast_radii[str(a[0])] = a[1].number
         elif n == "asset_unavailable"    and len(a)==1: res.unavailable.append(str(a[0]))
         elif n == "node_cut_off"         and len(a)==1: res.cut_off.append(str(a[0]))
@@ -355,11 +375,11 @@ def phase3_scenario(sc: dict, p1: Phase1Result) -> ScenarioResult:
     return res
 
 
-def phase3_all(p1: Phase1Result) -> list:
+def phase3_all(p1: Phase1Result, p2: Phase2Result) -> list:
     print("[Phase 3] Running scenarios...")
     results = []
     for sc in SCENARIOS:
-        r = phase3_scenario(sc, p1)
+        r = phase3_scenario(sc, p1, p2)
         cp_tag = " [CP-COMP]" if r.cp_compromised else (" [CP-DEG]" if r.cp_degraded else "")
         tag = f"risk={r.total_risk:.1f}{cp_tag}" if r.satisfiable else "UNSAT"
         print(f"  {sc['name']:<35} {tag}")
@@ -382,7 +402,7 @@ def sensitivity_c8_impact(p1: Phase1Result, new_c8_impact: int) -> float:
         modified["c8r1"] = int(original_c8_max * scale)
 
     facts = "\n".join(f"p1_risk({a}, {r})." for a, r in modified.items())
-    ctl = clingo.Control(["-n", "1"])
+    ctl = clingo.Control(["-n", "1", "--warn=none"])
     for f in PHASE3_FILES:
         ctl.load(f)
     ctl.add("scenario", [], facts)
@@ -439,6 +459,10 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     baseline  = next((r for r in scenarios if r.name == "baseline"), None)
     base_risk = baseline.total_risk if baseline and baseline.satisfiable else 1.0
     base_per  = p1.max_risk_per_asset()
+    backup_ps_present = "ps1" in p2.placed_ps
+    cp_scens = [r for r in scenarios
+                if any(x in r.name for x in ["ps","pep"]) and r.satisfiable]
+    worst_cp = max(cp_scens, key=lambda r: r.total_risk, default=None)
 
     # =========================================================
     # HEADER
@@ -710,8 +734,6 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
 
     L.append("")
     L.append(_sub("E2. Control-Plane Scenarios"))
-    cp_scens = [r for r in scenarios
-                if any(x in r.name for x in ["ps","pep"]) and r.satisfiable]
     for r in cp_scens:
         ratio = r.total_risk / base_risk if base_risk > 0 else 0
         L.append(f"  {r.name:<35} {r.total_risk:>8.1f}  ({ratio:.2f}x)")
@@ -723,23 +745,26 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
         L.append(f"    Active PS count  : {r.active_ps_count}")
         L.append(f"    Services         : ok={sorted(r.services_ok)}")
 
-    L.append("""
-  Control-plane findings:
-    * ps0 compromise is the highest-impact single event in the control
-      plane: ps0 governs BOTH pep_group and pep_standalone, so its
-      compromise effectively bypasses all firewall protection.
-    * ps0 failure (not compromise) causes stale policy distribution
-      (1.2x baseline), not full bypass — assuming fail-safe PEP behaviour.
-    * PEP bypass scenarios show the 2.5x unmediated amplification that
-      would result if an attacker bypasses the firewall hardware directly
-      (e.g., DMA address-range manipulation).
-    * ps0_comp_ps1_fail is the worst control-plane scenario: ps0 is
-      compromised AND ps1 (the backup) has failed, leaving no trusted
-      policy authority.
-    * RECOMMENDATION: ps1 should be architecturally independent of ps0
-      (separate hardware, separate signing key), and ps1 should also
-      enforce signed policies.
-""")
+    L.append("")
+    L.append("  Control-plane findings:")
+    L.append("    * ps0 compromise is the highest-impact single event in the control")
+    L.append("      plane: ps0 governs BOTH pep_group and pep_standalone, so its")
+    L.append("      compromise effectively bypasses all firewall protection.")
+    L.append("    * ps0 failure (not compromise) causes stale policy distribution")
+    L.append("      (1.2x baseline), not full bypass — assuming fail-safe PEP behaviour.")
+    L.append("    * PEP bypass scenarios show the 2.5x unmediated amplification that")
+    L.append("      would result if an attacker bypasses the firewall hardware directly")
+    L.append("      (e.g., DMA address-range manipulation).")
+    if worst_cp is not None:
+        L.append(f"    * Worst control-plane scenario observed: {worst_cp.name}.")
+    if backup_ps_present:
+        L.append("    * ps1 is deployed as a backup for pep_group, but it does not enforce")
+        L.append("      signed policies. Recommendation: keep it architecturally independent")
+        L.append("      of ps0 and add signed-policy enforcement.")
+    else:
+        L.append("    * Phase 2 placed only ps0. There is no deployed backup policy server")
+        L.append("      for pep_group, so ps0 remains a single point of control-plane failure.")
+        L.append("      Recommendation: deploy an independent signed backup PS for pep_group.")
 
     L.append(_sub("E3. Redundancy Group Effectiveness"))
     c1_r  = next((r for r in scenarios if r.name == "c1_compromise"),         None)
@@ -811,11 +836,15 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
         if r and r.satisfiable:
             L.append(f"  {name:<35}: {r.total_risk:.1f}  ({r.total_risk/base_risk:.2f}x)"
                      f"  CP={'COMP' if r.cp_compromised else 'DEG'}")
-    L.append("""
-  ps0_failure alone is low-impact (stale policy, 1.2x) because ps1 can
-  continue serving pep_group.  ps0 compromise is high-impact (both PEPs
-  bypassed).  Loss of BOTH PSes causes all PEPs to become ungoverned.
-""")
+    L.append("")
+    if backup_ps_present:
+        L.append("  ps0_failure alone is low-impact (stale policy, 1.2x) because ps1 can")
+        L.append("  continue serving pep_group. ps0 compromise is high-impact (both PEPs")
+        L.append("  bypassed). Loss of BOTH PSes causes all PEPs to become ungoverned.")
+    else:
+        L.append("  ps0_failure is the dominant availability case because Phase 2 did not")
+        L.append("  deploy ps1. Both PEPs become ungoverned and fall back to stale policy.")
+        L.append("  ps0 compromise remains the highest-impact control-plane compromise.")
 
     L.append(_sub("F4. Redundancy group size sensitivity (qualitative)"))
     L.append("""
@@ -855,7 +884,7 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     L.append(f"  Worst architecture scenario under ZTA       {worst_arch_risk:>12.1f}")
     L.append(f"  Worst control-plane scenario                {worst_cp_risk:>12.1f}")
     L.append("")
-    L.append("""
+    L.append(f"""
   Key differential observations:
     1. ZTA reduces total risk from no-ZTA worst-case by the ZTA factor above.
     2. Architecture risk (noc topology) is NOT removed by ZTA — the bus fabric
@@ -872,7 +901,7 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
   All masters implicitly      FWs gate all access         Op-specific ACLs
   trusted by location         Elevated mode isolation     Attested DMA
   No operation separation     Role-based grants           Signed ps1 policy
-  No control plane            Two PSes (ps0 signed)       Separate c8 bus/PEP
+  No control plane            {"Two PSes (ps0 signed)" if backup_ps_present else "Single deployed ps0"}       Separate c8 bus/PEP
   No redundancy model         5-member group              Dual-path noc0 redundancy
 """)
 
@@ -938,7 +967,7 @@ def main():
         sys.exit(1)
 
     p2 = phase2_zta(p1)
-    scenarios = phase3_all(p1)
+    scenarios = phase3_all(p1, p2)
 
     report = generate_report(p1, p2, scenarios)
     print("\n" + report)

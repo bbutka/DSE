@@ -28,7 +28,7 @@ EXACT_LUT_FILES = [
     "Clingo/security_features_inst.lp",
     "Clingo/tgt_system_tc9_inst.lp",
     "Clingo/init_enc.lp",
-    "Clingo/opt_redundancy_exact_lut_enc.lp",
+    "Clingo/opt_redundancy_generic_enc.lp",
     "Clingo/opt_latency_enc.lp",
     "Clingo/opt_power_enc.lp",
     "Clingo/opt_resource_enc.lp",

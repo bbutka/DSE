@@ -1,0 +1,144 @@
+==============================================================================
+  testCase9 Runtime Adaptive Monitoring Summary
+==============================================================================
+
+  Phase 1 baseline risk: 520
+  Phase 2 deployed firewalls: pep_group, pep_standalone
+  Phase 2 deployed policy servers: ps0
+
+  This runtime extension adds monitor placement, anomaly scoring,
+  dynamic trust update, and automatic mode transition on top of the
+  existing LUT-based Phase 1 and policy-synthesis Phase 2 pipeline.
+
+------------------------------------------------------------------------------
+  Scenario: baseline
+  Description: No anomaly evidence; should remain in normal mode.
+  Current mode: normal
+  Monitors placed: mon_ctrl, mon_noc0, mon_noc1
+  Monitor cost: 320
+  Observed signals: none
+  Highest anomaly scores:
+    dma                score=33   trust=high         obs=8
+    c5                 score=29   trust=high         obs=14
+    c6                 score=29   trust=high         obs=14
+    c7                 score=29   trust=high         obs=14
+    c3                 score=23   trust=high         obs=8
+
+------------------------------------------------------------------------------
+  Scenario: dma_rate_spike
+  Description: DMA bursts across bus domains; should raise suspicion and tighten access.
+  Current mode: attack_suspected
+  Monitors placed: mon_ctrl, mon_noc0, mon_noc1
+  Monitor cost: 320
+  Observed signals:
+    dma                rate_spike           severity=1
+    dma                cross_domain         severity=1
+  Mode triggers:
+    dma                attack_suspected
+  Response actions:
+    re_attest          dma
+  Adaptive denies: 7
+    attack_suspected   deny dma -> c1
+    attack_suspected   deny dma -> c2
+    attack_suspected   deny dma -> c3
+    attack_suspected   deny dma -> c4
+    attack_suspected   deny dma -> c5
+    attack_suspected   deny dma -> c6
+    attack_suspected   deny dma -> c8
+  Highest anomaly scores:
+    dma                score=58   trust=medium       obs=8
+    c5                 score=29   trust=high         obs=14
+    c6                 score=29   trust=high         obs=14
+    c7                 score=29   trust=high         obs=14
+    c3                 score=23   trust=high         obs=8
+
+------------------------------------------------------------------------------
+  Scenario: dma_privilege_creep
+  Description: DMA begins using low-need paths; should escalate beyond baseline.
+  Current mode: attack_suspected
+  Monitors placed: mon_ctrl, mon_noc0, mon_noc1
+  Monitor cost: 320
+  Observed signals:
+    dma                privilege_creep      severity=1
+    dma                policy_violation     severity=1
+  Mode triggers:
+    dma                attack_suspected
+  Response actions:
+    re_attest          dma
+  Adaptive denies: 7
+    attack_suspected   deny dma -> c1
+    attack_suspected   deny dma -> c2
+    attack_suspected   deny dma -> c3
+    attack_suspected   deny dma -> c4
+    attack_suspected   deny dma -> c5
+    attack_suspected   deny dma -> c6
+    attack_suspected   deny dma -> c8
+  Highest anomaly scores:
+    dma                score=83   trust=low          obs=8
+    c5                 score=29   trust=high         obs=14
+    c6                 score=29   trust=high         obs=14
+    c7                 score=29   trust=high         obs=14
+    c3                 score=23   trust=high         obs=8
+
+------------------------------------------------------------------------------
+  Scenario: c8_sequence_anomaly
+  Description: Safety-critical timer shows anomalous access ordering.
+  Current mode: attack_confirmed
+  Monitors placed: mon_ctrl, mon_noc0, mon_noc1
+  Monitor cost: 320
+  Observed signals:
+    c8                 sequence_violation   severity=1
+    c8                 policy_violation     severity=1
+  Mode triggers:
+    c8                 attack_confirmed
+  Response actions:
+    lockdown_pep       pep_group
+    lockdown_pep       pep_standalone
+    quarantine         c8
+  Adaptive denies: 13
+    attack_confirmed   deny dma -> c1
+    attack_confirmed   deny dma -> c2
+    attack_confirmed   deny dma -> c3
+    attack_confirmed   deny dma -> c4
+    attack_confirmed   deny dma -> c5
+    attack_confirmed   deny dma -> c6
+    attack_confirmed   deny dma -> c7
+    attack_confirmed   deny dma -> c8
+    attack_confirmed   deny sys_cpu -> c1
+    attack_confirmed   deny sys_cpu -> c2
+  Highest anomaly scores:
+    c8                 score=78   trust=low          obs=8
+    dma                score=33   trust=high         obs=8
+    c5                 score=29   trust=high         obs=14
+    c6                 score=29   trust=high         obs=14
+    c7                 score=29   trust=high         obs=14
+
+------------------------------------------------------------------------------
+  Scenario: ps0_policy_tamper
+  Description: Policy server tamper signal plus PEP bypass alert on the compute bus.
+  Current mode: attack_confirmed
+  Monitors placed: mon_ctrl, mon_noc0, mon_noc1
+  Monitor cost: 320
+  Observed signals:
+    ps0                policy_violation     severity=2
+    pep_group          bypass_alert         severity=1
+  Response actions:
+    lockdown_pep       pep_group
+    lockdown_pep       pep_standalone
+  Adaptive denies: 13
+    attack_confirmed   deny dma -> c1
+    attack_confirmed   deny dma -> c2
+    attack_confirmed   deny dma -> c3
+    attack_confirmed   deny dma -> c4
+    attack_confirmed   deny dma -> c5
+    attack_confirmed   deny dma -> c6
+    attack_confirmed   deny dma -> c7
+    attack_confirmed   deny dma -> c8
+    attack_confirmed   deny sys_cpu -> c1
+    attack_confirmed   deny sys_cpu -> c2
+  Highest anomaly scores:
+    ps0                score=72   trust=low          obs=12
+    pep_group          score=47   trust=medium       obs=12
+    dma                score=33   trust=high         obs=8
+    c5                 score=29   trust=high         obs=14
+    c6                 score=29   trust=high         obs=14

@@ -15,7 +15,7 @@ Risk formula quick-reference (from security_features_inst.lp / opt_redundancy_en
   Multiplier  :  V * L / 10  (integer division)
 
   Non-redundant component:  risk = impact * V * L / 10
-  Redundant group (size N): LUT-exact combined probability (opt_redundancy_exact_lut_enc.lp)
+  Redundant group (size N): LUT-exact combined probability (opt_redundancy_generic_enc.lp)
     norm(C)    = (V*L - 25) * 1000 // 975
     combined   = LUT(norm1,...,norm5) = product // 100_000_000
     denorm(C)  = combined * 975 // 1000 + 250
@@ -51,7 +51,7 @@ PHASE1_BASE = [
     # system_capability facts to avoid conflicting constraints.
     lp("security_features_inst.lp"),
     lp("init_enc.lp"),
-    lp("opt_redundancy_exact_lut_enc.lp"),
+    lp("opt_redundancy_generic_enc.lp"),
     lp("opt_latency_enc.lp"),
     lp("opt_power_enc.lp"),
     lp("opt_resource_enc.lp"),

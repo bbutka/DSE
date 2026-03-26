@@ -43,7 +43,6 @@ redundant_group(1, c2).
 redundant_group(1, c3).
 redundant_group(1, c4).
 redundant_group(1, c5).
-redundant_group(1, c5).
 
 % Define impact of each asset
 
