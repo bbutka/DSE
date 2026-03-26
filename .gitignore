@@ -10,3 +10,23 @@ __pycache__/
 .DS_Store
 Thumbs.db
 HOST26/HOST26_Code/GitHub
+
+# Vivado project build artifacts and cache
+DSE_1/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.gen/
+*.xpr
+*.jou
+*.log
+*.wdf
+*.wpc
+*.lpr
+*.str
+*.pb
+webtalk*.xml
+vrs_config*.xml
