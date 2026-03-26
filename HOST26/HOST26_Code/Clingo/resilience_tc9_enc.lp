@@ -214,11 +214,16 @@ ungovernerd_pep(FWL) :-
     not failed(FWL),
     not has_healthy_governor(FWL).
 
-% Control plane is degraded if any PEP is ungoverned or bypassed
+% Stale policy: any PS failure leaves surviving PEPs with un-refreshed policy
+stale_policy_active :- stale_policy_exposure(_, _).
+
+% Control plane is degraded if any PEP is ungoverned, bypassed, or serving stale policy
 control_plane_degraded :-
     ungovernerd_pep(_).
 control_plane_degraded :-
     pep_bypassed(_).
+control_plane_degraded :-
+    stale_policy_active.
 
 control_plane_compromised :-
     ps_compromised(_).
@@ -242,6 +247,7 @@ control_plane_compromised :-
 #show component_bus_cut/1.
 #show active_ps_count/1.
 #show ungovernerd_pep/1.
+#show stale_policy_active/0.
 #show control_plane_degraded/0.
 #show control_plane_compromised/0.
 #show pep_bypassed/1.

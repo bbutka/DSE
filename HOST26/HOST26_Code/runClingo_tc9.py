@@ -60,7 +60,7 @@ PHASE1_FILES = [
     lp("security_features_inst.lp"),
     lp("tgt_system_tc9_inst.lp"),
     lp("init_enc.lp"),
-    lp("opt_redundancy_enc.lp"),
+    lp("opt_redundancy_exact_lut_enc.lp"),
     lp("opt_latency_enc.lp"),
     lp("opt_power_enc.lp"),
     lp("opt_resource_enc.lp"),
@@ -185,6 +185,7 @@ class ScenarioResult:
     active_ps_count:   int  = 2
     ungoverned_peps:   list = field(default_factory=list)
     cp_degraded:       bool = False
+    cp_stale:          bool = False
     cp_compromised:    bool = False
     peps_bypassed:     list = field(default_factory=list)
     ps_compromised:    list = field(default_factory=list)
@@ -338,6 +339,7 @@ def phase3_scenario(sc: dict, p1: Phase1Result) -> ScenarioResult:
         elif n == "active_ps_count"      and len(a)==1: res.active_ps_count = a[0].number
         elif n == "ungovernerd_pep"      and len(a)==1: res.ungoverned_peps.append(str(a[0]))
         elif n == "control_plane_degraded"  and len(a)==0: res.cp_degraded   = True
+        elif n == "stale_policy_active"     and len(a)==0: res.cp_stale      = True
         elif n == "control_plane_compromised" and len(a)==0: res.cp_compromised = True
         elif n == "pep_bypassed"         and len(a)==1: res.peps_bypassed.append(str(a[0]))
         elif n == "ps_compromised"       and len(a)==1: res.ps_compromised.append(str(a[0]))
@@ -677,7 +679,7 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
             L.append(f"  {r.name:<35} UNSAT")
             continue
         ratio    = r.total_risk / base_risk if base_risk > 0 else 0
-        cp_flag  = "COMP" if r.cp_compromised else ("DEG" if r.cp_degraded else "ok")
+        cp_flag  = "COMP" if r.cp_compromised else ("DEG" if r.cp_degraded else ("STALE" if r.cp_stale else "ok"))
         svc_str  = f"{len(r.services_ok)}/{len(r.services_degraded)}/{len(r.services_unavail)}"
         L.append(f"  {r.name:<35} {r.total_risk:>8.1f} {ratio:>7.2f}x {cp_flag:>4}  {svc_str}")
 

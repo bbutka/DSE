@@ -15,9 +15,14 @@ Risk formula quick-reference (from security_features_inst.lp / opt_redundancy_en
   Multiplier  :  V * L / 10  (integer division)
 
   Non-redundant component:  risk = impact * V * L / 10
-  Redundant group (size N): 32-bit product overflow -> denorm ~= 250 (exact: 250 for
-                             all-mac+no_log, 240 for all-zt+no_log groups of 5)
-                             -> risk = impact * denorm / 100  (integer division)
+  Redundant group (size N): LUT-exact combined probability (opt_redundancy_exact_lut_enc.lp)
+    norm(C)    = (V*L - 25) * 1000 // 975
+    combined   = LUT(norm1,...,norm5) = product // 100_000_000
+    denorm(C)  = combined * 975 // 1000 + 250
+    group risk = impact * denorm // 100
+  Example values (5-member group):
+    all mac+no_log (norm=589): combined=708886, denorm=691413
+    all zt+no_log  (norm=179): combined=1837,   denorm=2041
 
 Latency costs (cycles):  mac=3, dynamic_mac=7, zero_trust=7,
                          zero_trust_logger=22, some_logging=4, no_logging=0
@@ -46,7 +51,7 @@ PHASE1_BASE = [
     # system_capability facts to avoid conflicting constraints.
     lp("security_features_inst.lp"),
     lp("init_enc.lp"),
-    lp("opt_redundancy_enc.lp"),
+    lp("opt_redundancy_exact_lut_enc.lp"),
     lp("opt_latency_enc.lp"),
     lp("opt_power_enc.lp"),
     lp("opt_resource_enc.lp"),
@@ -405,21 +410,22 @@ allowable_latency(r1, read, 3).
 
 
 # ---------------------------------------------------------------------------
-# Phase 1 — Redundancy group risk calculation
+# Phase 1 — Redundancy group risk calculation (LUT-exact arithmetic)
 # ---------------------------------------------------------------------------
-# 5-member group, all mac+no_logging:
-#   norm(each) = (30*20-25)*1000//975 = 589
-#   32-bit product: 589^5 overflows -> combined_prob_norm = 1
-#   denorm = (1*975)//1000 + 250 = 0+250 = 250
-#   risk = impact * 250 / 100  (integer division)
+# 5-member group, all mac+no_logging (latency=3 forces it):
+#   norm(each) = (30*20 - 25)*1000 // 975 = 575000 // 975 = 589
+#   LUT: combined = 589^5 // 100_000_000 = 70_888_612_161_949 // 100_000_000 = 708886
+#   denorm = 708886 * 975 // 1000 + 250 = 691163 + 250 = 691413
+#   risk = impact * 691413 // 100  (integer division)
 
 # R1 — 5-member group, all mac+no_logging (tight latency forces it)
-# impact_read=4: 4*250//100 = 10
-# impact_write=2: 2*250//100 = 5
+# impact_read=4:  4*691413//100 = 27656
+# impact_write=2: 2*691413//100 = 13828
+# impact=1:       1*691413//100 = 6914
 TC.append(TestCase(
     name="R1_group5_mac_no_log",
     category="Phase1-Redundancy",
-    description="5-member redundancy group, all mac+no_logging: denorm=250, risk=impact*250//100",
+    description="5-member redundancy group, all mac+no_logging: LUT-exact denorm=691413, risk=impact*691413//100",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5).
@@ -439,31 +445,35 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,250)",
-            "new_risk(c1,r1,read,10)",     # 4*250//100
-            "new_risk(c1,r1,write,5)",     # 2*250//100
-            "new_risk(c2,r2,read,2)",      # 1*250//100
+            "new_prob_denormalized(c1,691413)",
+            "new_risk(c1,r1,read,27656)",   # 4*691413//100
+            "new_risk(c1,r1,write,13828)",  # 2*691413//100
+            "new_risk(c2,r2,read,6914)",    # 1*691413//100
         ],
     ),
 ))
 
 
-# R2 — Group risk < standalone risk (redundancy reduces risk numerically)
-# Standalone c1 (mac+no_log, impact=5): risk = 5*60 = 300
-# Group c1 (same features, 5-member): risk = 5*250//100 = 12
-# Test verifies group reduces risk vs non-group baseline.
+# R2 — Optimizer prefers zero_trust over mac for group members when latency allows
+# With latency=7 for group members, optimizer picks zero_trust+no_log (norm=179):
+#   LUT combined = 179^5 // 100_000_000 = 183_765_996_899 // 100_000_000 = 1837
+#   denorm = 1837*975//1000 + 250 = 1791 + 250 = 2041
+#   group risk(impact=5) = 5*2041//100 = 102
+# Standalone c_solo with latency=3 is forced to mac+no_log: risk = 5*30*20//10 = 300
+# The optimizer chooses zero_trust for group members because the LUT combined probability
+# of five mac+no_log members (denorm=691413) is far higher than for zt+no_log (denorm=2041).
 TC.append(TestCase(
     name="R2_group_reduces_risk",
     category="Phase1-Redundancy",
-    description="Group membership reduces risk vs standalone (300 -> 12 for impact=5, mac+no_log)",
+    description="Optimizer picks zt+no_log for group members (LUT risk=102) over mac (risk=34570); solo forced mac (300)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5). component(c_solo).
-asset(c1,r1,read). impact(r1,read,5). allowable_latency(r1,read,3).
-asset(c2,r2,read). impact(r2,read,1). allowable_latency(r2,read,3).
-asset(c3,r3,read). impact(r3,read,1). allowable_latency(r3,read,3).
-asset(c4,r4,read). impact(r4,read,1). allowable_latency(r4,read,3).
-asset(c5,r5,read). impact(r5,read,1). allowable_latency(r5,read,3).
+asset(c1,r1,read). impact(r1,read,5). allowable_latency(r1,read,7).
+asset(c2,r2,read). impact(r2,read,1). allowable_latency(r2,read,7).
+asset(c3,r3,read). impact(r3,read,1). allowable_latency(r3,read,7).
+asset(c4,r4,read). impact(r4,read,1). allowable_latency(r4,read,7).
+asset(c5,r5,read). impact(r5,read,1). allowable_latency(r5,read,7).
 asset(c_solo,rs,read). impact(rs,read,5). allowable_latency(rs,read,3).
 redundant_group(1,c1). redundant_group(1,c2). redundant_group(1,c3).
 redundant_group(1,c4). redundant_group(1,c5).
@@ -471,11 +481,13 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_risk(c1,r1,read,12)",      # group: 5*250//100=12
-            "new_risk(c_solo,rs,read,300)", # standalone: 5*60=300
+            "selected_security(c1,zero_trust)",  # optimizer picks zt for lower group risk
+            "new_prob_denormalized(c1,2041)",     # 1837*975//1000 + 250
+            "new_risk(c1,r1,read,102)",           # 5*2041//100
+            "new_risk(c_solo,rs,read,300)",       # standalone mac+no_log: 5*60
         ],
         must_not=[
-            "new_risk(c1,r1,read,300)",     # group should NOT have standalone risk
+            "selected_security(c1,mac)",          # mac+no_log group risk (34570) is far higher
         ],
     ),
 ))
@@ -749,16 +761,16 @@ TC.append(TestCase(
 ))
 
 
-# S4 — PS failure (not compromise): stale_policy fires, but pep NOT bypassed.
+# S4 — PS failure (not compromise): stale_policy_active fires and degrades control plane.
 # failed(ps0) while ps1 healthy -> ps1 still governs pep1 -> has_healthy_governor(pep1) true
 # -> ungovernerd_pep does NOT fire, pep_bypassed does NOT fire
-# -> control_plane_degraded does NOT fire (no rule for stale-only)
 # -> stale_policy_exposure fires (ps0 failed, governs pep1, pep1 not bypassed)
+# -> stale_policy_active fires -> control_plane_degraded fires (stale-policy rule)
 # -> active_ps_count(1) (ps1 alive)
 TC.append(TestCase(
     name="S4_ps_failure_stale_not_bypass",
     category="Phase3-ControlPlane",
-    description="PS0 failure -> stale_policy (factor 12); pep1 NOT bypassed since ps1 still governs it",
+    description="PS0 failure -> stale_policy_active + control_plane_degraded; pep1 NOT bypassed (ps1 still governs)",
     phase=3,
     instance=_RES_INSTANCE,
     scenario="failed(ps0). p1_risk(r1,10). p1_risk(r2,10). p1_risk(r3,10).",
@@ -766,6 +778,8 @@ TC.append(TestCase(
         must_contain=[
             "stale_policy_exposure(r2,12)",  # factor 12: ps0 failed, governs pep1 which guards c2
             "stale_policy_exposure(r3,12)",  # same for c3
+            "stale_policy_active",           # stale exposure is flagged
+            "control_plane_degraded",        # stale_policy_active triggers degraded
             "active_ps_count(1)",            # ps1 still active
         ],
         must_not=[
@@ -773,7 +787,6 @@ TC.append(TestCase(
             "ps_compromised(ps0)",           # failure != compromise
             "control_plane_compromised",     # no PS is compromised
             "ungovernerd_pep(pep1)",         # ps1 covers pep1
-            "control_plane_degraded",        # neither ungoverned nor bypassed
         ],
     ),
 ))
