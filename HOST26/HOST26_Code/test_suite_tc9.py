@@ -15,14 +15,14 @@ Risk formula quick-reference (from security_features_inst.lp / opt_redundancy_en
   Multiplier  :  V * L / 10  (integer division)
 
   Non-redundant component:  risk = impact * V * L / 10
-  Redundant group (size N): LUT-exact combined probability (opt_redundancy_generic_enc.lp)
+  Redundant group (size N): generic step-division (opt_redundancy_generic_enc.lp)
     norm(C)    = (V*L - 25) * 1000 // 975
-    combined   = LUT(norm1,...,norm5) = product // 100_000_000
+    combined   = partial product with /1000 at each step (exact for any N, no LUT)
     denorm(C)  = combined * 975 // 1000 + 250
     group risk = impact * denorm // 100
-  Example values (5-member group):
-    all mac+no_log (norm=589): combined=708886, denorm=691413
-    all zt+no_log  (norm=179): combined=1837,   denorm=2041
+  Example values (5-member group, step-by-step /1000):
+    all mac+no_log (norm=589): 589→346→203→119→70, denorm=318
+    all zt+no_log  (norm=179): 179→32→5→0→0,       denorm=250
 
 Latency costs (cycles):  mac=3, dynamic_mac=7, zero_trust=7,
                          zero_trust_logger=22, some_logging=4, no_logging=0
@@ -419,13 +419,16 @@ allowable_latency(r1, read, 3).
 #   risk = impact * 691413 // 100  (integer division)
 
 # R1 — 5-member group, all mac+no_logging (tight latency forces it)
-# impact_read=4:  4*691413//100 = 27656
-# impact_write=2: 2*691413//100 = 13828
-# impact=1:       1*691413//100 = 6914
+# Generic encoder: step-by-step /1000
+#   norm=589, chain: 589→346→203→119→70  (each step: prev*589//1000)
+#   denorm = 70*975//1000 + 250 = 68 + 250 = 318
+#   impact_read=4:  4*318//100 = 12
+#   impact_write=2: 2*318//100 = 6
+#   impact=1:       1*318//100 = 3
 TC.append(TestCase(
     name="R1_group5_mac_no_log",
     category="Phase1-Redundancy",
-    description="5-member redundancy group, all mac+no_logging: LUT-exact denorm=691413, risk=impact*691413//100",
+    description="5-member redundancy group, all mac+no_logging: generic combined=70, denorm=318",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5).
@@ -445,27 +448,25 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,691413)",
-            "new_risk(c1,r1,read,27656)",   # 4*691413//100
-            "new_risk(c1,r1,write,13828)",  # 2*691413//100
-            "new_risk(c2,r2,read,6914)",    # 1*691413//100
+            "new_prob_denormalized(c1,318)",
+            "new_risk(c1,r1,read,12)",    # 4*318//100
+            "new_risk(c1,r1,write,6)",    # 2*318//100
+            "new_risk(c2,r2,read,3)",     # 1*318//100
         ],
     ),
 ))
 
 
-# R2 — Optimizer prefers zero_trust over mac for group members when latency allows
-# With latency=7 for group members, optimizer picks zero_trust+no_log (norm=179):
-#   LUT combined = 179^5 // 100_000_000 = 183_765_996_899 // 100_000_000 = 1837
-#   denorm = 1837*975//1000 + 250 = 1791 + 250 = 2041
-#   group risk(impact=5) = 5*2041//100 = 102
-# Standalone c_solo with latency=3 is forced to mac+no_log: risk = 5*30*20//10 = 300
-# The optimizer chooses zero_trust for group members because the LUT combined probability
-# of five mac+no_log members (denorm=691413) is far higher than for zt+no_log (denorm=2041).
+# R2 — Optimizer avoids mac+no_log for group members when latency allows cheaper options
+# At latency=7 both zt+no_log (norm=179) and mac+some_log (norm=282) round to combined=0
+# after 4 /1000 steps, giving denorm=250 — a tie. Either may be selected.
+# mac+no_log (norm=589) gives combined=70, denorm=318 — strictly worse; must not appear.
+# dynamic_mac+no_log (norm=384) gives combined=8, denorm=257 — also suboptimal.
+# Standalone c_solo with latency=3 is forced to mac+no_log: risk = 5*30*20//10 = 300.
 TC.append(TestCase(
     name="R2_group_reduces_risk",
     category="Phase1-Redundancy",
-    description="Optimizer picks zt+no_log for group members (LUT risk=102) over mac (risk=34570); solo forced mac (300)",
+    description="Optimizer avoids mac+no_log for group (denorm=318) and picks a lower option (denorm=250); solo forced mac (300)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5). component(c_solo).
@@ -481,13 +482,13 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "selected_security(c1,zero_trust)",  # optimizer picks zt for lower group risk
-            "new_prob_denormalized(c1,2041)",     # 1837*975//1000 + 250
-            "new_risk(c1,r1,read,102)",           # 5*2041//100
-            "new_risk(c_solo,rs,read,300)",       # standalone mac+no_log: 5*60
+            "new_prob_denormalized(c1,250)",     # optimal combined→0 → 0*975//1000 + 250
+            "new_risk(c1,r1,read,12)",           # 5*250//100
+            "new_risk(c_solo,rs,read,300)",      # standalone mac+no_log: 5*60
         ],
         must_not=[
-            "selected_security(c1,mac)",          # mac+no_log group risk (34570) is far higher
+            "new_prob_denormalized(c1,318)",     # mac+no_log (combined=70) is suboptimal
+            "selected_security(c1,dynamic_mac)", # dynamic_mac gives denorm=257 > 250
         ],
     ),
 ))
