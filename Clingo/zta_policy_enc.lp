@@ -17,6 +17,27 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 0. GRADUATED DOMAIN HELPERS
+%%    Classifies domain levels into trust tiers for use throughout
+%%    this encoding.  Replaces binary low/high checks so that the
+%%    six-level domain model (untrusted/low/normal/privileged/high/root)
+%%    is handled consistently.
+%%
+%%    low_trust_domain(N)  — untrusted, low, or normal: must be firewalled
+%%                           before accessing critical IPs.
+%%    high_trust_domain(N) — privileged, high, or root: qualifies for
+%%                           key-storage and attestation gap checks.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+low_trust_domain(N) :- domain(N, untrusted).
+low_trust_domain(N) :- domain(N, low).
+low_trust_domain(N) :- domain(N, normal).
+
+high_trust_domain(N) :- domain(N, privileged).
+high_trust_domain(N) :- domain(N, high).
+high_trust_domain(N) :- domain(N, root).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 1. REACHABILITY AND ACL SYNTHESIS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -140,8 +161,8 @@ mission_final_deny(M, C, Op, Phase) :-
 
 protected(M, IP) :- place_fw(FWL), on_path(FWL, M, IP).
 
-% Integrity constraint: low-domain masters must be firewalled before critical IPs
-:- master(M), domain(M, low), critical(IP),
+% Integrity constraint: low/normal/untrusted masters must be firewalled before critical IPs
+:- master(M), low_trust_domain(M), critical(IP),
    reachable(M, IP), not protected(M, IP).
 
 governs_ip(PS, IP) :-
@@ -176,9 +197,9 @@ deny(M, C, attack_confirmed) :- master(M), receiver(C).
 % Safety-critical components: isolated in BOTH elevated modes
 deny(M, C, attack_suspected) :- master(M), safety_critical(C).
 
-% Can a low-domain master still reach an IP in mode S?
+% Can a low/normal/untrusted master still reach an IP in mode S?
 reachable_low(IP, S) :-
-    mode(S), master(M), domain(M, low),
+    mode(S), master(M), low_trust_domain(M),
     reachable(M, IP), not deny(M, IP, S).
 
 isolated(C, S) :- receiver(C), mode(S), not reachable_low(C, S).
@@ -206,18 +227,18 @@ trust_gap_sboot(C) :- receiver(C), not secure_boot(C).
 % Gap: master lacks platform attestation
 trust_gap_attest(M) :- master(M), not attested(M).
 
-% Gap: a master accessing a high-domain IP is itself unattested
+% Gap: a master accessing a privileged/high/root IP is itself unattested
 unattested_privileged_access(M, C) :-
     accessible_component(M, C),
-    domain(C, high),
+    high_trust_domain(C),
     trust_gap_attest(M).
 
 % Gap: policy server without signed policy enforcement
 unsigned_ps(PS) :- policy_server(PS), not signed_policy(PS).
 
-% Gap: key storage absent from high-impact component
+% Gap: key storage absent from privileged/high/root component
 trust_gap_keys(C) :-
-    receiver(C), domain(C, high),
+    receiver(C), high_trust_domain(C),
     not key_storage(C).
 
 % Trust score per component: count how many anchors are present (max 3)

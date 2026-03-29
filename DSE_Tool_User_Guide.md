@@ -1,863 +1,1329 @@
 # DSE Security Analysis Tool — User Guide
 
-**Version**: 1.0
-**Date**: 2026-03-28
-**Tool launch command**: `py -3.12 -m dse_tool` (run from the project root directory)
+**Version:** HOST26 GUI
+**Date:** 2026-03-29
+**Target FPGA:** PYNQ-Z2 (Xilinx xc7z020)
 
 ---
 
 ## Table of Contents
 
-1. [Application Layout](#1-application-layout)
-2. [The Network Canvas](#2-the-network-canvas)
-3. [Toolbar Buttons](#3-toolbar-buttons)
-4. [ZTA Layout Dialog](#4-zta-layout-dialog)
-5. [Results Panel](#5-results-panel)
-6. [File Menu](#6-file-menu)
-7. [View Menu](#7-view-menu)
-8. [Simple Worked Example](#8-simple-worked-example)
-9. [Understanding What the Results Mean](#9-understanding-what-the-results-mean)
-10. [Tips and Keyboard Shortcuts](#10-tips-and-keyboard-shortcuts)
+1. [Getting Started](#1-getting-started)
+2. [Main Window Layout](#2-main-window-layout)
+3. [Network Editor (Left Panel)](#3-network-editor-left-panel)
+4. [Toolbar Buttons](#4-toolbar-buttons)
+5. [Menu Bar](#5-menu-bar)
+6. [Running an Analysis](#6-running-an-analysis)
+7. [Understanding the Three Strategies](#7-understanding-the-three-strategies)
+8. [Understanding the Three Phases](#8-understanding-the-three-phases)
+9. [Results Panel (Right Panel)](#9-results-panel-right-panel)
+10. [Phase 1 Detail Dialog](#10-phase-1-detail-dialog)
+11. [Phase 2 Detail Dialog](#11-phase-2-detail-dialog)
+12. [Phase 3 Detail Dialog](#12-phase-3-detail-dialog)
+13. [Compare Strategies Dialog](#13-compare-strategies-dialog)
+14. [Executive Summary](#14-executive-summary)
+15. [Full Report](#15-full-report)
+16. [Show ASP Facts Dialog](#16-show-asp-facts-dialog)
+17. [Solver Config Dialog](#17-solver-config-dialog)
+18. [Threat Model and Security Framework](#18-threat-model-and-security-framework)
+19. [SecureSoC-16 Reference Architecture](#19-securesoc-16-reference-architecture)
+20. [TC9 Reference Architecture](#20-tc9-reference-architecture)
+21. [Interpreting Results — A Complete Walkthrough](#21-interpreting-results--a-complete-walkthrough)
+22. [CSV Export](#22-csv-export)
+23. [Regression Testing](#23-regression-testing)
+24. [Keyboard Shortcuts](#24-keyboard-shortcuts)
+25. [Glossary](#25-glossary)
 
 ---
 
-## 1. Application Layout
+## 1. Getting Started
 
-When the tool opens, the window (default size 1400 × 800 px) is divided into five regions.
+### Launch the Tool
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Menu bar:  File  |  Edit  |  View  |  Help                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Toolbar:  [Run Analysis] [Stop] [Clear] [Load TC9] [Solver Config]      │
-│            [Show ASP Facts]                          Status: Ready       │
-├───────────────────────────────────────┬─────────────────────────────────┤
-│                                       │  Progress Panel (top-right)     │
-│  Network Canvas + Sidebar (left 60%)  │  — real-time solver log output  │
-│                                       ├─────────────────────────────────┤
-│                                       │  Results Panel (bottom-right)   │
-│                                       │  — three strategy cards         │
-├───────────────────────────────────────┴─────────────────────────────────┤
-│  Status bar:  Ready / Running Phase 1 … / Analysis complete             │
-└─────────────────────────────────────────────────────────────────────────┘
+D:\DSE\DSE_ADD> launch.bat
 ```
 
-### 1.1 Menu Bar
+This runs `python -m dse_tool` using the system Python 3.12 installation. The main window opens at 1400x800 pixels, centered on screen.
 
-| Menu | Contents |
-|------|----------|
-| **File** | Open Network, Save Network, Recent Files (last 8), Exit |
-| **Edit** | Clear All, Solver Config |
-| **View** | Show ASP Facts, Export Results as CSV |
-| **Help** | About |
+### Quick Start — Run Your First Analysis
 
-### 1.2 Toolbar
-
-The toolbar contains six action buttons and a status label. Each button is described in detail in Section 3.
-
-### 1.3 Left Panel — Network Canvas and Sidebar
-
-The left pane occupies approximately 60% of the window width. It contains:
-- A **sidebar** on the left edge with all topology editing buttons.
-- A **dark canvas** (background colour `#1a1a2e`) with a subtle grid where nodes are drawn.
-
-The canvas is the primary workspace. Every node, link, and group is drawn here and can be manipulated with the mouse.
-
-### 1.4 Right Panel
-
-The right pane is split vertically:
-- **Top half — Progress Panel**: shows timestamped log messages produced by the solver as it runs. Phase indicators (Phase 1, Phase 2, Phase 3) illuminate in sequence as each phase completes.
-- **Bottom half — Results Panel**: shows three side-by-side strategy cards (Max Security, Min Resources, Balanced), each populated with metrics after analysis completes.
-
-### 1.5 Status Bar
-
-The bottom edge of the window shows the current state of the tool. Typical messages:
-- `Ready` — idle, waiting for user input.
-- `Running Phase 1 (strategy: Max Security)…` — solver active.
-- `Analysis complete (3 solutions found)` — all phases done.
-- `Analysis stopped by user` — user pressed Stop.
+1. Click **Load TC9** or **Load RefSoC-16** on the toolbar
+2. The network topology appears on the canvas (left panel)
+3. Click **Run Analysis**
+4. Watch the progress log (upper-right) as all three phases execute
+5. Results appear in the three strategy cards (lower-right)
+6. Click **Details...** buttons, **Compare Strategies**, or **View Full Report** to explore
 
 ---
 
-## 2. The Network Canvas
+## 2. Main Window Layout
 
-### 2.1 Sidebar Buttons
+```
++-------------------------------------------------------------------+
+| File  Edit  View  Help                                   (Menu Bar)|
++-------------------------------------------------------------------+
+| [Run Analysis] [Stop] [Clear] [Load TC9] [Load RefSoC-16]        |
+| [Solver Config] [Show ASP Facts]                    Ready (Toolbar)|
++-------------------------------------------------------------------+
+|                          |  Phase Progress Panel                   |
+|                          |  ┌─────────────────────────────┐       |
+|   Network Editor         |  │ Phase 1: ● Phase 2: ● Phase3│       |
+|   (Canvas)               |  │ [00:05] Running...          │       |
+|                          |  │ Log messages appear here...  │       |
+|                          |  └─────────────────────────────┘       |
+|                          +----------------------------------------+
+|                          |  Results Panel                          |
+|                          |  ┌──────────┬──────────┬──────────┐    |
+|                          |  │ Max Sec  │ Min Res  │ Balanced │    |
+|                          |  │ SAT      │ SAT      │ SAT      │    |
+|                          |  │ LUTs: .. │ LUTs: .. │ LUTs: .. │    |
+|                          |  │ FFs:  .. │ FFs:  .. │ FFs:  .. │    |
+|                          |  │ Power:.. │ Power:.. │ Power:.. │    |
+|                          |  │ Risk: .. │ Risk: .. │ Risk: .. │    |
+|                          |  │[Details] │[Details] │[Details] │    |
+|                          |  │ Phase 2  │ Phase 2  │ Phase 2  │    |
+|                          |  │[Details] │[Details] │[Details] │    |
+|                          |  │ Phase 3  │ Phase 3  │ Phase 3  │    |
+|                          |  │[Details] │[Details] │[Details] │    |
+|                          |  └──────────┴──────────┴──────────┘    |
+|                          | [Exec Summary][Compare][View Full Report]|
++-------------------------------------------------------------------+
+| Ready                                                  (Status Bar)|
++-------------------------------------------------------------------+
+```
 
-The sidebar runs along the left edge of the network canvas area. Each button is described below.
+The window is split into two resizable panes:
+- **Left:** Network Editor canvas (drag the divider to resize)
+- **Right:** Vertical split between Progress Panel (top) and Results Panel (bottom)
 
 ---
 
-#### 2.1.1 Add Component
+## 3. Network Editor (Left Panel)
 
-Opens a property dialog to define a new node. Click **OK** to place the node on the canvas at a default position; drag it to reposition.
+The canvas displays your SoC topology as an interactive graph.
 
-**Property fields:**
+### Node Types and Visual Styles
+
+| Type | Color | Shape | Description |
+|------|-------|-------|-------------|
+| Processor | Blue (#3a7dda) | Rounded rect | Bus masters (CPUs) |
+| DMA | Green (#2db050) | Rectangle | DMA controllers |
+| IP Core | Orange (#e07b00) | Oval | Peripheral IP blocks |
+| Bus | Grey (#888888) | Rectangle (thin) | Interconnect segments |
+| Policy Server | Purple (#9040cc) | Diamond | ZTA policy decision points |
+| Firewall | Red (#cc3030) | Hexagon | ZTA policy enforcement points |
+
+### Canvas Interactions
+
+| Action | How |
+|--------|-----|
+| Move a node | Click and drag |
+| Edit node properties | Double-click the node |
+| Context menu | Right-click a node |
+| Add a new node | Right-click empty canvas area and select "Add Node" |
+| Delete a node | Right-click a node and select "Delete" |
+| Add a link | Right-click a node and select "Add Link To..." then click target |
+| Copy a node | Right-click and select "Copy" (or Ctrl+C) |
+| Paste a node | Right-click empty area and select "Paste" (or Ctrl+V) |
+| Zoom in/out | Ctrl+= / Ctrl+- |
+| Undo/Redo | Ctrl+Z / Ctrl+Y |
+
+### Node Properties (Double-Click Dialog)
+
+When you double-click a node, you can edit:
+
+- **Name**: Unique identifier used in ASP facts
+- **Component Type**: processor, dma, ip_core, bus, policy_server, firewall
+- **Trust Domain**: untrusted, low, normal, privileged, high, root
+- **Impact Read/Write**: Confidentiality/integrity impact (1-5 scale)
+- **Impact Availability**: Availability impact (0-5 scale)
+- **Exploitability**: How easy to exploit (1=hard, 3=neutral, 5=trivial)
+- **Latency Read/Write**: Allowable latency budget in cycles (must be >= 4)
+- **Direction**: input, output, bidirectional
+- **Hardware RoT**: Has hardware root of trust
+- **Secure Boot**: Has secure boot capability
+- **Attested**: Has platform attestation
+- **Critical**: High-value target requiring firewall protection
+- **Safety Critical**: Must be isolated under elevated threat modes
+- **FW Cost / PS Cost**: Hardware deployment cost for firewalls/policy servers
+
+### Analysis Results Overlay
+
+After running analysis, the canvas displays:
+- **Risk halos**: Colored rings around nodes proportional to their risk score
+- **Placement badges**: Icons showing which security features were assigned
+- **Feature labels**: Text showing the selected security and logging modes
+- Strategy selector to switch between the three result overlays
+
+---
+
+## 4. Toolbar Buttons
+
+| Button | Action |
+|--------|--------|
+| **Run Analysis** | Start the three-phase DSE analysis. Runs all three strategies sequentially. Disabled while running. |
+| **Stop** | Request the orchestrator to stop after the current strategy completes. |
+| **Clear** | Reset progress indicators, clear the log, and clear results. Does NOT clear the canvas topology. |
+| **Load TC9** | Load the TC9 test case topology (8 IP cores, 2 masters, 2 buses, 2 firewalls, 2 policy servers). |
+| **Load RefSoC-16** | Load the SecureSoC-16 reference architecture (10 IP cores, 3 masters, 3 buses, 2 firewalls, 2 policy servers). |
+| **Solver Config** | Open the strategy override dialog to customize ASP objectives per strategy. |
+| **Show ASP Facts** | Open a viewer showing the raw ASP facts generated from the current canvas topology. |
+
+---
+
+## 5. Menu Bar
+
+### File Menu
+
+| Item | Action |
+|------|--------|
+| Open Network... | Load a JSON topology file |
+| Save Network... | Save current topology as JSON |
+| Recent Files | Quick access to the 8 most recently opened files |
+| Exit | Close the application |
+
+### Edit Menu
+
+| Item | Action |
+|------|--------|
+| Clear All | Same as toolbar Clear button |
+| Solver Config... | Same as toolbar Solver Config button |
+
+### View Menu
+
+| Item | Action |
+|------|--------|
+| Show ASP Facts... | Same as toolbar Show ASP Facts button |
+| Export Results as CSV... | Export the analysis results to a CSV file |
+
+### Help Menu
+
+| Item | Action |
+|------|--------|
+| About | Application info and version |
+
+---
+
+## 6. Running an Analysis
+
+### What Happens When You Click "Run Analysis"
+
+1. **Topology validation**: The tool checks for common issues (disconnected nodes, missing buses, etc.). Warnings are shown; you choose whether to continue.
+2. **Network model extraction**: The canvas state is converted to a `NetworkModel` object.
+3. **ASP fact generation**: The `ASPGenerator` converts the model into Clingo-compatible ASP facts.
+4. **Security feature catalog export**: The IP catalog (`ip_catalog/xilinx_ip_catalog.py`) generates `security_features_inst.lp` with available security features, their resource costs, and latency impacts.
+5. **Three-strategy execution**: The orchestrator runs all three strategies (max_security, min_resources, balanced) sequentially. Each strategy runs Phase 1, then Phase 2, then Phase 3.
+6. **Scoring and ranking**: After all strategies complete, `SolutionRanker` normalizes metrics to 0-100 scores across six axes.
+7. **Report generation**: The `ComparisonEngine` generates pros/cons and a full text report.
+
+### Progress Panel
+
+During analysis, the progress panel shows:
+- **Phase indicators**: Colored dots showing which phase is running (grey=pending, yellow=running, green=done, red=failed)
+- **Timer**: Elapsed time since analysis started
+- **Log messages**: Real-time progress from each phase agent
+
+### What If a Phase Returns UNSAT?
+
+- **Phase 1 UNSAT**: No feasible security feature assignment exists under the given constraints. The strategy card shows "UNSAT" in red. Phases 2 and 3 are skipped.
+- **Phase 2 UNSAT**: ZTA policy constraints cannot be satisfied. Phase 3 is skipped. Phase 1 results are still available.
+- **Phase 3 scenario UNSAT**: A specific scenario has no feasible solution. Other scenarios still run.
+
+Common causes of UNSAT:
+- Latency budgets too tight (minimum achievable is 4 cycles)
+- Risk caps too restrictive for the number of assets
+- Missing firewall on-path facts for the ZTA topology
+- Missing policy server governance relationships
+
+---
+
+## 7. Understanding the Three Strategies
+
+The tool evaluates three optimization strategies simultaneously to explore the design space:
+
+### Strategy 1: Maximum Security
+
+- **Objective**: Minimize total risk (weighted sum of all residual security and availability risks)
+- **Behavior**: Assigns the strongest security features (zero_trust) and most verbose logging (zero_trust_logger) wherever possible
+- **Trade-off**: Highest FPGA resource usage and power consumption
+- **Use case**: Safety-critical deployments where security is paramount
+
+### Strategy 2: Minimum Footprint
+
+- **Objective**: Minimize risk at primary level, then minimize LUT usage as secondary objective
+- **Behavior**: Relaxes security where possible to reduce resource footprint; may assign MAC or dynamic_mac instead of zero_trust
+- **Trade-off**: Higher residual risk but lower resource usage
+- **Use case**: Resource-constrained FPGAs where area/power budget is tight
+
+### Strategy 3: Balanced Trade-off
+
+- **Objective**: Combined minimization of total risk and LUT usage (risk at priority 2, LUTs at priority 1)
+- **Behavior**: Finds a middle ground between security and resources
+- **Trade-off**: Moderate risk, moderate resource usage
+- **Use case**: General-purpose deployments seeking a practical balance
+
+---
+
+## 8. Understanding the Three Phases
+
+### Phase 1: Security Feature Selection
+
+**What it does:** Selects the optimal security feature and logging mode for each IP core component, subject to:
+- FPGA resource constraints (LUTs, FFs, DSPs, BRAMs, power)
+- Latency constraints per component
+- Risk budget constraints (max_security_risk for non-redundant, max_avail_risk for redundant groups)
+
+**Security features available** (from most to least protective):
+
+| Feature | Latency Cost | Protection Level |
+|---------|-------------|-----------------|
+| zero_trust | 3 cycles | Highest — cryptographic verification |
+| dynamic_mac | 6 cycles | High — dynamic message authentication |
+| mac | 4 cycles | Medium — static message authentication |
+
+**Logging modes available:**
+
+| Mode | Latency Cost | Detail Level |
+|------|-------------|-------------|
+| zero_trust_logger | 2 cycles | Full audit trail |
+| some_logging | 1 cycle | Basic event logging |
+| no_logging | 1 cycle | No logging overhead |
+
+**Minimum achievable latency:** 4 cycles (= zero_trust latency of 3 + no_logging latency of 1). Any component with `allowable_latency < 4` makes the problem unsolvable.
+
+**Risk model:**
+- **Non-redundant components**: Additive security residual risk = Impact + DomainBonus + ExploitMod - Protection - LogProtect
+- **Redundant group members**: Probabilistic availability risk = Impact x CombinedProbability / 100
+
+**Outputs:** Selected security feature, logging mode, resource totals, and per-asset risk values for each component.
+
+### Phase 2: Zero Trust Architecture Policy Synthesis
+
+**What it does:** Given the Phase 1 security assignments, synthesizes a complete ZTA policy:
+
+1. **Firewall placement**: Chooses which candidate firewalls (PEPs) to deploy
+2. **Policy server placement**: Selects at least one policy server (PDP)
+3. **Access control rules**: Derives allow/deny decisions per (master, IP, mode) triple
+4. **Least-privilege analysis**: Identifies excess and missing privileges
+5. **Trust gap analysis**: Finds components missing hardware roots of trust, secure boot, or attestation
+6. **Mode-aware access control**: Three security modes:
+   - **normal**: Explicit allow rules apply
+   - **attack_suspected**: Only attested masters may access non-critical IPs
+   - **attack_confirmed**: All access denied (full isolation)
+
+**Hard constraints:**
+- Low-trust masters (untrusted/low/normal domain) accessing critical IPs must pass through a deployed firewall
+- Every deployed firewall must be governed by at least one deployed policy server
+- Safety-critical components must be isolated in at least one elevated mode
+
+**Outputs:** Placed firewalls, placed policy servers, allow/deny rules, policy tightness scores, trust gaps, excess/missing privileges, deployment cost.
+
+### Phase 3: Resilience Scenario Analysis
+
+**What it does:** Simulates compromise and failure scenarios against the topology with the Phase 1/2 security assignments:
+
+**Core scenarios (6):**
+
+| Scenario | Description |
+|----------|-------------|
+| baseline | No compromise, no failure |
+| sys_cpu_compromise | Main CPU compromised |
+| dma_compromise | DMA controller compromised |
+| full_group_compromise | Entire redundant group compromised |
+| noc0_failure | Primary bus fails |
+| ps0_compromise | Policy server compromised |
+
+**Full scenarios (18):** Adds individual component compromises, dual failures, PEP bypass, combined compromise+failure.
+
+**Analysis per scenario:**
+- **Blast radius**: How many other components a compromised node can reach
+- **Service availability**: OK / degraded / unavailable based on quorum requirements
+- **Control plane integrity**: Whether policy servers and PEPs remain functional
+- **Cross-domain exposure**: Whether compromise in a lower trust domain reaches higher-trust assets
+- **Asset risk under scenario**: Amplified risk values accounting for the compromise
+
+**Outputs:** Per-scenario risk scores, blast radii, service status, control plane flags, exposure types.
+
+---
+
+## 9. Results Panel (Right Panel)
+
+After analysis completes, three strategy cards appear side by side.
+
+### Strategy Card Contents
+
+Each card shows:
 
 | Field | Description |
 |-------|-------------|
-| **Name** | A unique identifier string (no spaces recommended). Used as the ASP atom name, e.g., `arm_m4`. Must be unique across the topology. |
-| **Type** | `processor` — a master that initiates bus transactions. Drawn as a rectangle. `dma` — a DMA controller, also a master. Drawn as a rectangle. `ip_core` — a peripheral or memory-mapped resource being protected. Drawn as an oval. `bus` — an interconnect fabric (AHB, AXI, etc.). Drawn as a wide rectangle. `firewall` — a policy enforcement point (PEP) that can gate access between masters and IP cores. Drawn as a hexagon. `policy_server` — a centralised policy decision point (PDP) that governs one or more firewalls. Drawn as a diamond. |
-| **Domain** | `low` — normal/unprivileged domain (blue tint on canvas). `high` — sensitive or privileged domain (orange/red tint). Domain affects trust relationships and risk scoring in the ASP model. |
-| **Direction** | `bidirectional` — the component supports both read and write transactions. `input` — sensor or read-only source; generates only read-side ASP facts. `output` — actuator or write-only sink; generates only write-side ASP facts. |
-| **Impact Read** | Integer 1–5. The security impact if this asset is read without authorisation (1 = negligible, 5 = catastrophic). Used in Phase 1 risk scoring. |
-| **Impact Write** | Integer 1–5. The security impact if this asset is written without authorisation. |
-| **Latency Read** | Expected read latency in clock cycles. Set to 1000 to mark as unconstrained. |
-| **Latency Write** | Expected write latency in clock cycles. Set to 1000 to mark as unconstrained. |
-| **Has Hardware RoT** | Checkbox. Enables a `has_rot(component)` ASP fact, indicating a hardware Root of Trust is present (e.g., a secure element or eFuse chain). |
-| **Has Secure Boot** | Checkbox. Enables a `has_secure_boot(component)` ASP fact. |
-| **Has Attestation** | Checkbox. Enables a `has_attestation(component)` ASP fact, indicating the component can produce signed evidence of its state. |
-| **Is Critical IP** | Checkbox. Marks the component as a critical intellectual property asset. Shown with a red dashed border on the canvas. Increases risk weighting in Phase 1. |
-| **Is Safety-Critical** | Checkbox. Marks the component as safety-critical. Affects risk weighting and Phase 3 exposure classification. |
-| **FW Cost** | Only active when Type is `firewall`. Integer. The resource cost the solver uses when deciding whether to place this firewall. Lower cost makes placement more likely under Min Resources strategy. |
-| **PS Cost** | Only active when Type is `policy_server`. Integer. The resource cost used when deciding whether to place this policy server. |
-| **Extra Assets [Edit...]** | Opens a sub-dialog to add additional named assets to this component beyond the default one. For example, a processor might host a cryptographic key asset and a boot configuration asset in addition to its default asset. Each additional asset can have its own impact values. |
+| **Card title** | Strategy name (e.g., "Solution 1: Maximum Security") |
+| **SAT/UNSAT** | Green "SAT" or red "UNSAT" — whether Phase 1 found a feasible solution |
+| **LUTs** | Total LUT usage across all selected security features |
+| **FFs** | Total flip-flop usage |
+| **Power** | Total power consumption in milliwatts |
+| **Risk** | Total risk score (sum of max risk per asset) |
+| **Phase 1 [Details...]** | Opens Phase 1 detail dialog |
+| **Phase 2** | Summary of placed FWs and PSs |
+| **Phase 2 [Details...]** | Opens Phase 2 detail dialog |
+| **Phase 3** | First 3 scenarios with risk scores |
+| **Phase 3 [Details...]** | Opens Phase 3 scenario navigator |
+
+### Bottom Buttons
+
+| Button | Action |
+|--------|--------|
+| **Executive Summary** | Opens the one-page executive summary synthesizing all data across all strategies — identifies the primary security bottleneck ("long pole"), whether the architecture needs redesign, and the single most impactful improvement |
+| **Compare Strategies** | Opens side-by-side comparison table with color-coded best/worst |
+| **View Full Report** | Opens the complete text report with executive summary, per-solution details, pros/cons, and recommendations |
 
 ---
 
-#### 2.1.2 Add Link
+## 10. Phase 1 Detail Dialog
 
-Click this button to enter **link mode**. The button stays highlighted while link mode is active. Then:
-1. Click the **source node**.
-2. Click the **destination node**.
+Opened by clicking **Details...** in a strategy card's main section.
 
-A directed link (arrow) is drawn from source to destination. Links represent physical bus connections or point-to-point connections. Direction matters: the ASP generator uses link topology to discover bus-fanout paths (BFS path discovery) between masters and IP cores. If the path does not exist in the link graph, the solver cannot route protection through a firewall on that path.
+### Resources Tab
 
-To exit link mode without adding a link, press **Escape** or click the "Add Link" button again.
-
----
-
-#### 2.1.3 Add Redundancy Group
-
-Opens a multi-select dialog listing all current nodes. Select two or more nodes to form a named redundancy group. Redundancy groups are used in Phase 3 resilience analysis: if one member fails, the solver checks whether the remaining members can sustain the associated services. A node can belong to more than one redundancy group.
-
----
-
-#### 2.1.4 Clear All
-
-Removes all nodes, links, redundancy groups, access needs, services, mission phases, policy exceptions, and Phase 3 scenarios from the canvas. **This action cannot be undone.** A confirmation dialog appears before clearing.
-
----
-
-#### 2.1.5 Access Needs
-
-Opens the Access Needs dialog, which lists the declared least-privilege access policy. Each entry specifies:
-- **Master**: the processor or DMA node that initiates the access.
-- **Component**: the IP core being accessed.
-- **Operation**: `read` or `write`.
-
-These entries become `allow_rule` ASP facts and are the primary input to Phase 2 policy synthesis. If you do not declare an access need for a master/component/operation pair, Phase 2 will not generate an allow rule for it. Conversely, if you declare an access need but there is no firewall candidate on the path between that master and that component, Phase 2 will flag the pair as unprotected. Use "Add" to add a new row, "Remove" to delete the selected row, and "OK" to save.
-
----
-
-#### 2.1.6 Services
-
-Opens the Services dialog. A service is a named functional capability (e.g., `navigation`, `comms`, `thermal_control`) that is implemented by a set of IP cores with a minimum quorum. Fields:
-- **Service name**: a unique string identifier.
-- **Member IP cores**: the IP cores that implement this service. Use the multi-select list.
-- **Quorum**: the minimum number of member IP cores that must be operational for the service to be considered `ok`. If fewer than quorum are available but at least one is, the service is `degraded`. If none are available, the service is `unavailable`.
-
-Phase 3 reports service status for each scenario.
-
----
-
-#### 2.1.7 FPGA Config
-
-Opens the FPGA Resource Budget dialog. These values set the upper bounds the ASP solver must satisfy in Phase 1. If the solver cannot find a security feature assignment that stays within all budgets, Phase 1 returns UNSAT.
-
-| Budget Parameter | Description |
-|-----------------|-------------|
-| `max_luts` | Maximum LUT count available on the device. Default: 53200 (PYNQ-Z2). |
-| `max_ffs` | Maximum flip-flop count. Default: 106400. |
-| `max_dsps` | Maximum DSP blocks. Default: 220. |
-| `max_lutram` | Maximum LUT RAM capacity. Default: 17400. |
-| `max_bram` | Maximum BRAM blocks. Default: 140. |
-| `max_power` | Maximum total power in milliwatts. Default: 15000. |
-| `max_asset_risk` | Maximum acceptable total residual risk score across all assets. Default: 500. |
-
-Adjust these values to match your target device. Lowering `max_asset_risk` forces the solver to place more security features.
-
----
-
-#### 2.1.8 Mission Phases
-
-Opens the Mission Phases dialog. Mission phases define named operational modes such as `operational`, `maintenance`, `emergency`, `commissioning`. Each phase is a simple string label. Mission phases are referenced by policy exceptions (see 2.1.9) to allow temporary deviations from the standard ZTA policy.
-
----
-
-#### 2.1.9 Policy Exceptions
-
-Opens the Policy Exceptions dialog. An exception grants a specific master/component/operation combination permission to operate under a named mission phase, with a documented reason. This is used to model time-limited or context-specific access rights that would be denied under normal ZTA policy.
-
-Each exception has:
-- **Master**: the component requesting the exception.
-- **Component**: the target IP core.
-- **Operation**: `read` or `write`.
-- **Mission Phase**: the phase under which the exception applies.
-- **Reason**: free-text justification for the exception.
-
----
-
-#### 2.1.10 Phase 3 Scenarios
-
-Opens the Scenario Editor. Each scenario represents a threat event to test resilience. Fields:
-- **Name**: a unique identifier (e.g., `bus_compromise`, `dma_failure`).
-- **Compromised components**: a list of component names that are assumed to be under adversary control.
-- **Failed components**: a list of component names that have stopped functioning.
-
-If no scenarios are defined, Phase 3 uses built-in default scenarios (single-component compromise for each node). Defining custom scenarios allows testing multi-component failure conditions and realistic attack chains.
-
----
-
-#### 2.1.11 Undo / Redo
-
-- **Undo** (also **Ctrl+Z**): reverses the most recent canvas operation. Covered operations include: add node, delete node, move node, add link, delete link.
-- **Redo** (also **Ctrl+Y**): reapplies the last undone operation.
-
-The undo history is maintained in memory for the current session only. It is cleared when "Clear All" is used.
-
----
-
-#### 2.1.12 Zoom In / Zoom Out
-
-- **Zoom In** (also **Ctrl+=**): increases the canvas scale. Maximum zoom level is 3.0× (300%).
-- **Zoom Out** (also **Ctrl+-**): decreases the canvas scale. Minimum zoom level is 0.2× (20%).
-
-The zoom is centred on the canvas viewport. Use zoom to inspect tightly packed topologies or to get an overview of a large design.
-
----
-
-#### 2.1.13 Find Component...
-
-Also **Ctrl+F**. Opens a live-filter search dialog with a text entry box and a list of all components. As you type, the list filters by name or type. To navigate to a component:
-- Double-click the entry in the list, or
-- Select it and press **Enter**.
-
-The canvas pans to centre the found node and highlights it briefly with a bright outline.
-
----
-
-#### 2.1.14 Auto Layout
-
-Arranges all nodes into a hierarchical left-to-right layout automatically. The columns are:
-1. **Processors and DMA controllers** (leftmost)
-2. **Buses**
-3. **Firewalls and policy servers**
-4. **IP cores** (rightmost)
-
-Within each column, nodes are distributed vertically in the order they were added. Relative vertical ordering within a column is preserved. This layout is useful after importing a JSON file, after loading TC9, or whenever nodes have been placed manually and have begun to overlap.
-
----
-
-#### 2.1.15 Load TC9 Example
-
-Loads the TC9 reference test case directly onto the canvas, replacing any existing topology. TC9 is a representative SoC topology with:
-- 8 IP cores on a shared bus
-- 2 master nodes (processor and DMA)
-- 2 candidate PEP (firewall) groups
-- A pre-declared set of access needs and services
-
-TC9 is used for regression testing and as a starting point for exploring the tool's capabilities. It is safe to load and modify TC9 without affecting any saved files.
-
----
-
-#### 2.1.16 Save JSON / Load JSON
-
-- **Save JSON**: saves the complete topology state — nodes, links, redundancy groups, access needs, services, mission phases, policy exceptions, and Phase 3 scenarios — as a `.json` file. You choose the file path via a save dialog.
-- **Load JSON**: opens a file browser to select a previously saved `.json` file and loads it onto the canvas, replacing the current topology.
-
-These operations correspond to File > Save Network and File > Open Network in the menu bar.
-
----
-
-#### 2.1.17 Show Overlay (checkbox)
-
-When checked and analysis has been run, the canvas draws additional visual annotations on top of the topology:
-
-- **Risk halos around nodes**: a circular glow behind each node coloured by risk level. Green = low risk (score below threshold), yellow = medium risk, red = high risk (score near or above budget limit).
-- **Placement badges on firewalls and policy servers**: `PLACED` (green badge) if Phase 2 chose to deploy this component, `NOT PLACED` (grey badge) if it was a candidate but was not selected.
-- **Security feature abbreviations** next to components: `mac` = MAC-layer encryption placed, `dmt` = DMT logging placed, `zt` = zero-trust feature placed.
-- **Link colours** (see Section 2.2 for a full description).
-
-Uncheck this box to return the canvas to its undecorated view.
-
----
-
-#### 2.1.18 Blast Radius (checkbox)
-
-When checked and Phase 3 analysis has been run, each node on the canvas is surrounded by a coloured ring:
-- **Red / thick ring**: high blast radius — this node can reach many other components if compromised.
-- **Green / thin ring**: low blast radius — this node can reach few other components if compromised.
-
-Blast radius is defined as the number of other components physically reachable through the link graph from this node if it is compromised (i.e., under adversary control).
-
-**Note**: in flat bus topologies (all nodes connected to a single bus), all nodes have equal blast radius because the bus provides a path to every attached node. The visual rings will all be similar. Blast radius becomes informative only in segmented topologies where firewalls or distinct bus segments limit reachability. This overlay is therefore off by default.
-
----
-
-#### 2.1.19 View ZTA Layout
-
-Opens the ZTA Layout dialog. See Section 4 for a full description.
-
----
-
-### 2.2 Canvas Node Shapes and Colours
-
-| Component Type | Shape | Base Colour |
-|---------------|-------|-------------|
-| processor | Rounded rectangle | Blue (`#3a7dda`) |
-| dma | Rectangle | Green (`#2db050`) |
-| ip_core | Oval | Orange (`#e07b00`) |
-| bus | Wide rectangle | Grey (`#888888`) |
-| policy_server | Diamond | Purple (`#9040cc`) |
-| firewall | Hexagon | Red (`#cc3030`) |
-
-**Domain tint**: a semi-transparent overlay is applied on top of the base colour:
-- `low` domain: blue tint
-- `high` domain: orange/red tint
-
-**Critical IP indicator**: IP cores marked as critical are surrounded by a red dashed border.
-
----
-
-### 2.3 Link Colours (when Show Overlay is enabled after analysis)
-
-| Colour | Meaning |
-|--------|---------|
-| Green solid | This link leads to an IP core that is protected by a placed firewall on the path from some master. |
-| Orange dashed | This link leads to an IP core for which an access need is declared, but no firewall protection was placed on the path. The access need exists but is unguarded. |
-| Grey | No access need is declared for any master reaching this IP core via this link. |
-
----
-
-### 2.4 Canvas Mouse Interactions
-
-| Gesture | Effect |
-|---------|--------|
-| Left-click + drag on node | Moves the node. Position snaps to the 20 px grid. |
-| Double-click on node | Opens the property editor dialog for that node. |
-| Right-click on node | Opens a context menu with: Edit, Add Link From Here, Copy, Delete. |
-| Ctrl+click on node | Toggles the node in the multi-select set. A cyan dashed halo appears around selected nodes. |
-| Drag on empty canvas | Rubber-band multi-select: a selection rectangle is drawn; all nodes inside are added to the selection set. |
-| Delete key | Deletes all currently selected nodes and all links that connect to them. |
-| Ctrl+C | Copies the selected node(s). |
-| Ctrl+V | Pastes the copied node(s) at a small offset from the original position. |
-
----
-
-## 3. Toolbar Buttons
-
-### 3.1 Run Analysis
-
-Starts the three-phase DSE analysis pipeline in a background thread, leaving the GUI responsive.
-
-**What happens when you click Run Analysis:**
-
-1. The tool calls `validate_topology()` on the current canvas state. If any warnings are found (e.g., isolated nodes, missing links), a dialog lists them and asks whether to continue.
-2. The Progress Panel is reset and a timer starts.
-3. The DSEOrchestrator is launched in a background daemon thread.
-4. **Phase 1** runs for each of the three strategies (Max Security, Min Resources, Balanced). The Clingo ASP solver selects security features (RoT, encryption modes, logging modes) and computes the resulting LUT, FF, DSP, LUTRAM, BRAM, and power resource costs plus the total residual risk score. The solver enforces the FPGA budget caps from FPGA Config.
-5. **Phase 2** runs for each strategy that found a SAT result in Phase 1. It synthesises a Zero Trust Architecture policy: selecting which firewall and policy server candidates to deploy, then generating `allow` and `deny` rules consistent with the declared access needs.
-6. **Phase 3** runs resilience scenario analysis for each Phase 2 result. It tests the defined (or built-in) scenarios, computing blast radii, asset risk under compromise, service status, and control plane integrity.
-7. Results are sent back to the GUI via a queue and displayed in the Results Panel cards.
-
-The Run Analysis button is disabled while analysis is running. The Stop button becomes active.
-
----
-
-### 3.2 Stop
-
-Requests the solver to halt early. The current Clingo invocation is interrupted. Any results already computed are preserved and displayed; incomplete phases are marked as aborted. The status bar changes to `Analysis stopped by user`.
-
-Use Stop if a large topology is taking too long or if you need to change the topology mid-analysis.
-
----
-
-### 3.3 Clear
-
-Clears the Progress Panel log output and resets all Results Panel cards to their empty `—` state. Does **not** clear the canvas topology or any declared topology data. Use this to reset the display before re-running analysis after a topology change.
-
----
-
-### 3.4 Load TC9
-
-Equivalent to the sidebar button. Loads the TC9 reference topology (8-IP-core SoC) directly, replacing the current canvas. A confirmation dialog appears if the canvas is not empty.
-
----
-
-### 3.5 Solver Config
-
-Opens a tabbed dialog with one tab for each of the three strategies:
-- **Max Security** tab
-- **Min Resources** tab
-- **Balanced** tab
-
-Each tab contains a text area for entering additional ASP facts or objective clauses that will be appended to the default strategy encoding before the solver runs. Leave the text area blank to use the built-in defaults.
-
-**Example custom clause** (Max Security tab):
-```prolog
-#maximize { 1,C : has_rot(C) }.
+Shows FPGA resource utilization with visual bar charts:
 ```
-This forces the Max Security strategy to maximise the number of components with hardware RoT placement.
-
-**Example forcing a specific firewall:**
-```prolog
-:- not place_fw(pep1).
+FPGA Resource Utilisation
+=============================================
+  LUTs          42,300  ████████████████
+  FFs           84,600  ████████████████
+  DSPs              12  █
+  LUTRAMs        2,400  ██
+  BRAMs             14  ██
+  Power          9,200  ████████████
 ```
-This adds a constraint that `pep1` must always be placed.
 
-Custom clauses persist for the session. They are not saved as part of the JSON topology.
+### Security Features Tab
+
+Lists the security feature and logging mode assigned to each component:
+```
+Security features placed  (8 components):
+──────────────────────────────────────────────────
+  Component                 Security Feature
+  ──────────────────────── ────────────────────
+  c1                        zero_trust
+  c2                        zero_trust
+  c3                        zero_trust
+  ...
+  c8                        mac
+
+Logging modes  (8 components):
+──────────────────────────────────────────────────
+  Component                 Logging Mode
+  ──────────────────────── ────────────────────
+  c1                        zero_trust_logger
+  ...
+  c8                        no_logging
+```
+
+### Risk Breakdown Tab
+
+This is the most detailed view. It contains six sections:
+
+**Section 1: Non-Redundant Components (Additive Security Residual Risk)**
+
+Shows per-asset risk for components NOT in a redundancy group:
+```
+  Risk = Impact + DomainBonus(DB) + ExploitMod(EM) - Protect - LogProtect
+  DB: untrusted=0, low=0, normal=1, privileged=2, high/root=3
+  EM: exploitability-3  (hard=-2, neutral=0, trivial=+2)
+  ──────────────────────────────────────────────────────────────────
+  Component  Register   Op       Risk  DB  EM  Security         Logging
+  c6         c6r1       read       5   3   0  dynamic_mac      some_logging
+  c6         c6r1       write      3   3   0  dynamic_mac      some_logging
+```
+
+How to read: Each row shows the residual risk for one component-asset-operation triple. Lower risk is better. The DB (domain bonus) and EM (exploit modifier) columns help you understand *why* a component has higher risk — high-domain components get a domain bonus penalty, and easily exploitable components get an exploit modifier penalty.
+
+**Section 2: Redundant Group Members (Probabilistic Availability Risk)**
+
+Shows per-asset risk for components in redundancy groups, using the probabilistic model. The risk here reflects that redundant components collectively reduce availability impact.
+
+**Section 3: Per-Component Risk Totals**
+
+Aggregated risk contribution per component with visual bar chart. Use this to quickly identify which components contribute most to overall risk.
+
+**Section 4: Max Risk Per Asset Register**
+
+Shows the highest risk value for each asset register across read/write operations. This is what the "Total Risk" number on the strategy card sums.
+
+**Section 5: CIA Dimension Summary**
+
+Breaks down risk by Confidentiality (read), Integrity (write), and Availability:
+```
+  Dimension                      Raw Risk  Weight  Weighted
+  ──────────────────────────────────────────────────────────
+  C — Confidentiality                  24     1.0      24.0
+  I — Integrity                        18     1.5      27.0
+  A — Availability                     12     2.0      24.0
+  ──────────────────────────────────────────────────────────
+  WEIGHTED TOTAL                                       75.0
+```
+
+The CIA weights reflect that for embedded SoC systems, integrity (write attacks) and availability (DoS) have more immediate physical consequences than confidentiality (read attacks).
+
+**Section 6: Topology Risk Weights**
+
+Shows the amplification proxy weights assigned to each asset. Higher-weight assets are prioritized by the Phase 1 solver. Weights are based on:
+- Base: 10
+- Safety-critical: +20
+- Is a master: +15
+- High trust domain (privileged/high/root): +10
+- +1 per reachable component (topology connectivity proxy)
 
 ---
 
-### 3.6 Show ASP Facts
+## 11. Phase 2 Detail Dialog
 
-Generates the Answer Set Programming (ASP) LP text from the current canvas topology and displays it in a two-tab dialog.
+Opened by clicking **Details...** in a strategy card's Phase 2 section.
 
-**Facts tab:**
-Shows the full LP text with syntax highlighting:
-- Comments (lines starting with `%`): green
-- Fact predicate names (the part before the `(`): blue
-- Numeric arguments: light green
+### Allow / Deny Rules Tab
 
-A search bar at the top of the dialog allows text search within the facts. Press **Enter** to advance to the next match; press **Shift+Enter** to go to the previous match. Match count is displayed next to the search bar.
+Lists all access control decisions organized by mode:
+```
+ALLOW rules (19)
+──────────────────────────────────────────────────
+  Master               IP Core              Op
+  ─────────────────── ─────────────────── ─────
+  arm_a53              crypto_eng           normal
+  arm_a53              nvram                normal
+  arm_m4               sensor_a             normal
+  ...
 
-Buttons: **Copy All** copies the entire LP text to the clipboard. **Save...** opens a file browser to save the text as a `.lp` file for use outside the tool.
+DENY rules (42)
+──────────────────────────────────────────────────
+  Master               IP Core              Op
+  ─────────────────── ─────────────────── ─────
+  arm_a53              crypto_eng           attack_confirmed
+  ...
+```
 
-**Summary tab:**
-Shows:
-- A count of each fact type (e.g., `component: 9`, `allow_rule: 14`, `cand_fw: 2`).
-- Automatic warnings for facts that are missing and would likely cause UNSAT. For example: `WARNING: no cand_fw facts — Phase 2 will be UNSAT`.
-- Model statistics: total number of components, links, assets, access needs, and services.
+**How to interpret:** In `normal` mode, allow rules govern access. In `attack_suspected`, only attested masters access non-critical IPs. In `attack_confirmed`, everything is denied for full lockdown.
 
-**Why use Show ASP Facts before running analysis:**
-The Summary tab is the fastest way to catch configuration errors that will cause solver failures:
-- If `cand_fw` count = 0, Phase 2 has no firewall candidates and will always be UNSAT.
-- If `on_path` count = 0, no ZTA protection paths are discoverable and ZTA placement is meaningless.
-- If `allow_rule` count = 0 but you have declared access needs, check that your master and IP core names exactly match the names in the Access Needs dialog.
-- If `asset` count = 0, Phase 1 has no assets to protect and will produce a trivial solution.
+### Policy Tightness Tab
+
+Shows how closely each master's granted access matches its declared needs:
+```
+Average tightness: 72.3/100  (100=fully tight, 0=permissive)
+──────────────────────────────────────────────────
+  Master                    Score  Status
+  ──────────────────────── ────── ───────────────
+  dma0                         45  OVER-PRIVILEGED
+  arm_a53                      85  tight
+  arm_m4                       90  tight
+```
+
+**How to interpret:**
+- **100** = perfect least-privilege (no excess grants)
+- **>= 80** = "tight" — acceptable policy precision
+- **< 50** = "OVER-PRIVILEGED" — master has access to far more than it needs; investigate excess privileges
+
+### Trust Gaps Tab
+
+Identifies hardware trust anchor deficiencies:
+```
+Components missing hardware trust anchors:
+──────────────────────────────────────────────────
+  Missing RoT:
+    - sensor_c
+    - gpio
+    - debug_jtag
+  Missing Secure Boot:
+    - dma0
+    - comm_eth
+    - debug_jtag
+  Missing Attestation:
+    - arm_m4
+    - dma0
+
+Unattested privileged access pairs (2):
+──────────────────────────────────────────────────
+  dma0  →  crypto_eng
+  arm_m4  →  nvram
+
+Unsigned policy servers (1):
+──────────────────────────────────────────────────
+  ps_backup
+```
+
+**How to interpret:**
+- **Missing RoT/Secure Boot**: Components without hardware-backed trust foundations. Higher risk of firmware tampering.
+- **Unattested privileged access**: A master without attestation accessing a high-trust IP. An attacker could impersonate the master.
+- **Unsigned PS**: Policy server without signed policy enforcement. Policy tampering risk.
+
+These are security findings (not hard failures) — each is a recommendation for hardware improvement.
+
+### Privileges Tab
+
+Lists specific excess and missing privilege grants:
+```
+Excess privileges (5):
+──────────────────────────────────────────────────
+  arm_a53  gpio  read
+  arm_a53  debug_jtag  read
+  dma0  gpio  write
+  ...
+
+Missing privileges (0):
+──────────────────────────────────────────────────
+  (none)
+
+Total FW+PS deployment cost: 570
+```
+
+**How to interpret:**
+- **Excess privileges**: Master has topological access to a component but no declared `access_need`. This violates least-privilege — the access path should be blocked or the need documented.
+- **Missing privileges**: Master has a declared need but no topological path. This is a connectivity gap that means the master cannot do its job.
+- **Deployment cost**: Sum of hardware costs for all placed firewalls and policy servers.
 
 ---
 
-## 4. ZTA Layout Dialog
+## 12. Phase 3 Detail Dialog
 
-Opened via the **View ZTA Layout** sidebar button. This dialog provides a conceptual four-column architectural diagram of the Zero Trust Architecture, independent of the spatial layout of nodes on the canvas.
+Opened by clicking **Details...** in a strategy card's Phase 3 section.
 
-### 4.1 Column Layout
+### Layout
 
-| Column | Contents | Visual |
-|--------|----------|--------|
-| **Masters** (leftmost) | All processor and DMA nodes | White/grey boxes |
-| **Firewalls** (centre-left) | All firewall candidates. Placed FWs shown in red with `PLC` badge; candidates not selected shown dim with `---` badge. | Hexagonal outlines |
-| **Policy Servers** (centre-right) | All policy server candidates. Placed PS shown in purple with `PLC` badge; not placed shown dim. | Diamond outlines |
-| **IP Cores** (rightmost) | All IP core nodes. Green circle = protected by at least one placed firewall on the path from a master with a declared access need. Orange circle = unprotected (access need declared but no placed FW on path). | Circles |
+- **Left panel**: Scrollable list of scenarios with risk scores
+- **Right panel**: Detailed analysis of the selected scenario
 
-### 4.2 Arrow Types
+Click a scenario name on the left to view its full analysis on the right.
 
-| Arrow | Meaning |
+### Scenario Detail View
+
+```
+Scenario: dma_compromise
+========================================================
+Compromised  : dma0
+Failed       : —
+Total risk   : 23.00
+
+Blast radii (per component):
+────────────────────────────────────────
+  axi_main                 12  ████████████
+  arm_a53                  11  ███████████
+  dma0                     11  ███████████
+  apb_periph                9  █████████
+  crypto_eng                4  ████
+  ...
+
+Asset risks under this scenario:
+────────────────────────────────────────
+  crypto_eng_r1              8
+  nvram_r1                   6
+  sensor_a_r1                4
+  ...
+
+Services OK        : sensor_svc, crypto_svc
+Services degraded  : control_svc
+Services unavail   : —
+
+Unavailable assets : —
+Cut-off nodes      : —
+
+Control plane      : OK
+```
+
+### How to Interpret Each Field
+
+| Field | Meaning |
 |-------|---------|
-| Green solid | A protected master → IP core path passes through a placed firewall. |
-| Red dashed | An access need is declared (master needs to reach IP core) but no placed firewall guards the path — this is an unprotected access need and a ZTA gap. |
-| Purple dashed | A placed policy server governs a firewall or has a policy relationship with an IP core. |
+| **Compromised** | Nodes assumed to be under attacker control |
+| **Failed** | Nodes assumed to be non-functional (hardware failure) |
+| **Total risk** | Amplified risk score for this scenario (higher = worse) |
+| **Blast radii** | Per-component count of how many other nodes each can reach. Higher = more lateral movement potential |
+| **Asset risks** | Per-asset risk values under this specific compromise scenario |
+| **Services OK** | Services meeting their full membership requirement |
+| **Services degraded** | Services below full membership but still meeting quorum (minimum viable) |
+| **Services unavail** | Services that cannot meet quorum — **service outage** |
+| **Cut-off nodes** | Nodes disconnected from the main topology due to bus failure |
+| **Control plane** | OK / DEGRADED (some PS down) / STALE (no signed policy) / COMPROMISED (PS under attacker control) |
+| **PEPs bypassed** | Firewalls that an attacker can circumvent due to compromised node position |
+| **PSes compromised** | Policy servers under attacker control |
 
-### 4.3 Summary Bar
+### Key Scenarios to Watch
 
-A one-line summary at the bottom of the dialog reports:
-`Placed FWs: X | Placed PSes: Y | Protected IPs: N / Total`
-
-Where:
-- `X` = number of firewall candidates that were placed by Phase 2.
-- `Y` = number of policy server candidates that were placed.
-- `N` = number of IP cores that have at least one protected access path.
-- `Total` = total number of IP cores in the topology.
-
-A high `N / Total` ratio is desirable. Any IP core with an `allow_rule` that is not in `N` is a ZTA gap.
-
-### 4.4 Cross-Check vs Canvas Button
-
-This button runs a consistency verification between the ZTA Layout and the declared topology:
-
-1. For every declared access need (master, IP core, operation), it checks whether that pair appears in the protected set (firewall placed on path) or is flagged as unprotected (no FW on path).
-2. It checks for **spurious protections**: cases where a firewall is placed on the path between a master and an IP core, but no access need was declared for that pair. This may indicate an over-broad firewall placement.
-3. It reports either a **pass** (all access needs are explicitly categorised as protected or unprotected, no spurious protections) or a **warning list** of issues.
-
-The cross-check result is shown in a popup dialog. Review all warnings before proceeding with a design decision based on Phase 2 results.
+- **baseline**: The "no attack" reference point. All risk should be at minimum levels.
+- **sys_cpu / arm_a53 compromise**: Worst single-node attack — the main processor typically has the broadest access.
+- **full_group_compromise**: Tests whether redundancy actually provides resilience when an entire group is lost.
+- **noc0 / axi_main failure**: Tests architectural resilience to bus failure. This partitions the topology and can isolate entire subtrees.
+- **ps0_compromise**: Tests whether a compromised policy server degrades the entire ZTA policy fabric.
+- **pep_group_bypass**: Tests what happens when a firewall is circumvented — does the attacker gain unmediated access?
 
 ---
 
-## 5. Results Panel
+## 13. Compare Strategies Dialog
 
-After analysis completes, the three strategy cards in the Results Panel are populated with summary data. The cards are labelled **Strategy 1** (Max Security), **Strategy 2** (Min Resources), and **Strategy 3** (Balanced).
+Opened by clicking **Compare Strategies** in the results panel.
 
-### 5.1 Strategy Card Structure
+Shows a color-coded comparison table:
 
-Each card displays:
+```
+  Metric               Max Security   Min Footprint  Balanced
+  ─────────────────── ────────────── ────────────── ──────────
+  SAT                  SAT            SAT            SAT
+  LUTs                 42,300         28,100         35,400
+  FFs                  84,600         56,200         70,800
+  Power                9,200          5,800          7,500
+  Total Risk           18             42             28
+  P2 SAT               SAT            SAT            SAT
+  FWs placed           2              2              2
+  PSes placed          2              1              2
+  Protected IPs        9              9              9
+  P2 Cost              570            350            570
+  Avg Tightness        72.3           72.3           72.3
+  Scenarios            6              6              6
+  Worst Risk           45.0           68.0           52.0
+  Avg Blast Radius     8.5            8.5            8.5
+```
 
-**SAT/UNSAT indicator:**
-A bold label at the top of the card. Green `SAT` means Phase 1 found a valid solution that satisfies all FPGA budget constraints. Red `UNSAT` means no valid solution exists — typically because the budget caps are too tight for the required security features, or because the topology has no assets to protect.
+**Color coding:**
+- **Green background + green text**: Best value for that metric
+- **Red background + red text**: Worst value for that metric
+- Lower is better for: LUTs, FFs, Power, Total Risk, P2 Cost, Worst Risk, Avg Blast Radius
+- Higher is better for: Avg Tightness, Protected IPs
 
-**Resource metrics (Phase 1):**
+**Note:** Avg Blast Radius is currently topology-only (not affected by firewall placement), so it will be identical across strategies. See the Checkpoint Status document for details on this design decision.
 
-| Label | Meaning |
+---
+
+## 14. Executive Summary
+
+Opened by clicking **Executive Summary** in the results panel. This is the most important analysis view — it synthesizes all Phase 1, 2, and 3 data across all three strategies into a single actionable summary.
+
+### What It Answers
+
+The Executive Summary answers three critical questions:
+
+1. **What is the most important thing to fix?** (the "long pole in the tent")
+2. **Can this architecture meet security goals with parameter tuning, or does it need structural redesign?**
+3. **Which issues are structural (persist across ALL strategies) vs. parametric (strategy-dependent)?**
+
+### Dialog Layout
+
+The summary opens in a dark-themed window with color-coded text:
+
+| Color | Meaning |
 |-------|---------|
-| `LUTs:` | Total LUT count used by the selected security features. |
-| `FFs:` | Total flip-flop count. |
-| `Power:` | Total power consumption in milliwatts. |
-| `Risk:` | Total residual risk score across all assets after security features are applied. Lower is better. |
+| Red | CRITICAL severity finding |
+| Orange | HIGH severity finding |
+| Yellow | MEDIUM severity finding |
+| Green | LOW severity or positive finding |
+| Blue | Section headers |
+| Gold | Long pole (primary bottleneck) highlighting |
+| Green banner | Architecture is ADEQUATE |
+| Red banner | REDESIGN RECOMMENDED |
 
-**Phase 1 Details... button:**
-Opens a three-tab dialog:
-- **Resources tab**: a bar-chart style table showing all six resource metrics (LUTs, FFs, DSPs, LUTRAM, BRAM, Power) as actual values versus budget caps. Resources close to the cap are highlighted in amber.
-- **Security Features tab**: lists which security feature was placed on which component (e.g., `arm_m4 ← MAC encryption`), and which logging mode was selected.
-- **Risk Breakdown tab**: a per-asset risk table sorted by risk value (descending). Shows the maximum risk per asset, the residual risk after feature placement, and the total risk. Assets near or at the maximum allowed risk are highlighted.
+### Summary Sections
 
-**Phase 2 section:**
-A small section within the card showing the names of the placed firewalls and policy servers (e.g., `FWs: pep1, pep2 | PSes: ps0`). If Phase 2 was UNSAT, this section shows `UNSAT — see Details`.
+**VERDICT** — One paragraph stating whether the architecture is adequate, the recommended strategy, headline risk/LUT numbers, and the primary bottleneck.
 
-**Phase 2 Details... button:**
-Opens a four-tab dialog:
-- **Allow/Deny Rules tab**: a full table of all generated `allow` rules (master, IP core, operation) and `deny` rules. Allow rules correspond to declared access needs with a placed FW on the path. Deny rules cover all other master/IP core pairs.
-- **Policy Tightness tab**: a per-master tightness score from 0 to 100. A score of 100 means every allow rule for that master has an exact matching declared access need and there are no excess allow rules. A score of 0 means the master has unrestricted access (blanket rules). Masters with scores below 80 are flagged as over-privileged. See Section 9 for a full explanation.
-- **Trust Gaps tab**: lists components that participate in the security policy but are missing hardware trust anchors. Specific gaps reported include: no RoT, no Secure Boot, no Attestation, no Key Storage. Also lists unattested privileged access pairs (a master with high-impact access needs but no attestation) and unsigned policy servers (a PS without Secure Boot cannot guarantee policy integrity).
-- **Privileges tab**: shows the excess privilege list (allow rules with no matching access need), the missing privilege list (access needs with no matching allow rule), the total deployment cost (sum of FW Cost + PS Cost for all placed components), and the UNSAT reason if Phase 2 could not find a valid policy.
+**HEADLINE METRICS** — Best strategy name, total risk, resilience score (0-100), LUT usage with percentage of budget.
 
-**Phase 3 section:**
-Shows the first three scenario names with their associated total risk score (e.g., `bus_compromise: risk=42`). If Phase 3 was not run (because Phase 2 was UNSAT), this section shows `—`.
+**KEY FINDINGS** — Ordered list of the most important discoveries:
+- How many components use minimal MAC protection
+- How many components have no logging
+- Phase 2 UNSAT status across strategies
+- Firewall deployment benefit (blast radius reduction)
+- Control plane vulnerability under compromise scenarios
 
-**Phase 3 Details... button:**
-Opens a two-pane dialog:
-- **Left pane**: all scenarios listed by name with risk scores. Click a scenario to select it.
-- **Right pane**: for the selected scenario, shows:
-  - A blast radii bar chart: one bar per component showing `BR:N` (blast radius N). Higher bars indicate components that expose more of the system if compromised.
-  - An asset risk table: per-asset residual risk scores under the scenario's compromise/failure conditions.
-  - Service status: each declared service listed as `ok`, `degraded`, or `unavailable`.
-  - Control plane flags: whether the scenario compromises the policy decision plane (i.e., a PS is compromised).
-  - PEPs bypassed: list of firewalls that are bypassed under this scenario.
-  - PSes compromised: list of policy servers that are compromised.
-  - Exposure type breakdown: counts of components exposed by physical access, logical access, or trust chain compromise.
+**STRUCTURAL ISSUES** — Issues that persist across ALL three strategies. These cannot be fixed by changing the optimization objective — they require topology changes. Examples:
+- Assets that remain high-risk regardless of strategy
+- Narrow risk spread across strategies (topology constrains the solution space)
 
-### 5.2 Compare Strategies Button
+**LONG POLE — Primary Bottleneck** — The single highest-priority item to fix, showing:
+- Category: TOPOLOGY, CAPABILITY, TRUST, POLICY, or FEATURE
+- Severity: CRITICAL, HIGH, MEDIUM, or LOW
+- Component(s) affected
+- What the issue is
+- How to fix it
+- What improves if fixed
 
-Located at the bottom right of the Results Panel. Enabled only after analysis has completed with at least one SAT result.
+**ALL BOTTLENECKS** — Complete ranked list of identified bottlenecks, sorted by severity then category.
 
-Opens a colour-coded comparison grid with one column per strategy and one row per metric. Cell colouring:
-- **Green**: best value for this metric among all three strategies.
-- **Red**: worst value for this metric among all three strategies.
-- **White**: intermediate value.
+**MISSION CAPABILITY ASSESSMENT** — Summary of functional resilience: how many scenarios cause the system to go non-functional, which essential capabilities are at risk.
 
-Metrics covered include all Phase 1 resource metrics, Phase 2 policy tightness averages, total deployment cost, and Phase 3 aggregate risk.
+**RECOMMENDATIONS** — Actionable steps, including whether architecture redesign is required and specific topology/trust/feature changes.
 
-Use this dialog as the primary decision-making tool for choosing which strategy to implement. Look for the strategy that wins the most green cells for your priority metrics. If you prioritise minimising risk, Max Security is expected to win the Risk row. If you prioritise minimal resource footprint, Min Resources is expected to win most resource rows.
+### Architecture Verdict Logic
 
-### 5.3 View Full Report Button
+The analyser evaluates five criteria to determine if the architecture is adequate:
 
-Opens a text window containing the full formatted comparison report. The report covers all three strategies with complete Phase 1, Phase 2, and Phase 3 data in a readable columnar format. Use the **Copy** button in the report window to copy the text to the clipboard for pasting into a design document.
+| Check | Trigger for REDESIGN |
+|-------|---------------------|
+| Phase 2 feasibility | ZTA policy fails for ALL strategies |
+| Essential capability loss | Essential capabilities lost under realistic scenarios |
+| Topology bottlenecks | CRITICAL-severity topology-category bottleneck |
+| Invariant high risk | 2+ cross-strategy invariant risks |
+| Flat topology | Firewalls provide no containment benefit (blast radius unchanged) |
 
----
+If the combined issue score reaches 4+, the verdict changes from ADEQUATE to **REDESIGN RECOMMENDED**.
 
-## 6. File Menu
+### Bottleneck Categories (Priority Order)
 
-| Item | Action |
-|------|--------|
-| **Open Network...** | Opens a file browser dialog. Select a `.json` file previously saved by this tool. The topology (nodes, links, access needs, services, scenarios) is loaded onto the canvas, replacing the current state. |
-| **Save Network...** | Opens a save dialog. Saves the complete current topology as a `.json` file. The JSON format is human-readable and version-controllable. |
-| **Recent Files** | A submenu listing the last 8 files that were opened or saved. Click any entry to open that file immediately. Recent file paths are stored in `~/.dse_tool_prefs.json` (where `~` is your Windows user home directory). |
-| **Exit** | Closes the application. If analysis is running, it is stopped first. No save prompt is shown — save your topology before exiting if you want to preserve it. |
+| Category | Description | Example |
+|----------|-------------|---------|
+| **TOPOLOGY** | Bus architecture too flat, insufficient segmentation, no isolation zones | "Blast radius reaches 11/12 nodes even with firewalls" |
+| **CAPABILITY** | Essential mission capabilities lost under compromise | "sensor_fusion lost in 3 scenarios" |
+| **TRUST** | Missing hardware trust anchors | "8 trust anchor gaps — no RoT on high-domain receivers" |
+| **POLICY** | ZTA policy infeasible or excess privileges | "Minimum 12 excess privileges across all strategies" |
+| **FEATURE** | Latency-forced weak security features | "4 components forced to MAC due to tight latency" |
 
----
-
-## 7. View Menu
-
-| Item | Action |
-|------|--------|
-| **Show ASP Facts...** | Same as the toolbar button. Generates and displays the ASP LP text for the current canvas topology. See Section 3.6 for full details. |
-| **Export Results as CSV...** | Opens a save dialog. Saves a 19-column CSV file containing all Phase 1, Phase 2, and Phase 3 metrics for all three strategies. Each strategy occupies one row. Requires that analysis has been run at least once in the current session; if not, a warning dialog appears. |
-
-**CSV column set** (all three strategies × all metrics):
-
-| Columns | Content |
-|---------|---------|
-| strategy | Strategy name (Max Security / Min Resources / Balanced) |
-| phase1_sat | SAT or UNSAT |
-| luts, ffs, dsps, lutram, bram, power | Phase 1 resource values |
-| risk | Phase 1 total residual risk |
-| phase2_sat | SAT or UNSAT |
-| placed_fws | Comma-separated list of placed FW names |
-| placed_pses | Comma-separated list of placed PS names |
-| policy_tightness_avg | Average tightness score across all masters |
-| deployment_cost | Total FW + PS deployment cost |
-| phase3_scenario_count | Number of Phase 3 scenarios evaluated |
-| phase3_max_risk | Maximum risk score across all scenarios |
-| phase3_services_unavailable | Count of services that became unavailable in worst-case scenario |
-
----
-
-## 8. Simple Worked Example
-
-This section walks through building a complete analysis from scratch. The scenario is a small embedded SoC with:
-- An **ARM Cortex-M4 processor** (`arm_m4`) that needs read access to a temperature sensor and write access to a PWM output.
-- A **DMA controller** (`dma_ctrl`) that needs write access to a data logger.
-- Three **IP cores**: `temp_sensor` (input/read-only), `pwm_out` (output/write-only), `data_logger` (output).
-- A **shared AHB bus** (`ahb_bus`) connecting all components.
-
-### Step 1: Launch the Tool
-
-Open a terminal, navigate to the project root directory, and run:
+### Example Executive Summary Output
 
 ```
-py -3.12 -m dse_tool
+VERDICT
+------------------------------------------------------------------------
+  The current architecture is ADEQUATE for the security requirements.
+  The recommended strategy (Solution 1: Maximum Security) achieves a
+  total risk of 18 using 42,300 LUTs (79.5% of budget). The primary
+  bottleneck is trust-level: 6 trust anchor gaps detected. Addressing
+  this would have the highest impact on security. System remains
+  functional across all 6 scenarios.
+
+  Architecture Assessment: >>> ADEQUATE <<<
+
+LONG POLE - Primary Bottleneck
+------------------------------------------------------------------------
+  Category    : TRUST
+  Severity    : HIGH
+  Component(s): c3, c4, c5, c6, c7
+  Issue       : 6 trust anchor gaps — components lack RoT, secure
+                boot, or attestation
+  Fix         : Prioritize adding hardware RoT and secure boot to
+                high-domain receivers; add attestation to all masters
+  Impact      : Enables attested access in elevated security modes;
+                reduces unattested privileged access warnings
 ```
 
-The main window opens. The canvas is empty. The status bar reads `Ready`.
+### How to Use the Executive Summary
 
-### Step 2: Add the Processor
-
-1. Click **Add Component** in the sidebar.
-2. Fill in the dialog:
-   - **Name**: `arm_m4`
-   - **Type**: `processor`
-   - **Domain**: `low`
-   - **Direction**: `bidirectional`
-   - **Impact Read**: `3`
-   - **Impact Write**: `4`
-   - Leave all other fields at their defaults.
-3. Click **OK**.
-
-A blue rounded rectangle labelled `arm_m4` appears on the canvas.
-
-### Step 3: Add the DMA Controller
-
-1. Click **Add Component**.
-2. Fill in the dialog:
-   - **Name**: `dma_ctrl`
-   - **Type**: `dma`
-   - **Domain**: `low`
-   - **Direction**: `bidirectional`
-   - **Impact Read**: `2`
-   - **Impact Write**: `3`
-3. Click **OK**.
-
-A green rectangle labelled `dma_ctrl` appears.
-
-### Step 4: Add the Bus
-
-1. Click **Add Component**.
-2. Fill in the dialog:
-   - **Name**: `ahb_bus`
-   - **Type**: `bus`
-   - **Domain**: `low`
-3. Click **OK**.
-
-A grey wide rectangle labelled `ahb_bus` appears.
-
-### Step 5: Add the Temperature Sensor
-
-1. Click **Add Component**.
-2. Fill in the dialog:
-   - **Name**: `temp_sensor`
-   - **Type**: `ip_core`
-   - **Domain**: `high`
-   - **Direction**: `input`
-   - **Impact Read**: `4`
-   - **Impact Write**: `1`
-   - **Is Critical IP**: checked
-3. Click **OK**.
-
-An orange oval with a red dashed border appears for `temp_sensor`.
-
-### Step 6: Add the PWM Output
-
-1. Click **Add Component**.
-2. Fill in the dialog:
-   - **Name**: `pwm_out`
-   - **Type**: `ip_core`
-   - **Domain**: `high`
-   - **Direction**: `output`
-   - **Impact Read**: `1`
-   - **Impact Write**: `5`
-3. Click **OK**.
-
-### Step 7: Add the Data Logger
-
-1. Click **Add Component**.
-2. Fill in the dialog:
-   - **Name**: `data_logger`
-   - **Type**: `ip_core`
-   - **Domain**: `low`
-   - **Direction**: `output`
-   - **Impact Read**: `2`
-   - **Impact Write**: `3`
-3. Click **OK**.
-
-### Step 8: Add Links
-
-You should now have 6 nodes on the canvas. Connect them by clicking **Add Link** and then clicking source and destination in sequence:
-
-1. Click **Add Link** → click `arm_m4` → click `ahb_bus`. A directed arrow from `arm_m4` to `ahb_bus` appears.
-2. Click **Add Link** → click `ahb_bus` → click `temp_sensor`.
-3. Click **Add Link** → click `ahb_bus` → click `pwm_out`.
-4. Click **Add Link** → click `ahb_bus` → click `data_logger`.
-5. Click **Add Link** → click `dma_ctrl` → click `ahb_bus`.
-
-Press **Escape** to exit link mode.
-
-### Step 9: Arrange Nodes (Optional)
-
-Click **Auto Layout**. The nodes rearrange into a clean left-to-right hierarchy: `arm_m4` and `dma_ctrl` on the left, `ahb_bus` in the centre, and `temp_sensor`, `pwm_out`, `data_logger` on the right.
-
-### Step 10: Declare Access Needs
-
-1. Click **Access Needs** in the sidebar.
-2. In the dialog, click **Add** and set: Master = `arm_m4`, Component = `temp_sensor`, Operation = `read`. Click OK on the row.
-3. Click **Add** and set: Master = `arm_m4`, Component = `pwm_out`, Operation = `write`. Click OK.
-4. Click **Add** and set: Master = `dma_ctrl`, Component = `data_logger`, Operation = `write`. Click OK.
-5. Click **OK** to close the Access Needs dialog.
-
-### Step 11: Verify ASP Facts
-
-1. Click **Show ASP Facts** in the toolbar.
-2. Select the **Summary** tab.
-3. Verify the following counts are correct:
-   - `component: 6`
-   - `allow_rule: 3`
-   - `asset: 3` (one per IP core)
-   - `link: 5`
-
-4. You will see warnings about `cand_fw: 0` and `on_path: 0`. These are **expected at this stage** — this topology has no firewall or policy server candidates, so Phase 2 will be UNSAT. Phase 1 and Phase 3 will still run.
-5. Close the dialog.
-
-### Step 12: Run Analysis
-
-Click **Run Analysis** in the toolbar. The Progress Panel begins showing log output. Watch the phase indicators light up in sequence:
-- Phase 1 completes: resource metrics appear in the Results Panel cards.
-- Phase 2: the progress log will report `UNSAT — no candidate firewalls exist`. The Phase 2 sections of the cards will show `UNSAT`.
-- Phase 3: built-in single-component scenarios run against the Phase 1 results.
-
-After a few seconds, analysis completes and the status bar reads `Analysis complete`.
-
-### Step 13: Inspect Overlays
-
-1. Check the **Show Overlay** checkbox in the sidebar.
-2. The IP core nodes (`temp_sensor`, `pwm_out`, `data_logger`) now show coloured risk halos. `temp_sensor` (Impact Read = 4, Is Critical) will likely show a yellow or red halo. `data_logger` will show a lower-risk colour.
-3. The links to the IP cores will be coloured orange dashed (declared access need but no FW protection), which confirms the Phase 2 UNSAT status visually.
-
-4. Check the **Blast Radius** checkbox. All nodes show similar ring sizes — this is expected in a flat bus topology where every node is one hop from the bus and thus from all other nodes.
-
-### Step 14: Review Phase 1 Results
-
-1. In the **Strategy 1** card, click **Details...** (the Phase 1 details button).
-2. Select the **Security Features** tab. This shows which security features the solver placed on each component under the Max Security strategy (e.g., `arm_m4 ← MAC encryption`, `temp_sensor ← DMT logging`).
-3. Select the **Risk Breakdown** tab. Verify that `temp_sensor` has the highest residual risk of the three IP cores (because Impact Read = 4 and it is marked critical).
-4. Close the dialog.
-
-### Step 15: Add Firewall Support
-
-To enable Phase 2 and get a full ZTA result, add a firewall and policy server:
-
-1. Click **Add Component** → Name = `pep1`, Type = `firewall`, FW Cost = `150`. Click OK.
-2. Click **Add Component** → Name = `ps0`, Type = `policy_server`, PS Cost = `100`. Click OK.
-3. Click **Add Link** → click `arm_m4` → click `pep1`.
-4. Click **Add Link** → click `pep1` → click `temp_sensor`.
-5. Click **Add Link** → click `ps0` → click `pep1`.
-
-This creates a guarded path: `arm_m4 → pep1 → temp_sensor`. The path for `pwm_out` and `data_logger` via `ahb_bus` remains unguarded (for comparison).
-
-6. Click **Run Analysis** again. This time Phase 2 will find a solution that places `pep1` and `ps0`, generating an allow rule for `arm_m4 / temp_sensor / read`.
-
-7. Click **View ZTA Layout** to see the architectural view with `pep1` marked as `PLC` and `temp_sensor` shown as a green (protected) IP core.
+1. **Read the VERDICT first** — it tells you the overall picture in one paragraph
+2. **Check the architecture assessment** — ADEQUATE means you can proceed to production; REDESIGN means stop and fix the topology
+3. **Focus on the LONG POLE** — this is the single most impactful improvement you can make
+4. **Review STRUCTURAL ISSUES** — these persist no matter which strategy you choose; they require topology changes, not parameter tuning
+5. **Check MISSION CAPABILITIES** — if essential capabilities are at risk, add redundancy before anything else
 
 ---
 
-## 9. Understanding What the Results Mean
+## 15. Full Report
 
-### 9.1 Phase 2 UNSAT
+Opened by clicking **View Full Report** in the results panel.
 
-A Phase 2 UNSAT result means the solver could not find a valid Zero Trust Architecture policy for the current topology and access needs. The most common causes are:
+The report is a comprehensive text document containing:
 
-- **No candidate firewalls** (`cand_fw = 0`): the topology contains no nodes of type `firewall`. Phase 2 requires at least one firewall candidate to generate a policy. Add a firewall node and link it on the path between a master and an IP core.
-- **No on-path facts** (`on_path = 0`): firewall candidates exist, but none of them lie on a bus-routed path between any master and any IP core with a declared access need. Check that links form a connected path through the firewall.
-- **Contradictory access needs**: two access needs require opposite policies on the same component (rare; usually caused by mis-entered data).
+1. **Executive Summary**: Top recommendation and key finding (best strategy, total risk, LUT percentage)
+2. **Per-Solution Details** (repeated for each of the 3 strategies):
+   - Risk Profile: Total risk and per-asset risk breakdown
+   - Resource Usage: LUTs, FFs, Power with percentage of FPGA capacity
+   - Feature Assignments: Table showing security feature + logging mode + risk per component
+   - Policy Analysis: FW/PS placement, excess/missing privileges, trust gaps
+   - Resilience Analysis: All scenario results with risk, blast radius, control plane status, service impacts
+   - Pros: Advantages of this strategy over the others
+   - Cons: Disadvantages and security warnings
+3. **Comparison Table**: Numeric side-by-side table of all key metrics plus normalized scores (security_score, resource_score, resilience_score, policy_score)
+4. **Recommendations**: Actionable security improvement suggestions
 
-The Phase 2 Details dialog (Privileges tab) states the UNSAT reason when one is detected.
-
-### 9.2 Policy Tightness Score
-
-The policy tightness score for a master ranges from 0 to 100 and measures how precisely the generated policy matches the declared access needs.
-
-- **100 (fully tight)**: every allow rule in the generated policy corresponds exactly to a declared access need. No master has been granted access to anything it did not explicitly declare it needs.
-- **0 (fully permissive)**: the master has blanket access — allow rules exist for operations and IP cores that were never declared as needed.
-- **Intermediate values** reflect partial over-provisioning. A score below 80 is flagged as over-privileged in the Policy Tightness tab.
-
-A lower score does not necessarily mean the policy is insecure in isolation, but it means the principle of least privilege is being violated. An attacker who compromises a master with a low tightness score gains more capability than the declared needs would suggest.
-
-### 9.3 Blast Radius: Flat Bus vs Segmented Topology
-
-**Flat bus**: when all components are connected to a single shared bus (like the worked example in Section 8), every node can physically reach every other node via the bus. All blast radii are therefore equal and equal to `(total nodes - 1)`. The Blast Radius overlay is uninformative in this case — all rings are the same colour.
-
-**Segmented topology**: when firewalls or separate bus segments partition the network, a compromised node can only reach nodes in the same segment or segments accessible through the firewall. Blast radii differ significantly between segments. The Blast Radius overlay becomes meaningful: nodes in large or central segments (such as the bus or a policy server) will have high blast radii (red rings), while nodes in isolated segments will have low blast radii (green rings). Segmentation is one of the key benefits of ZTA: it limits blast radius by design.
-
-### 9.4 Over-Privileged Masters
-
-A master is over-privileged when the policy has granted it allow rules for operations or IP cores that it did not declare a need for in the Access Needs dialog. This can happen when:
-- A firewall's placement rule is broader than required (it guards an IP core for a master that has no access need for that IP core).
-- A policy server's scope is too wide.
-- The access needs were not fully declared.
-
-The **Privileges tab** in the Phase 2 Details dialog lists the exact excess allow rules. To fix over-privilege, either remove the excess allow rules by adjusting the firewall placement or scope, or add the missing access needs if the access is genuinely required (in which case it should be explicitly declared).
-
-### 9.5 Trust Gaps
-
-A trust gap is reported when a component participates in the ZTA security policy — meaning it either enforces a policy rule (firewall), decides policy (policy server), or is subject to a high-impact rule — but lacks the hardware trust anchors that would make verification possible.
-
-Examples:
-- A **policy server without Secure Boot**: this PS generates and distributes allow/deny rules. If it lacks Secure Boot, an attacker who compromises its boot process can substitute a different policy without detection. The PS claims to enforce the declared policy, but there is no hardware-rooted way to verify that claim.
-- A **firewall without RoT**: the FW enforces allow/deny rules at the bus level. Without a hardware Root of Trust, its configuration can be tampered with after deployment.
-- An **IP core with high impact read/write but no attestation**: the asset is valuable, but there is no way to remotely verify that the component accessing it is the one the policy intended.
-
-Trust gaps do not cause UNSAT — the solver can still find a valid policy. They are advisory findings that a security reviewer should address before deploying the design.
+The report opens in a scrollable text window. Use the scrollbar to navigate.
 
 ---
 
-## 10. Tips and Keyboard Shortcuts
+## 16. Show ASP Facts Dialog
 
-### 10.1 Keyboard Shortcuts
+Opened by clicking **Show ASP Facts** on the toolbar.
+
+This shows the raw ASP (Answer Set Programming) facts generated from the current canvas topology. These are the exact facts sent to the Clingo solver.
+
+### Facts Tab
+
+Syntax-highlighted view of all generated facts:
+- **Blue**: Predicate names (component, asset, link, etc.)
+- **Green**: Comments (lines starting with %)
+- **Orange**: String values
+- **Light green**: Numeric values
+
+### Search Feature
+
+- Type in the search box to find specific facts (e.g., "crypto_eng" or "safety_critical")
+- Press Enter to jump to the next match, Shift+Enter for previous match
+- Match counter shows your position (e.g., "3 / 12")
+
+### Summary Tab
+
+Shows aggregated statistics:
+- Total lines and non-blank/comment count
+- Fact counts per predicate type (how many `component()`, `asset()`, `link()`, etc.)
+- Warnings about missing critical facts (no components, no cand_fw, no on_path, etc.)
+- Model overview: component/link/asset/service counts
+
+### Export Options
+
+- **Copy All**: Copies all facts to clipboard for pasting elsewhere
+- **Save...**: Saves as a `.lp` file that can be run directly with Clingo for debugging
+
+---
+
+## 17. Solver Config Dialog
+
+Opened by clicking **Solver Config** on the toolbar.
+
+Lets you override the ASP objectives for each strategy. The dialog has three tabs (Max Security, Min Resources, Balanced) each with a text editor showing the extra ASP facts injected for that strategy.
+
+### Default Strategy Objectives
+
+**Max Security**: (empty — uses the default `#minimize` in the encoding unchanged)
+
+**Min Resources**:
+```
+% min_resources strategy: add secondary LUT objective
+#minimize { LUTs@2, total : total_luts_used(LUTs) }.
+```
+
+**Balanced**:
+```
+% balanced strategy: explicit total-risk objective plus LUT tie-break
+total_risk_sum(R) :- R = #sum { Risk, C, Asset, Action : new_risk(C, Asset, Action, Risk) }.
+#show total_risk_sum/1.
+#minimize { R@2 : total_risk_sum(R) }.
+#minimize { L@1 : total_luts_used(L) }.
+```
+
+### When to Modify
+
+- To tighten risk bounds: Add `system_capability(max_security_risk, 2).`
+- To relax resource constraints: Add `system_capability(max_luts, 80000).`
+- To add custom ASP rules or constraints for specific components
+- To experiment with different optimization priorities
+
+Click **Reset Defaults** to restore the built-in objectives. Click **OK** to apply changes (they take effect on the next Run Analysis). Click **Cancel** to discard.
+
+---
+
+## 18. Threat Model and Security Framework
+
+The tool implements a formal threat model documented in `docs/threat_model.md`. Understanding this model is essential for interpreting results correctly.
+
+### System Abstraction
+
+The SoC is modeled as a directed graph G = (V, E) where nodes are hardware components (masters, receivers, buses, firewalls, policy servers) and edges are physical bus connections. Each component is annotated with a trust domain, CIA impact scores, and exploitability rating.
+
+### Adversary Model
+
+The tool assumes a **network-capable adversary** who can:
+- Inject or observe transactions on any bus segment reachable from a compromised master
+- Fully compromise any single component (read/write/execute control)
+- Attempt lateral movement through bus topology from compromised nodes
+- Manipulate policies by compromising a policy server
+
+The adversary **cannot**: physically probe the die at runtime, simultaneously compromise independent components without a topological path, or break correctly-implemented cryptographic primitives.
+
+### Attack Scenarios
+
+Phase 3 resilience analysis evaluates the system under parameterized scenarios:
+
+| Scenario Class | Description | Example |
+|---------------|-------------|---------|
+| Single-master compromise | One bus master under adversary control | Compromised DMA via malicious firmware |
+| Bus failure | A bus segment is non-functional | Manufacturing defect or targeted DoS |
+| PS compromise | Policy server poisoned | Supply-chain attack on PS firmware |
+| PEP bypass | Firewall component compromised | Hardware trojan in firewall IP |
+| Redundancy group compromise | All redundant members compromised | Common-mode vulnerability |
+| Combined | Simultaneous compromise + failure | Master compromised while bus is down |
+
+### Trust Boundaries and Domains
+
+```
+Level 0: untrusted, low     - External interfaces, debug ports
+Level 1: normal              - General-purpose processing
+Level 2: privileged          - OS kernel, trusted peripherals
+Level 3: high, root          - Crypto engines, safety-critical actuators
+```
+
+A **cross-trust boundary** access occurs when a lower-domain master accesses a higher-domain asset. These are the primary privilege escalation vector and are mediated by firewalls (PEPs).
+
+### Security Properties Enforced
+
+| Property | Definition | Enforcement |
+|----------|-----------|-------------|
+| **Confidentiality** | No unauthorized read access to assets | Deny rules + firewall mediation |
+| **Integrity** | No unauthorized write access to assets | Deny rules + firewall mediation (1.5x weight) |
+| **Availability** | Services meet quorum under failure | Redundancy groups + quorum thresholds (2.0x weight) |
+| **Isolation** | Safety-critical components unreachable from low-trust masters in elevated modes | Hard constraint (UNSAT if violated) |
+| **Least Privilege** | No master has access beyond declared needs | Soft property (reported as excess privilege) |
+| **Functional Resilience** | Mission-capable under compromise/failure | Capability assessment (OK/degraded/lost) |
+
+### Risk Quantification
+
+**Base Risk** = Impact + DomainBonus + ExploitMod - SecurityProtection - LogProtection
+
+**Scenario Risk** = BaseRisk x MaxAmplificationFactor
+
+| Exposure Type | Amplification | Condition |
+|--------------|--------------|-----------|
+| Direct | 3.0x | Asset's owner is compromised |
+| Cross-trust indirect | 2.0x | Reachable across trust boundary |
+| Unmediated | 2.5x | PEP guarding asset is bypassed |
+| Same-trust indirect | 1.5x | Lateral movement within same trust |
+| PS conflict | 1.3x | Split-brain: one PS compromised, another alive |
+| Stale policy | 1.2x | Governing PS failed; PEP on stale rules |
+
+**Protection Discount** reduces indirect exposure factors: security_discount (zero_trust=5, dynamic_mac=3, mac=1) + logging_discount (zero_trust_logger=2, some_logging=1), capped at 7.
+
+### CIA Weighting Justification
+
+| Dimension | Weight | Rationale |
+|-----------|--------|-----------|
+| Confidentiality (read) | 1.0x | Data leakage is serious but not immediately safety-affecting |
+| Integrity (write) | 1.5x | Corrupted sensor data or actuator commands cause physical harm |
+| Availability (avail) | 2.0x | Denial of a safety-critical function has immediate physical consequences |
+
+These weights are calibrated for **embedded/safety-critical SoC** systems. For data-centric SoCs (e.g., network processors), the weights should be adjusted (C > I >= A).
+
+### Resilience Score Composition
+
+**Resilience = 0.4 x BlastRadius + 0.4 x CapabilityRetention + 0.2 x ControlPlane**
+
+| Sub-metric | Formula | Rationale |
+|-----------|---------|-----------|
+| BlastRadius | 100 - (avg_blast / total_nodes x 100) | Lower blast = better containment |
+| CapabilityRetention | avg(OK + 0.5xDegraded) / TotalCaps x 100 | Penalizes lost capabilities; 0.25x if essential lost |
+| ControlPlane | avg(100 if OK, 40 if degraded, 0 if compromised) | ZTA enforcement mechanism health |
+
+### Standards Mapping
+
+| Standard | How the Tool Maps to It |
+|----------|------------------------|
+| NIST SP 800-207 (ZTA) | Phase 2: PEP placement, PDP governance, least-privilege policy, trust evaluation |
+| CVSS v3.1 | Exploitability scores map to CVSS base attack complexity; impact maps to CIA metrics |
+| ISO 26262 (Functional Safety) | Safety-critical isolation, service quorum, system functional status |
+| NIST SP 800-53 (AC, SI) | Access control policy synthesis (AC), integrity monitoring via logging (SI) |
+| IEC 62443 | Domain hierarchy maps to zones/conduits; security levels map to protection features |
+
+For the complete formal treatment including mathematical definitions and scope limitations, see `docs/threat_model.md`.
+
+---
+
+## 19. SecureSoC-16 Reference Architecture
+
+The SecureSoC-16 (RefSoC-16) is a comprehensive reference SoC designed to exercise every feature of the DSE tool. Load it by clicking **Load RefSoC-16** on the toolbar.
+
+### Topology Diagram
+
+```
+  arm_a53 (privileged) ──┐
+  arm_m4  (normal)    ───┤── axi_main ──┬── axi_sec ──── crypto_eng (root, safety-critical)
+  dma0    (normal)    ───┘              │                  nvram (privileged)
+                                        │
+                                        ├── apb_periph ── sensor_a (normal, redundant)
+                                        │                  sensor_b (normal, redundant)
+                                        │                  sensor_c (normal, redundant)
+                                        │                  actuator (privileged, safety-critical)
+                                        │                  watchdog (privileged, safety-critical)
+                                        │                  gpio (low)
+                                        │                  debug_jtag (untrusted)
+                                        │
+                                        └── comm_eth (untrusted)
+
+  ZTA Infrastructure:
+    fw_secure  ─── guards axi_sec segment (crypto_eng, nvram)
+    fw_periph  ─── guards apb_periph (sensors, actuator, watchdog, gpio, debug_jtag)
+    ps_main    ─── primary policy server (signed policy, key_storage)
+    ps_backup  ─── backup policy server
+```
+
+### Components (16 total)
+
+**Masters (3):**
+
+| Name | Type | Domain | Exploit | Trust Anchors |
+|------|------|--------|---------|---------------|
+| arm_a53 | processor | privileged | 2 (hard) | RoT + sboot + attest + key_storage |
+| arm_m4 | processor | normal | 3 (neutral) | sboot only |
+| dma0 | dma | normal | 4 (easy) | none |
+
+**Secure-Domain IP Cores (2):**
+
+| Name | Domain | Safety | Exploit | Trust Anchors | Impact R/W/A |
+|------|--------|--------|---------|---------------|------------|
+| crypto_eng | root | Yes | 1 (very hard) | RoT + sboot + key_storage | 4/3/2 |
+| nvram | privileged | No | 2 (hard) | RoT + key_storage | 5/5/3 |
+
+**Sensor Array (3, Redundancy Group g1, quorum=2):**
+
+| Name | Domain | Direction | Avail Impact | Trust |
+|------|--------|-----------|--------------|-------|
+| sensor_a | normal | input | 4 | sboot |
+| sensor_b | normal | input | 4 | sboot |
+| sensor_c | normal | input | 3 | none |
+
+**Peripherals (4):**
+
+| Name | Domain | Safety | Exploit | Direction | Impact R/W/A |
+|------|--------|--------|---------|-----------|------------|
+| actuator | privileged | Yes | 3 | output | 1/5/5 |
+| comm_eth | untrusted | No | 5 (trivial) | bidirectional | 4/3/4 |
+| watchdog | privileged | Yes | 2 | bidirectional | 1/2/5 |
+| gpio | low | No | 3 | bidirectional | 1/2/1 |
+
+**Debug:**
+
+| Name | Domain | Exploit | Notes |
+|------|--------|---------|-------|
+| debug_jtag | untrusted | 5 (trivial) | Highest attack surface, high C/I impact |
+
+### What Makes RefSoC-16 Special
+
+This architecture was designed to exercise every DSE tool feature:
+
+- **All 6 domain levels**: untrusted (comm_eth, debug_jtag), low (gpio), normal (arm_m4, dma0, sensors), privileged (arm_a53, actuator, watchdog, nvram), root (crypto_eng)
+- **Full CIA triad**: Read-heavy (sensors), write-heavy (actuator, nvram), availability-critical (watchdog, sensors)
+- **Exploitability range 1-5**: From crypto_eng(1) through debug_jtag(5)
+- **Triple redundancy**: sensor_a, sensor_b, sensor_c in group g1
+- **3 safety-critical components**: crypto_eng, actuator, watchdog — these must be isolated in elevated threat modes
+- **5 trust anchor types**: RoT, secure boot, attestation, key_storage, signed_policy
+- **3 bus segments** with distinct trust boundaries: axi_main (backbone), axi_sec (crypto/storage), apb_periph (sensors/actuators)
+- **4 services**: sensor_svc (quorum=2), control_svc (quorum=2), comms_svc (quorum=1), crypto_svc (quorum=1)
+- **Policy exceptions**: Debug access in maintenance mode, DMA GPIO during firmware update, emergency actuator override
+
+### System Capabilities (PYNQ-Z2 xc7z020)
+
+| Capability | Value |
+|------------|-------|
+| max_power | 15,000 mW |
+| max_luts | 53,200 |
+| max_ffs | 106,400 |
+| max_dsps | 220 |
+| max_bram | 140 |
+| max_security_risk | 4 |
+| max_avail_risk | 25 |
+
+---
+
+## 20. TC9 Reference Architecture
+
+TC9 is the original test case topology used during development. Load it by clicking **Load TC9** on the toolbar.
+
+### Topology Diagram
+
+```
+  sys_cpu (privileged) ──┐
+  dma     (normal)    ───┤── noc0 ──┬── c1 (redundant group, high)
+                         │          ├── c2 (redundant group, high)
+                         │          ├── c3 (redundant group, high)
+                         │          ├── c4 (redundant group, high)
+                         │          ├── c5 (redundant group, high)
+                         │          ├── noc1 ──── c6 (high)
+                         │          │             c7 (high)
+                         │          └── c8 (high)
+                         │
+                         └── ps0, ps1 (policy servers)
+                             pep_group (FW, guards c1-c5)
+                             pep_standalone (FW, guards c6-c8)
+```
+
+**Key characteristics:**
+- **2 masters**: sys_cpu (privileged), dma (normal)
+- **8 IP cores**: c1-c5 (redundant group g1, quorum-based), c6-c8 (standalone)
+- **2 buses**: noc0 (main), noc1 (secondary, connects c6/c7)
+- **2 firewalls**: pep_group (guards c1-c5), pep_standalone (guards c6-c8)
+- **2 policy servers**: ps0, ps1
+- **Tight latency on c8**: Forces the solver to use a weaker security feature (mac instead of zero_trust)
+
+---
+
+## 21. Interpreting Results — A Complete Walkthrough
+
+This section walks through interpreting a complete TC9 analysis run from start to finish.
+
+### Step 1: Load and Run
+
+1. Click **Load TC9** on the toolbar
+2. Observe the topology on the canvas — nodes are color-coded by type
+3. Click **Run Analysis**
+4. Watch the progress log: you should see Phase 1/2/3 completing for all three strategies
+5. Wait for "=== DSE Analysis Complete ===" in the log
+
+### Step 2: Read the Strategy Cards
+
+Look at the three cards side by side. Key things to compare:
+
+| What to Look For | What It Tells You |
+|---|---|
+| All three show SAT (green) | The topology and constraints are well-formed |
+| Risk values differ significantly | The strategies are exploring meaningfully different trade-offs |
+| LUT values increase with security | More security = more hardware — this is the fundamental trade-off |
+
+### Step 3: Dig into Phase 1 Details
+
+Click **Details...** on the Max Security card.
+
+1. **Resources tab**: Check LUT percentage. Above 80% means you're tight on the PYNQ-Z2.
+2. **Security Features tab**: Verify critical components got zero_trust. If c8 got mac instead, that's the latency constraint at work — c8's tight budget cannot accommodate zero_trust's higher latency.
+3. **Risk Breakdown tab**:
+   - Section 1: Which non-redundant components contribute the most risk? High-domain, high-exploitability components will dominate.
+   - Section 3: Per-component totals help you quickly spot the riskiest components.
+   - Section 5: CIA summary — integrity risk is typically weighted 1.5x and availability 2.0x, reflecting the physical consequences of write/DoS attacks on embedded systems.
+
+### Step 4: Check Phase 2 Policy
+
+Click **Details...** on the Phase 2 section.
+
+1. **Allow/Deny Rules tab**: Verify deny rules exist for all master-receiver pairs in attack_confirmed mode. This confirms full isolation capability.
+2. **Policy Tightness tab**: Any master below 50% is over-privileged. DMA controllers often score low here because they have broad bus access but limited declared needs.
+3. **Trust Gaps tab**: Count the total gaps. Each is a hardening recommendation. Prioritize:
+   - Unattested privileged access (highest risk — identity spoofing)
+   - Missing RoT on high-domain components
+   - Unsigned policy servers
+4. **Privileges tab**: Excess privileges are the most actionable Phase 2 finding. Each represents an attack surface that should be reduced.
+
+### Step 5: Examine Phase 3 Scenarios
+
+Click **Details...** on the Phase 3 section.
+
+1. Select **baseline** first. Note the total risk — this is your reference.
+2. Select **sys_cpu_compromise**. Compare total risk vs baseline — the amplification factor tells you how damaging a CPU compromise is.
+3. Check **Services** across scenarios. If any service goes "unavail", that scenario causes a service outage. The quorum requirement determines resilience.
+4. Check **Control plane** on ps0_compromise. If it shows "COMPROMISED", the entire ZTA fabric is at risk.
+5. Look at **Blast radii** — buses (noc0, axi_main) typically have the highest values because they connect to everything.
+
+### Step 6: Compare Strategies
+
+Click **Compare Strategies** for the color-coded table.
+
+Key trade-offs to evaluate:
+- **Risk vs LUTs**: Is reducing risk from 42 to 18 worth 14,200 extra LUTs?
+- **Worst Risk**: For safety-critical systems, worst-case scenario risk matters more than average risk
+- **P2 Cost**: Does deploying 2 policy servers vs 1 justify the extra hardware?
+
+### Step 7: Export and Report
+
+- Click **View Full Report** for the comprehensive document including recommendations
+- Use **View > Export Results as CSV** to get data into a spreadsheet for presentations or further analysis
+
+---
+
+## 22. CSV Export
+
+**Menu:** View > Export Results as CSV...
+
+Exports one row per strategy with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| Strategy | max_security, min_resources, balanced |
+| Label | Human-readable strategy name |
+| P1 SAT | SAT or UNSAT |
+| P1 Optimal | Whether the Phase 1 solution is proven optimal |
+| LUTs, FFs, DSPs, BRAMs, Power | FPGA resource metrics |
+| Total Risk | Sum of max risk per asset |
+| P2 SAT | Phase 2 satisfiability |
+| FWs Placed | Names of deployed firewalls |
+| PSes Placed | Names of deployed policy servers |
+| Protected IPs | Count of IPs behind a firewall |
+| P2 Cost | Total FW+PS deployment cost |
+| Avg Tightness | Average policy tightness score (0-100) |
+| Num Scenarios | Number of Phase 3 scenarios run |
+| Worst Risk | Highest single-scenario risk value |
+| Avg Blast Radius | Average maximum blast radius across scenarios |
+
+---
+
+## 23. Regression Testing
+
+The tool includes a comprehensive regression test suite with 127 tests covering all modules.
+
+### Running the Suite
+
+```bash
+cd D:\DSE\DSE_ADD
+py -3.12 -m unittest tests.test_regression -v
+```
+
+### What the Tests Cover
+
+| Category | Tests | What It Validates |
+|----------|-------|-------------------|
+| Data model | 5 | Component, Asset, NetworkModel creation and defaults |
+| TC9 factory | 14 | All TC9 model fields: components, buses, links, services, capabilities, trust anchors |
+| RefSoC-16 factory | 12 | All RefSoC fields: domain coverage, exploitability range, direction types |
+| ASP generator | 22 | Fact generation correctness: components, assets, links, domains, direction filtering |
+| Topology validation | 6 | Structural UNSAT detection: missing FW coverage, ungoverned FW, bad ip_loc |
+| Solution parser | 13 | Phase1/2/3Result methods: risk computation, serialization, properties |
+| Solution ranker | 11 | Scoring, CIA weighting, capability penalties, resource ordering |
+| Comparison engine | 3 | Pros/cons generation, custom caps, report text |
+| Executive summary | 5 | Analysis output, architecture verdict, bottleneck sorting |
+| Scenario generation | 8 | Auto-scenarios from topology, name validation, deduplication |
+| Clingo integration | 2 | Basic SAT/UNSAT with real solver |
+| Phase 1 integration | 4 | TC9 all 3 strategies + RefSoC max_security (real Clingo) |
+| Phase 2 integration | 1 | TC9 ZTA policy synthesis (real Clingo) |
+| Phase 3 integration | 3 | Baseline, auto-scenarios, capability assessment (real Clingo) |
+| Full pipeline | 3 | TC9 orchestrator end-to-end, executive summary, RefSoC Phase 1 |
+| Edge cases | 12 | Empty inputs, no solutions, single-solution comparison, constants |
+
+### Test Duration
+
+The full suite takes approximately 2.5 minutes due to Clingo solver integration tests. Unit-only tests (categories 1-10) complete in under 1 second.
+
+### Adding New Tests
+
+Tests are in `tests/test_regression.py` using Python's `unittest` framework. To add a test:
+
+1. Add a method to the appropriate `Test*` class (or create a new class)
+2. Use `self.skipTest()` for tests requiring clingo when it's unavailable
+3. Run the suite to verify your test passes
+
+---
+
+## 24. Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Z` | Undo last canvas operation |
-| `Ctrl+Y` | Redo last undone operation |
-| `Ctrl+=` | Zoom in |
-| `Ctrl+-` | Zoom out |
-| `Ctrl+F` | Open Find Component dialog |
-| `Ctrl+C` | Copy selected node(s) |
-| `Ctrl+V` | Paste copied node(s) at an offset |
-| `Delete` | Delete all selected nodes and their links |
-| `Double-click` on node | Open property editor for that node |
-| `Enter` (in search/dialog) | Confirm selection / advance to next search match |
-| `Shift+Enter` (in search) | Go to previous search match |
-| `Escape` | Cancel current link mode or close a dialog |
-
-### 10.2 Workflow Tips
-
-1. **Always check the ASP Facts Summary tab before running analysis.** It catches missing facts (zero `cand_fw`, zero `on_path`, zero `allow_rule`) that would cause UNSAT and save you time waiting for the solver. Ten seconds of checking the summary tab can avoid a confusing UNSAT result.
-
-2. **The ZTA Cross-check button is the fastest way to verify Phase 2 consistency.** After analysis, open the ZTA Layout dialog and click Cross-check. A clean pass means every declared access need is accounted for (either protected or explicitly unprotected). Any warning points directly at a topology or access needs configuration issue.
-
-3. **Use Auto Layout after importing a large topology.** JSON files imported from another designer or from a script may have all nodes stacked at the default position. Click Auto Layout immediately after loading to spread the nodes into a readable hierarchy.
-
-4. **Save your topology as JSON before running analysis.** Analysis does not auto-save. If you modify the topology while reading results and want to go back, the saved JSON is your restore point. Use File > Save Network or the sidebar Save JSON button.
-
-5. **The Compare Strategies dialog is the best starting point for choosing a strategy.** After a successful analysis, click Compare Strategies and look at the colour-coded grid. Count the green cells for your priority dimension (security, resources, or balance). The strategy with the most green cells in your priority columns is the recommended choice.
-
-6. **Declare all access needs explicitly, even obvious ones.** Phase 2 only generates allow rules for declared access needs. If you assume a processor can read from a bus implicitly without declaring a need, Phase 2 will not protect that access — and the Trust Gaps report will not flag it because there is no policy for it at all.
-
-7. **Use custom Phase 3 scenarios to test realistic attack chains.** The built-in scenarios test single-component compromise. Real attacks often involve a chain: an attacker compromises a DMA controller, then uses it to overwrite a policy server's configuration, then disables a firewall. Model this as a multi-component scenario (DMA + PS compromised simultaneously) to see the combined blast radius and service impact.
-
-8. **Solver Config text areas are session-only.** Any extra ASP clauses you enter in the Solver Config dialog are not saved in the JSON topology file. If you rely on custom strategy clauses, note them separately and re-enter them after loading the topology in a new session.
-
-9. **If Phase 1 is UNSAT, first try relaxing the FPGA budget.** Open FPGA Config and increase `max_asset_risk` or `max_luts`. Phase 1 UNSAT most often means the current budget is too tight for the number of security features required by the topology. Increasing the risk budget by 10–20% often reveals whether the topology is fundamentally unacceptable (always UNSAT) or just budget-constrained.
-
-10. **Use the Blast Radius overlay only in segmented topologies.** In flat bus designs, all nodes have equal blast radius and the overlay provides no differentiation. Add firewalls and separate bus segments, re-run analysis, and then enable Blast Radius to see meaningful differentiation between high-risk central nodes and low-risk leaf nodes.
+| Ctrl+Z | Undo (canvas edit) |
+| Ctrl+Y | Redo (canvas edit) |
+| Ctrl+C | Copy selected node |
+| Ctrl+V | Paste node |
+| Ctrl+= | Zoom in |
+| Ctrl+- | Zoom out |
+| Enter (in search) | Next search match |
+| Shift+Enter (in search) | Previous search match |
 
 ---
 
-*End of DSE Security Analysis Tool User Guide.*
+## 25. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **ASP** | Answer Set Programming — the constraint logic programming paradigm used by the Clingo solver to find optimal solutions |
+| **Blast Radius** | Number of components reachable from a given node via topology links. Measures lateral movement potential. |
+| **CIA Triad** | Confidentiality, Integrity, Availability — the three pillars of information security |
+| **Clingo** | The ASP solver engine that finds optimal solutions under constraints |
+| **Domain** | Trust level assigned to a component: untrusted, low, normal, privileged, high, root |
+| **DSE** | Design Space Exploration — systematic evaluation of design alternatives |
+| **Exploitability** | How easy a component is to attack: 1=very hard, 3=neutral, 5=trivial |
+| **FPGA** | Field-Programmable Gate Array — the reconfigurable hardware target platform |
+| **LUT** | Look-Up Table — basic FPGA logic element; proxy for silicon area usage |
+| **PDP** | Policy Decision Point — the policy server that makes access control decisions |
+| **PEP** | Policy Enforcement Point — the firewall that enforces access control decisions |
+| **PYNQ-Z2** | Xilinx xc7z020 development board used as the reference FPGA target |
+| **Quorum** | Minimum number of service members that must be functional for the service to remain operational |
+| **Redundancy Group** | Set of interchangeable components that provide fault tolerance through replication |
+| **RoT** | Root of Trust — hardware-backed trust anchor for secure boot chain verification |
+| **SAT** | Satisfiable — the solver found at least one valid solution meeting all constraints |
+| **SoC** | System on Chip — integrated circuit combining multiple functional components |
+| **UNSAT** | Unsatisfiable — no valid solution exists under the given constraints |
+| **Amplification Factor** | Multiplier applied to base risk under a specific compromise scenario — ranges from 1.0x (no exposure) to 3.0x (direct compromise) |
+| **Attack Path** | Multi-hop sequence from a compromised node to a target through the bus topology. Maximum depth: 5 hops |
+| **Bottleneck** | A specific issue limiting security or resilience, categorized as TOPOLOGY/CAPABILITY/TRUST/POLICY/FEATURE |
+| **Capability Retention** | Percentage of mission capabilities that remain OK or degraded (not lost) across scenarios |
+| **Effective Blast Radius** | Number of reachable nodes accounting for deployed firewalls (lower than structural blast radius) |
+| **Escalation Path** | An attack path that crosses a trust boundary (lower domain → higher domain) |
+| **Executive Summary** | One-page synthesis of all analysis data identifying the primary bottleneck and architecture verdict |
+| **Long Pole** | The single highest-priority bottleneck — the issue that, if fixed, would have the greatest impact on security or resilience |
+| **Mission Capability** | A high-level function the SoC must perform, composed of required services, components, and access paths |
+| **Protection Discount** | Reduction in indirect exposure factors based on deployed security features (zero_trust=5, dynamic_mac=3, mac=1) and logging |
+| **Structural Blast Radius** | Worst-case number of reachable nodes ignoring all firewalls (topology-only) |
+| **ZTA** | Zero Trust Architecture — security model where no component is implicitly trusted; all access requires explicit verification |

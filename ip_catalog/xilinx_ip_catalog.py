@@ -289,6 +289,16 @@ LOG_PROTECT_VALS = {
     "no_logging":        0,   # no forensic protection
 }
 
+# Availability protection scores: how well each feature mitigates DoS risk.
+# zero_trust provides microsegmentation that limits blast radius of DoS attacks.
+# dynamic_mac can adapt rules to isolate flooding sources at runtime.
+# mac is static and cannot react to volumetric DoS — minimal availability benefit.
+AVAIL_PROTECT_VALS = {
+    "zero_trust":   3,   # microsegmentation limits lateral DoS propagation
+    "dynamic_mac":  2,   # adaptive rules can isolate flooding sources
+    "mac":          1,   # static rules; minimal availability protection
+}
+
 
 # ---------------------------------------------------------------------------
 # IP Catalog — NoC / interconnect components
@@ -634,8 +644,9 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
         [
             "",
             "% Additive risk model: protection scores for opt_redundancy_generic_enc.lp",
-            "% security_protect_val(Feature, Score): cardinal reduction in residual risk",
+            "% security_protect_val(Feature, Score): C/I residual risk reduction",
             "% log_protect_val(Feature, Score):      forensic deterrence reduction",
+            "% avail_protect_val(Feature, Score):    DoS / availability risk reduction",
         ]
     )
     for feature in SECURITY_FEATURE_EXPORT_ORDER:
@@ -644,6 +655,9 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
     for feature in LOGGING_FEATURE_EXPORT_ORDER:
         val = LOG_PROTECT_VALS.get(feature, 0)
         lines.append(f"log_protect_val({feature}, {val}).")
+    for feature in SECURITY_FEATURE_EXPORT_ORDER:
+        val = AVAIL_PROTECT_VALS.get(feature, 0)
+        lines.append(f"avail_protect_val({feature}, {val}).")
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return output_path
@@ -666,6 +680,7 @@ __all__ = [
     "LOGGING_RISK_VALUES",
     "SECURITY_PROTECT_VALS",
     "LOG_PROTECT_VALS",
+    "AVAIL_PROTECT_VALS",
     "summarize_security_feature",
     "feature_cost_table",
     "get_calibrated_estimate",

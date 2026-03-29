@@ -34,7 +34,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..core.asp_generator import (
     NetworkModel, Component, Asset, RedundancyGroup, Service,
-    AccessNeed, ASPGenerator, make_tc9_network
+    AccessNeed, ASPGenerator, make_tc9_network, make_reference_soc
 )
 
 
@@ -70,7 +70,8 @@ PYNQ_Z2_CAPS = {
     "max_lutram":     17400,
     "max_bufgs":         32,
     "max_bram":         140,
-    "max_asset_risk":     3,   # additive model: max per-asset residual risk
+    "max_security_risk":  3,   # additive cap: non-redundant components
+    "max_avail_risk":    20,   # probabilistic cap: redundant groups
     "max_bufg":          32,
 }
 
@@ -91,6 +92,8 @@ class NodeData:
         domain: str = "high",
         impact_read: int = 3,
         impact_write: int = 3,
+        impact_avail: int = 0,
+        exploitability: int = 3,
         latency_read: int = 1000,
         latency_write: int = 1000,
         has_rot: bool = False,
@@ -103,24 +106,26 @@ class NodeData:
         fw_cost: int = 150,
         ps_cost: int = 100,
     ) -> None:
-        self.name         = name
-        self.comp_type    = comp_type
-        self.x            = x
-        self.y            = y
-        self.domain       = domain
-        self.impact_read  = impact_read
-        self.impact_write = impact_write
-        self.latency_read = latency_read
+        self.name          = name
+        self.comp_type     = comp_type
+        self.x             = x
+        self.y             = y
+        self.domain        = domain
+        self.impact_read   = impact_read
+        self.impact_write  = impact_write
+        self.impact_avail  = impact_avail
+        self.exploitability = exploitability
+        self.latency_read  = latency_read
         self.latency_write = latency_write
-        self.has_rot      = has_rot
-        self.has_sboot    = has_sboot
-        self.has_attest   = has_attest
-        self.is_critical  = is_critical
+        self.has_rot       = has_rot
+        self.has_sboot     = has_sboot
+        self.has_attest    = has_attest
+        self.is_critical   = is_critical
         self.is_safety_critical = is_safety_critical
-        self.direction    = direction
+        self.direction     = direction
         self.extra_assets: List[dict] = extra_assets if extra_assets is not None else []
-        self.fw_cost      = fw_cost
-        self.ps_cost      = ps_cost
+        self.fw_cost       = fw_cost
+        self.ps_cost       = ps_cost
 
         # Canvas item IDs (set after draw)
         self.canvas_id: Optional[int] = None
@@ -137,6 +142,8 @@ class NodeData:
             domain=self.domain,
             impact_read=self.impact_read,
             impact_write=self.impact_write,
+            impact_avail=self.impact_avail,
+            exploitability=self.exploitability,
             latency_read=self.latency_read,
             latency_write=self.latency_write,
             has_rot=self.has_rot,
@@ -207,6 +214,12 @@ class NetworkEditor(ttk.Frame):
 
         # Copy/paste
         self._clipboard: Optional[NodeData] = None
+
+        # Model-level overrides (populated by _load_model / load presets)
+        self._model_trust_anchors:      dict        = {}
+        self._model_roles:              List[tuple] = []
+        self._model_policy_exceptions:  list        = []
+        self._model_capabilities:       list        = []
 
         # Analysis results overlay
         self._analysis_results: Optional[dict] = None
@@ -300,6 +313,8 @@ class NetworkEditor(ttk.Frame):
 
         ttk.Button(sidebar, text="Load TC9 Example",
                    command=self.load_tc9_example).pack(fill=tk.X, pady=2)
+        ttk.Button(sidebar, text="Load RefSoC-16",
+                   command=self.load_reference_soc).pack(fill=tk.X, pady=2)
 
         ttk.Separator(sidebar, orient="horizontal").pack(fill=tk.X, pady=4)
 
@@ -495,32 +510,96 @@ class NetworkEditor(ttk.Frame):
     # Public API
     # ------------------------------------------------------------------
 
-    def load_tc9_example(self) -> None:
-        """Pre-populate the editor with the testCase9 topology."""
-        self._clear_all(confirm=False)
-        model = make_tc9_network()
+    # ------------------------------------------------------------------
+    # Example topology registry
+    # ------------------------------------------------------------------
 
-        # Node positions (hand-tuned for TC9 layout)
-        positions = {
-            "sys_cpu": (120, 160),
-            "dma":     (120, 320),
-            "noc0":    (320, 240),
-            "noc1":    (320, 400),
-            "c1":      (520, 100),
-            "c2":      (520, 180),
-            "c3":      (520, 260),
-            "c4":      (520, 340),
-            "c5":      (520, 420),
-            "c6":      (520, 500),
-            "c7":      (520, 580),
-            "c8":      (520, 660),
-            "ps0":     (760, 180),
-            "ps1":     (760, 340),
+    # Maps display name -> (model_factory, positions_dict, default_bus_pos)
+    EXAMPLE_TOPOLOGIES: Dict[str, dict] = {}
+
+    @classmethod
+    def _register_examples(cls) -> None:
+        """Populate the EXAMPLE_TOPOLOGIES registry (called once)."""
+        if cls.EXAMPLE_TOPOLOGIES:
+            return  # already registered
+
+        cls.EXAMPLE_TOPOLOGIES["Test Case 9 (TC9)"] = {
+            "factory": make_tc9_network,
+            "positions": {
+                "sys_cpu": (120, 160),
+                "dma":     (120, 320),
+                "noc0":    (320, 240),
+                "noc1":    (320, 400),
+                "c1":      (520, 100),
+                "c2":      (520, 180),
+                "c3":      (520, 260),
+                "c4":      (520, 340),
+                "c5":      (520, 420),
+                "c6":      (520, 500),
+                "c7":      (520, 580),
+                "c8":      (520, 660),
+                "ps0":     (760, 180),
+                "ps1":     (760, 340),
+            },
+            "default_pos": (350, 300),
         }
 
-        # Build NodeData from model components + buses
+        cls.EXAMPLE_TOPOLOGIES["SecureSoC-16 (RefSoC)"] = {
+            "factory": make_reference_soc,
+            "positions": {
+                # Masters (left column)
+                "arm_a53":    (100, 140),
+                "arm_m4":     (100, 280),
+                "dma0":       (100, 420),
+                # Main bus (centre)
+                "axi_main":   (320, 280),
+                # Secure bus segment (upper-right)
+                "axi_sec":    (520, 120),
+                "crypto_eng": (720, 60),
+                "nvram":      (720, 180),
+                # Peripheral bus (lower-right)
+                "apb_periph": (520, 420),
+                "sensor_a":   (720, 300),
+                "sensor_b":   (720, 380),
+                "sensor_c":   (720, 460),
+                "actuator":   (720, 540),
+                "watchdog":   (720, 620),
+                "gpio":       (720, 700),
+                "debug_jtag": (720, 780),
+                # Comm (directly on main bus)
+                "comm_eth":   (520, 280),
+                # Policy servers (far right)
+                "ps_main":    (920, 120),
+                "ps_backup":  (920, 280),
+            },
+            "default_pos": (400, 400),
+        }
+
+    @classmethod
+    def available_examples(cls) -> List[str]:
+        """Return the list of registered example topology names."""
+        cls._register_examples()
+        return list(cls.EXAMPLE_TOPOLOGIES.keys())
+
+    # ------------------------------------------------------------------
+    # Common model loader
+    # ------------------------------------------------------------------
+
+    def _load_model(self, model: "NetworkModel", positions: dict,
+                    default_pos: tuple = (400, 400)) -> None:
+        """
+        Common loader: populate editor state from a NetworkModel + layout positions.
+
+        This is the single code path for all preset topologies.  It stores
+        **all** model-level information so that ``get_network_model()`` can
+        faithfully round-trip every field (trust anchors with key_storage /
+        signed_policy, custom role names, policy exceptions, etc.).
+        """
+        self._clear_all(confirm=False)
+
+        # Build NodeData from model components
         for comp in model.components:
-            x, y = positions.get(comp.name, (300, 300))
+            x, y = positions.get(comp.name, default_pos)
             nd = NodeData(
                 name=comp.name,
                 comp_type=comp.comp_type,
@@ -528,6 +607,8 @@ class NetworkEditor(ttk.Frame):
                 domain=comp.domain,
                 impact_read=comp.impact_read,
                 impact_write=comp.impact_write,
+                impact_avail=comp.impact_avail,
+                exploitability=comp.exploitability,
                 latency_read=comp.latency_read,
                 latency_write=comp.latency_write,
                 has_rot=comp.has_rot,
@@ -541,7 +622,7 @@ class NetworkEditor(ttk.Frame):
         # Buses
         for bus_name in model.buses:
             if bus_name not in self.nodes:
-                x, y = positions.get(bus_name, (350, 300))
+                x, y = positions.get(bus_name, default_pos)
                 nd = NodeData(name=bus_name, comp_type="bus", x=x, y=y, domain="low")
                 self.nodes[bus_name] = nd
 
@@ -569,12 +650,49 @@ class NetworkEditor(ttk.Frame):
         if model.mission_phases:
             self.mission_phases = list(model.mission_phases)
 
-        # Scenarios: use CORE_SCENARIOS as defaults
-        from ..agents.phase3_agent import CORE_SCENARIOS
-        self.scenarios = [dict(s) for s in CORE_SCENARIOS]
+        # ZTA topology — store explicitly so get_network_model() can use them
+        self.cand_fws   = list(model.cand_fws)
+        self.cand_ps    = list(model.cand_ps)
+        self.on_paths   = list(model.on_paths)
+        self.ip_locs    = list(model.ip_locs)
+        self.fw_governs = list(model.fw_governs)
+        self.fw_costs   = dict(model.fw_costs)
+        self.ps_costs   = dict(model.ps_costs)
+
+        # Model-level overrides that NodeData can't represent
+        self._model_trust_anchors = dict(model.trust_anchors)
+        self._model_roles = list(model.roles)
+        self._model_policy_exceptions = (
+            list(model.policy_exceptions) if model.policy_exceptions else []
+        )
+        self._model_capabilities = (
+            list(model.capabilities) if model.capabilities else []
+        )
+
+        # Auto-generate scenarios from the loaded topology
+        from ..agents.phase3_agent import generate_scenarios
+        self.scenarios = generate_scenarios(model)
 
         self._draw_all()
         self._notify_changed()
+
+    def load_example(self, name: str) -> None:
+        """Load a named example topology from the registry."""
+        self._register_examples()
+        entry = self.EXAMPLE_TOPOLOGIES.get(name)
+        if entry is None:
+            raise ValueError(f"Unknown example topology: {name!r}")
+        model = entry["factory"]()
+        self._load_model(model, entry["positions"], entry.get("default_pos", (400, 400)))
+
+    # Convenience wrappers (backwards-compatible)
+    def load_tc9_example(self) -> None:
+        """Pre-populate the editor with the testCase9 topology."""
+        self.load_example("Test Case 9 (TC9)")
+
+    def load_reference_soc(self) -> None:
+        """Pre-populate the editor with the SecureSoC-16 reference topology."""
+        self.load_example("SecureSoC-16 (RefSoC)")
 
     def get_network_model(self) -> NetworkModel:
         """
@@ -600,86 +718,118 @@ class NetworkEditor(ttk.Frame):
         ]
 
         # ── 1a. Trust anchors ────────────────────────────────────────────────
-        model.trust_anchors = {}
+        # Start from model-level stored anchors (includes key_storage,
+        # signed_policy, trusted_telemetry that NodeData can't represent),
+        # then merge/override with canvas NodeData properties.
+        model.trust_anchors = dict(self._model_trust_anchors)
         for nd in self.nodes.values():
             props = []
             if nd.has_rot:   props.append("rot")
             if nd.has_sboot: props.append("sboot")
             if nd.has_attest: props.append("attest")
             if props:
-                model.trust_anchors[nd.name] = props
+                # Merge: keep any extra props from model-level, add canvas props
+                existing = set(model.trust_anchors.get(nd.name, []))
+                existing.update(props)
+                model.trust_anchors[nd.name] = sorted(existing)
 
         # ── 1b. PEP/PS candidates ────────────────────────────────────────────
-        model.cand_fws = [nd.name for nd in self.nodes.values()
-                          if nd.comp_type == "firewall"]
-        model.cand_ps  = [nd.name for nd in self.nodes.values()
-                          if nd.comp_type == "policy_server"]
+        # Use stored lists when available (populated by load_tc9_example /
+        # load_reference_soc); otherwise derive from canvas node types.
+        canvas_fws = [nd.name for nd in self.nodes.values()
+                      if nd.comp_type == "firewall"]
+        canvas_ps  = [nd.name for nd in self.nodes.values()
+                      if nd.comp_type == "policy_server"]
+        model.cand_fws = self.cand_fws if self.cand_fws else canvas_fws
+        model.cand_ps  = self.cand_ps  if self.cand_ps  else canvas_ps
 
-        # ── 1c. on_paths, ip_locs, pep_guards from topology ─────────────────
-        # Build adjacency list (undirected for reachability)
-        adj: Dict[str, List[str]] = {n: [] for n in self.nodes}
-        for lk in self.links:
-            if lk.src in adj:
-                adj[lk.src].append(lk.dst)
-            if lk.dst in adj:
-                adj[lk.dst].append(lk.src)
+        # ── 1c. on_paths, ip_locs, pep_guards ───────────────────────────────
+        if self.on_paths:
+            # Use stored values from preset load — correct even when FW nodes
+            # are not drawn on the canvas (TC9-style abstract FW locations).
+            model.on_paths   = list(self.on_paths)
+            model.ip_locs    = list(self.ip_locs)
+            model.pep_guards = [(fw, ip) for ip, fw in self.ip_locs]
+        else:
+            # Derive from canvas topology using BFS around firewall nodes.
+            adj: Dict[str, List[str]] = {n: [] for n in self.nodes}
+            for lk in self.links:
+                if lk.src in adj:
+                    adj[lk.src].append(lk.dst)
+                if lk.dst in adj:
+                    adj[lk.dst].append(lk.src)
 
-        def bfs_reachable(start: str) -> set:
-            visited = {start}
-            queue = [start]
-            while queue:
-                cur = queue.pop(0)
-                for nb in adj.get(cur, []):
-                    if nb not in visited:
-                        visited.add(nb)
-                        queue.append(nb)
-            return visited
+            def bfs_reachable(start: str) -> set:
+                visited = {start}
+                queue = [start]
+                while queue:
+                    cur = queue.pop(0)
+                    for nb in adj.get(cur, []):
+                        if nb not in visited:
+                            visited.add(nb)
+                            queue.append(nb)
+                return visited
 
-        master_names = {nd.name for nd in self.nodes.values()
-                        if nd.comp_type in ("processor", "dma")}
-        ip_names = {nd.name for nd in self.nodes.values()
-                    if nd.comp_type == "ip_core"}
-        fw_names = set(model.cand_fws)
+            master_names = {nd.name for nd in self.nodes.values()
+                            if nd.comp_type in ("processor", "dma")}
+            ip_names = {nd.name for nd in self.nodes.values()
+                        if nd.comp_type == "ip_core"}
+            fw_names = set(model.cand_fws)
 
-        on_paths: List[Tuple[str, str, str]] = []
-        ip_locs:  List[Tuple[str, str]]      = []
-        pep_guards: List[Tuple[str, str]]    = []
+            on_paths:   List[Tuple[str, str, str]] = []
+            ip_locs:    List[Tuple[str, str]]      = []
+            pep_guards: List[Tuple[str, str]]      = []
 
-        for fw in fw_names:
-            fw_reachable = bfs_reachable(fw)
-            masters_near_fw = master_names & fw_reachable
-            ips_near_fw     = ip_names & fw_reachable
-            for m in masters_near_fw:
+            for fw in fw_names:
+                fw_reachable = bfs_reachable(fw)
+                masters_near_fw = master_names & fw_reachable
+                ips_near_fw     = ip_names & fw_reachable
+                for m in masters_near_fw:
+                    for ip in ips_near_fw:
+                        on_paths.append((fw, m, ip))
                 for ip in ips_near_fw:
-                    on_paths.append((fw, m, ip))
-            for ip in ips_near_fw:
-                ip_locs.append((ip, fw))
-                pep_guards.append((fw, ip))
+                    ip_locs.append((ip, fw))
+                    pep_guards.append((fw, ip))
 
-        model.on_paths   = on_paths
-        model.ip_locs    = ip_locs
-        model.pep_guards = pep_guards
+            model.on_paths   = on_paths
+            model.ip_locs    = ip_locs
+            model.pep_guards = pep_guards
 
         # ── 1d. fw_governs and ps_governs_pep ───────────────────────────────
-        ps_names = set(model.cand_ps)
-        fw_governs:     List[Tuple[str, str]] = []
-        ps_governs_pep: List[Tuple[str, str]] = []
-        for ps in ps_names:
-            ps_reachable = bfs_reachable(ps)
-            for fw in fw_names:
-                if fw in ps_reachable:
-                    fw_governs.append((ps, fw))
-                    ps_governs_pep.append((ps, fw))
-        model.fw_governs     = fw_governs
-        model.ps_governs_pep = ps_governs_pep
+        if self.fw_governs:
+            model.fw_governs     = list(self.fw_governs)
+            model.ps_governs_pep = list(self.fw_governs)
+        else:
+            ps_names = set(model.cand_ps)
+            fw_names = set(model.cand_fws)
+            if not self.on_paths:
+                # BFS was done above, reuse bfs_reachable
+                fw_governs:     List[Tuple[str, str]] = []
+                ps_governs_pep: List[Tuple[str, str]] = []
+                for ps in ps_names:
+                    ps_reachable = bfs_reachable(ps)
+                    for fw in fw_names:
+                        if fw in ps_reachable:
+                            fw_governs.append((ps, fw))
+                            ps_governs_pep.append((ps, fw))
+                model.fw_governs     = fw_governs
+                model.ps_governs_pep = ps_governs_pep
+            else:
+                model.fw_governs     = []
+                model.ps_governs_pep = []
 
         # ── 1e. Roles ────────────────────────────────────────────────────────
-        model.roles = []
-        for nd in self.nodes.values():
-            if nd.comp_type == "processor":
-                model.roles.append((nd.name, "processor"))
-            elif nd.comp_type == "dma":
-                model.roles.append((nd.name, "data_mover"))
+        # Use model-level stored roles when available (preserves custom names
+        # like app_processor, rt_controller); fall back to generic derivation.
+        if self._model_roles:
+            model.roles = list(self._model_roles)
+        else:
+            model.roles = []
+            for nd in self.nodes.values():
+                if nd.comp_type == "processor":
+                    model.roles.append((nd.name, "processor"))
+                elif nd.comp_type == "dma":
+                    model.roles.append((nd.name, "data_mover"))
 
         # ── 1f. Filter access_needs and build allow rules ────────────────────
         dir_map: Dict[str, str] = {nd.name: nd.direction for nd in self.nodes.values()}
@@ -712,12 +862,16 @@ class NetworkEditor(ttk.Frame):
                                   for an in filtered_needs})
 
         # ── 1g. fw_costs and ps_costs ────────────────────────────────────────
-        model.fw_costs = {nd.name: nd.fw_cost
-                          for nd in self.nodes.values()
-                          if nd.comp_type == "firewall"}
-        model.ps_costs = {nd.name: nd.ps_cost
-                          for nd in self.nodes.values()
-                          if nd.comp_type == "policy_server"}
+        # Use stored values from preset (e.g. TC9) when FW/PS nodes aren't
+        # drawn on the canvas.
+        canvas_fw_costs = {nd.name: nd.fw_cost
+                           for nd in self.nodes.values()
+                           if nd.comp_type == "firewall"}
+        canvas_ps_costs = {nd.name: nd.ps_cost
+                           for nd in self.nodes.values()
+                           if nd.comp_type == "policy_server"}
+        model.fw_costs = self.fw_costs if self.fw_costs else canvas_fw_costs
+        model.ps_costs = self.ps_costs if self.ps_costs else canvas_ps_costs
 
         # ── 1h. system_caps from NetworkEditor instance variable ─────────────
         model.system_caps = dict(self.system_caps)
@@ -726,14 +880,24 @@ class NetworkEditor(ttk.Frame):
         model.mission_phases = list(self.mission_phases)
 
         # ── Policy exceptions ────────────────────────────────────────────────
-        model.policy_exceptions = [
+        # Canvas-edited exceptions (list of dicts)
+        canvas_exceptions = [
             (exc["master"], exc["component"], exc["operation"],
              exc.get("mode", "maintenance"), exc.get("reason", ""))
             for exc in self.policy_exceptions
         ]
+        # Merge with model-level stored exceptions (list of tuples)
+        if self._model_policy_exceptions and not canvas_exceptions:
+            model.policy_exceptions = list(self._model_policy_exceptions)
+        else:
+            model.policy_exceptions = canvas_exceptions
 
         # ── Scenarios ────────────────────────────────────────────────────────
         model.scenarios = [dict(s) for s in self.scenarios]
+
+        # ── Capabilities ────────────────────────────────────────────────────
+        if self._model_capabilities:
+            model.capabilities = list(self._model_capabilities)
 
         # ── Build explicit asset list ────────────────────────────────────────
         SKIP = {"bus", "processor", "dma", "policy_server", "firewall"}
@@ -747,6 +911,7 @@ class NetworkEditor(ttk.Frame):
                 direction=nd.direction,
                 impact_read=nd.impact_read,
                 impact_write=nd.impact_write,
+                impact_avail=nd.impact_avail,
                 latency_read=nd.latency_read,
                 latency_write=nd.latency_write,
             ))
@@ -757,6 +922,7 @@ class NetworkEditor(ttk.Frame):
                     direction=ea["direction"],
                     impact_read=ea["impact_read"],
                     impact_write=ea["impact_write"],
+                    impact_avail=ea.get("impact_avail", 0),
                     latency_read=ea["latency_read"],
                     latency_write=ea["latency_write"],
                 ))
@@ -795,6 +961,7 @@ class NetworkEditor(ttk.Frame):
                 "x": nd.x, "y": nd.y,
                 "domain": nd.domain,
                 "impact_read": nd.impact_read, "impact_write": nd.impact_write,
+                "impact_avail": nd.impact_avail, "exploitability": nd.exploitability,
                 "latency_read": nd.latency_read, "latency_write": nd.latency_write,
                 "has_rot": nd.has_rot, "has_sboot": nd.has_sboot,
                 "has_attest": nd.has_attest,
@@ -814,6 +981,9 @@ class NetworkEditor(ttk.Frame):
             # Pop canvas_id / label_id if they slipped into JSON
             nd_clean = {k: v for k, v in nd_data.items()
                         if k not in ("canvas_id", "label_id")}
+            # Back-compat: old files lack impact_avail / exploitability
+            nd_clean.setdefault("impact_avail",   0)
+            nd_clean.setdefault("exploitability",  3)
             nd = NodeData(**nd_clean)
             self.nodes[nd.name] = nd
         for src, dst in data.get("links", []):
@@ -1477,7 +1647,8 @@ class NetworkEditor(ttk.Frame):
             f"Name   : {nd.name}",
             f"Type   : {nd.comp_type}",
             f"Domain : {nd.domain}",
-            f"Impact R/W: {nd.impact_read}/{nd.impact_write}",
+            f"Impact C/I/A: {nd.impact_read}/{nd.impact_write}/{nd.impact_avail}",
+            f"Exploitability: {nd.exploitability}",
             f"Latency R/W: {nd.latency_read}/{nd.latency_write}",
         ]
         if nd.has_rot:    lines.append("Has RoT")
@@ -1692,6 +1863,19 @@ class NetworkEditor(ttk.Frame):
         self.mission_phases = ["operational", "maintenance", "emergency"]
         self.policy_exceptions = []
         self.scenarios     = []
+        # ZTA topology overrides (populated by load_tc9_example / load_reference_soc)
+        self.cand_fws   = []
+        self.cand_ps    = []
+        self.on_paths   = []
+        self.ip_locs    = []
+        self.fw_governs = []
+        self.fw_costs   = {}
+        self.ps_costs   = {}
+        # Model-level overrides
+        self._model_trust_anchors     = {}
+        self._model_roles             = []
+        self._model_policy_exceptions = []
+        self._model_capabilities      = []
         self._canvas.delete("node", "link", "label", "redund", "overlay", "badge")
         self._notify_changed()
 
@@ -2211,7 +2395,7 @@ class _NodeEditDialog(tk.Toplevel):
     COMP_TYPES = ["processor", "dma", "ip_core", "bus",
                   "policy_server", "firewall"]
     DIRECTIONS = ["bidirectional", "input", "output"]
-    DOMAINS    = ["low", "high"]
+    DOMAINS    = ["untrusted", "low", "normal", "privileged", "high", "root"]
 
     def __init__(
         self,
@@ -2229,10 +2413,12 @@ class _NodeEditDialog(tk.Toplevel):
 
         # Defaults
         name = node.name if node else default_name
-        comp_type  = node.comp_type  if node else "ip_core"
-        domain     = node.domain     if node else "high"
+        comp_type  = node.comp_type    if node else "ip_core"
+        domain     = node.domain       if node else "high"
         ir         = node.impact_read  if node else 3
         iw         = node.impact_write if node else 3
+        ia         = node.impact_avail if node else 0
+        expl       = node.exploitability if node else 3
         lr         = node.latency_read  if node else 1000
         lw         = node.latency_write if node else 1000
         rot        = node.has_rot    if node else False
@@ -2272,15 +2458,18 @@ class _NodeEditDialog(tk.Toplevel):
         self._type_cb  = row_combo("Type:",   self.COMP_TYPES, comp_type, 1)
         self._dom_cb   = row_combo("Domain:", self.DOMAINS,    domain,    2)
         self._dir_cb   = row_combo("I/O Direction:", self.DIRECTIONS, direction, 3)
-        self._ir_e     = row_entry("Impact Read (1-5):",    ir,        4)
-        self._iw_e     = row_entry("Impact Write (1-5):",   iw,        5)
-        self._lr_e     = row_entry("Latency Read (cycles):", lr,       6)
-        self._lw_e     = row_entry("Latency Write (cycles):",lw,       7)
-        self._rot_v    = row_check("Has Hardware RoT:",     rot,       8)
-        self._sboot_v  = row_check("Has Secure Boot:",      sboot,     9)
-        self._attest_v = row_check("Has Attestation:",      attest,    10)
-        self._crit_v   = row_check("Is Critical IP:",      crit,      11)
-        self._safety_v = row_check("Is Safety-Critical:",   safety,    12)
+        # CIA impact scale: 1=negligible, 2=minor, 3=moderate, 4=serious, 5=catastrophic
+        self._ir_e     = row_entry("Impact Read  C (1-5):",   ir,   4)
+        self._iw_e     = row_entry("Impact Write I (1-5):",   iw,   5)
+        self._ia_e     = row_entry("Impact Avail A (0=off, 1-5):", ia, 6)
+        self._expl_e   = row_entry("Exploitability (1=hard..5=trivial):", expl, 7)
+        self._lr_e     = row_entry("Latency Read (cycles):",  lr,   8)
+        self._lw_e     = row_entry("Latency Write (cycles):", lw,   9)
+        self._rot_v    = row_check("Has Hardware RoT:",       rot,  10)
+        self._sboot_v  = row_check("Has Secure Boot:",        sboot, 11)
+        self._attest_v = row_check("Has Attestation:",        attest, 12)
+        self._crit_v   = row_check("Is Critical IP:",         crit,  13)
+        self._safety_v = row_check("Is Safety-Critical:",     safety, 14)
 
         # fw_cost / ps_cost — only shown for firewall/policy_server
         self._fw_cost_lbl = ttk.Label(frm, text="FW Cost:")
@@ -2289,23 +2478,23 @@ class _NodeEditDialog(tk.Toplevel):
         self._ps_cost_lbl = ttk.Label(frm, text="PS Cost:")
         self._ps_cost_e   = ttk.Entry(frm, width=22)
         self._ps_cost_e.insert(0, str(ps_cost))
-        self._fw_cost_lbl.grid(row=13, column=0, sticky="e", pady=2)
-        self._fw_cost_e.grid(row=13, column=1, sticky="w", padx=4)
-        self._ps_cost_lbl.grid(row=14, column=0, sticky="e", pady=2)
-        self._ps_cost_e.grid(row=14, column=1, sticky="w", padx=4)
+        self._fw_cost_lbl.grid(row=15, column=0, sticky="e", pady=2)
+        self._fw_cost_e.grid(row=15, column=1, sticky="w", padx=4)
+        self._ps_cost_lbl.grid(row=16, column=0, sticky="e", pady=2)
+        self._ps_cost_e.grid(row=16, column=1, sticky="w", padx=4)
         self._update_cost_visibility(comp_type)
         self._type_cb.bind("<<ComboboxSelected>>",
                            lambda e: self._update_cost_visibility(self._type_cb.get()))
 
         # Extra assets button
         self._asset_btn_lbl = ttk.Label(frm, text="Extra Assets:")
-        self._asset_btn_lbl.grid(row=15, column=0, sticky="e", pady=2)
+        self._asset_btn_lbl.grid(row=17, column=0, sticky="e", pady=2)
         self._asset_btn = ttk.Button(frm, text=self._asset_btn_label(),
                                      command=self._manage_assets)
-        self._asset_btn.grid(row=15, column=1, sticky="w", padx=4)
+        self._asset_btn.grid(row=17, column=1, sticky="w", padx=4)
 
         btn_frm = ttk.Frame(frm)
-        btn_frm.grid(row=16, column=0, columnspan=2, pady=(8, 0))
+        btn_frm.grid(row=18, column=0, columnspan=2, pady=(8, 0))
         ttk.Button(btn_frm, text="OK",     command=self._ok).pack(side=tk.LEFT, padx=4)
         ttk.Button(btn_frm, text="Cancel", command=self.destroy).pack(side=tk.LEFT)
 
@@ -2342,22 +2531,24 @@ class _NodeEditDialog(tk.Toplevel):
                 fw_cost_val = int(self._fw_cost_e.get())
                 ps_cost_val = int(self._ps_cost_e.get())
             self.result = {
-                "name":          self._name_e.get().strip(),
-                "comp_type":     ct,
-                "domain":        self._dom_cb.get(),
-                "direction":     self._dir_cb.get(),
-                "impact_read":   int(self._ir_e.get()),
-                "impact_write":  int(self._iw_e.get()),
-                "latency_read":  int(self._lr_e.get()),
-                "latency_write": int(self._lw_e.get()),
-                "has_rot":       self._rot_v.get(),
-                "has_sboot":     self._sboot_v.get(),
-                "has_attest":    self._attest_v.get(),
-                "is_critical":   self._crit_v.get(),
+                "name":           self._name_e.get().strip(),
+                "comp_type":      ct,
+                "domain":         self._dom_cb.get(),
+                "direction":      self._dir_cb.get(),
+                "impact_read":    int(self._ir_e.get()),
+                "impact_write":   int(self._iw_e.get()),
+                "impact_avail":   int(self._ia_e.get()),
+                "exploitability": int(self._expl_e.get()),
+                "latency_read":   int(self._lr_e.get()),
+                "latency_write":  int(self._lw_e.get()),
+                "has_rot":        self._rot_v.get(),
+                "has_sboot":      self._sboot_v.get(),
+                "has_attest":     self._attest_v.get(),
+                "is_critical":    self._crit_v.get(),
                 "is_safety_critical": self._safety_v.get(),
-                "extra_assets":  list(self._extra_assets),
-                "fw_cost":       fw_cost_val,
-                "ps_cost":       ps_cost_val,
+                "extra_assets":   list(self._extra_assets),
+                "fw_cost":        fw_cost_val,
+                "ps_cost":        ps_cost_val,
             }
         except ValueError as exc:
             messagebox.showerror("Validation Error", str(exc))
@@ -2832,8 +3023,9 @@ class _FPGAConfigDialog(tk.Toplevel):
         ("max_lutram",     "Max LUTRAM"),
         ("max_bram",       "Max BRAMs"),
         ("max_bufgs",      "Max BUFGs"),
-        ("max_power",      "Max Power (mW)"),
-        ("max_asset_risk", "Max Asset Risk"),
+        ("max_power",        "Max Power (mW)"),
+        ("max_security_risk", "Max Security Risk"),
+        ("max_avail_risk",    "Max Avail Risk"),
     ]
 
     def __init__(self, parent: tk.Widget, caps: dict) -> None:

@@ -24,7 +24,7 @@ from ..core.solution_ranker import SolutionRanker
 from ..core.comparison import generate_report_text
 from .phase1_agent import Phase1Agent
 from .phase2_agent import Phase2Agent
-from .phase3_agent import Phase3Agent
+from .phase3_agent import Phase3Agent, generate_scenarios
 
 
 # ---------------------------------------------------------------------------
@@ -33,56 +33,24 @@ from .phase3_agent import Phase3Agent
 
 def _make_fallback_solution(strategy: str, label: str) -> SolutionResult:
     """
-    Create a minimal SolutionResult from known TC9 results when clingo
-    fails to produce a result.  Metrics are approximate.
+    Create a minimal placeholder SolutionResult when clingo fails.
+
+    No fake metrics are injected — the result clearly signals failure
+    without polluting the GUI with data from a different topology.
     """
     p1 = Phase1Result(
         strategy=strategy,
-        satisfiable=True,
+        satisfiable=False,
         optimal=False,
-        security={
-            "c1": "zero_trust", "c2": "zero_trust",
-            "c3": "zero_trust", "c4": "zero_trust",
-            "c5": "zero_trust", "c6": "dynamic_mac",
-            "c7": "mac",        "c8": "mac",
-        },
-        logging={
-            "c1": "zero_trust_logger", "c2": "zero_trust_logger",
-            "c3": "zero_trust_logger", "c4": "zero_trust_logger",
-            "c5": "zero_trust_logger", "c6": "some_logging",
-            "c7": "no_logging",        "c8": "no_logging",
-        },
-        total_luts   = 42000,
-        total_ffs    = 84000,
-        total_power  = 9000,
     )
-    # Approximate risk values for TC9
-    p1.new_risk = [
-        ("c1","c1r1","read",  5), ("c1","c1r1","write", 25),
-        ("c2","c2r1","read", 25), ("c2","c2r1","write", 10),
-        ("c3","c3r1","read", 15), ("c3","c3r1","write", 15),
-        ("c4","c4r1","read", 15), ("c4","c4r1","write", 20),
-        ("c5","c5r1","read", 20), ("c5","c5r1","write",  5),
-        ("c6","c6r1","read", 50), ("c6","c6r1","write", 15),
-        ("c7","c7r1","read",  3), ("c7","c7r1","write",  6),
-        ("c8","c8r1","read", 12), ("c8","c8r1","write", 24),
-    ]
 
-    p2 = Phase2Result(
-        satisfiable=True,
-        placed_fws=["pep_group","pep_standalone"],
-        placed_ps=["ps0","ps1"],
-        excess_privileges=[("sys_cpu","c7","read"), ("dma","c7","read")],
-    )
+    p2 = Phase2Result(satisfiable=False)
 
     sc = ScenarioResult(
         name="baseline",
         compromised=[],
         failed=[],
-        satisfiable=True,
-        total_risk_scaled=2300,
-        blast_radii={"sys_cpu":1,"dma":2,"c1":1},
-        services_ok=["compute_svc","io_svc"],
+        satisfiable=False,
     )
 
     sol = SolutionResult(
@@ -92,7 +60,7 @@ def _make_fallback_solution(strategy: str, label: str) -> SolutionResult:
         phase2=p2,
         scenarios=[sc],
         complete=True,
-        error="(Fallback data — clingo solve failed)",
+        error=f"Phase 1 solver failed for strategy '{strategy}'",
     )
     return sol
 
@@ -168,6 +136,13 @@ class DSEOrchestrator:
             gen           = ASPGenerator(self.network_model)
             instance_facts = gen.generate()
 
+            self._instance_facts = instance_facts
+
+            # Validate topology for structural UNSAT risks
+            topo_warnings = gen.validate_topology()
+            for w in topo_warnings:
+                self._post("WARNING", f"[Topology] {w}")
+
             strategies = ["max_security", "min_resources", "balanced"]
             for i, strategy in enumerate(strategies, 1):
                 if self._stop_flag:
@@ -182,13 +157,22 @@ class DSEOrchestrator:
 
             # Score all solutions
             if self.solutions:
-                ranker = SolutionRanker(self.solutions)
+                caps = self.network_model.system_caps
+                ranker = SolutionRanker(
+                    self.solutions,
+                    max_luts=caps.get("max_luts", 0),
+                    max_power=caps.get("max_power", 0),
+                )
                 ranker.rank()
 
-                # Generate report
+                # Generate report (topology-aware resource caps)
+                caps = self.network_model.system_caps
                 self.report_text = generate_report_text(
                     self.solutions,
                     network_name=self.network_model.name,
+                    max_luts=caps.get("max_luts", 0),
+                    max_power=caps.get("max_power", 0),
+                    max_ffs=caps.get("max_ffs", 0),
                 )
 
             self._post("SUCCESS", "=== DSE Analysis Complete ===")
@@ -247,6 +231,7 @@ class DSEOrchestrator:
             strategy=strategy,
             progress_queue=self.progress_queue,
             timeout=self.phase_timeout,
+            extra_instance_facts=instance_facts,
         )
         p2 = p2_agent.run()
         sol.phase2 = p2
@@ -262,8 +247,14 @@ class DSEOrchestrator:
             progress_queue=self.progress_queue,
             full_scenarios=self.full_phase3,
             timeout=self.phase_timeout,
+            extra_instance_facts=instance_facts,
         )
+        # Use model-attached scenarios if present, otherwise auto-generate
         model_scenarios = getattr(self.network_model, "scenarios", None) or []
+        if not model_scenarios:
+            model_scenarios = generate_scenarios(
+                self.network_model, full=self.full_phase3
+            )
         sol.scenarios = p3_agent.run(model_scenarios=model_scenarios)
         sol.complete  = True
 

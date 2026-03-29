@@ -101,8 +101,23 @@ class MainWindow(tk.Tk):
         self._clear_btn = ttk.Button(toolbar, text="Clear", command=self._on_clear)
         self._clear_btn.pack(side=tk.LEFT, padx=2)
 
-        self._load_tc9_btn = ttk.Button(toolbar, text="Load TC9", command=self._on_load_tc9)
-        self._load_tc9_btn.pack(side=tk.LEFT, padx=2)
+        # Load Example — single button with a pull-down selector
+        load_frame = ttk.Frame(toolbar)
+        load_frame.pack(side=tk.LEFT, padx=2)
+
+        from dse_tool.gui.network_editor import NetworkEditor
+        examples = NetworkEditor.available_examples()
+        self._example_var = tk.StringVar(value=examples[0] if examples else "")
+        self._example_combo = ttk.Combobox(
+            load_frame, textvariable=self._example_var,
+            values=examples, state="readonly", width=22,
+        )
+        self._example_combo.pack(side=tk.LEFT, padx=(0, 2))
+
+        self._load_example_btn = ttk.Button(
+            load_frame, text="Load Example", command=self._on_load_example,
+        )
+        self._load_example_btn.pack(side=tk.LEFT)
 
         self._solver_cfg_btn = ttk.Button(toolbar, text="Solver Config",
                                           command=self._edit_solver_config)
@@ -311,6 +326,11 @@ class MainWindow(tk.Tk):
         self._progress_panel.set_phase_state(2, "done")
         self._progress_panel.set_phase_state(3, "done")
         self._results_panel.set_results(solutions)
+        # Pass system resource caps so Executive Summary can use them
+        if self._orchestrator and hasattr(self._orchestrator, "network_model"):
+            self._results_panel.set_system_caps(
+                self._orchestrator.network_model.system_caps
+            )
         self._check_resource_budgets(solutions)
         # Clear validation warning badges now that analysis completed successfully
         self._network_editor.set_validation_warnings({})
@@ -335,9 +355,26 @@ class MainWindow(tk.Tk):
         self._results_panel.clear()
         self._set_status("Ready")
 
+    def _on_load_example(self) -> None:
+        """Load the selected example topology from the combo box."""
+        name = self._example_var.get()
+        if not name:
+            messagebox.showwarning("Load Example", "Select an example topology first.")
+            return
+        try:
+            self._network_editor.load_example(name)
+            self._set_status(f"{name} topology loaded")
+        except Exception as e:
+            messagebox.showerror("Load Error", str(e))
+
+    # Backwards-compatible convenience methods
     def _on_load_tc9(self) -> None:
         self._network_editor.load_tc9_example()
         self._set_status("TC9 topology loaded")
+
+    def _on_load_refsoc(self) -> None:
+        self._network_editor.load_reference_soc()
+        self._set_status("SecureSoC-16 reference topology loaded")
 
     def _on_open_json(self) -> None:
         path = filedialog.askopenfilename(

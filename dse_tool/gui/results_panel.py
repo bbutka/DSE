@@ -14,6 +14,7 @@ class ResultsPanel(ttk.Frame):
         self._solutions: List["SolutionResult"] = []
         self._cards: List[ttk.LabelFrame] = []
         self._report_window: tk.Toplevel | None = None
+        self._system_caps: dict = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -40,6 +41,11 @@ class ResultsPanel(ttk.Frame):
         )
         self._compare_btn.pack(side=tk.RIGHT, padx=4)
         self._compare_btn.state(["disabled"])
+        self._exec_summary_btn = ttk.Button(
+            btn_frame, text="Executive Summary", command=self._on_exec_summary
+        )
+        self._exec_summary_btn.pack(side=tk.RIGHT, padx=4)
+        self._exec_summary_btn.state(["disabled"])
 
     def _make_card(self, parent: tk.Widget, skey: str) -> ttk.LabelFrame:
         card = ttk.LabelFrame(parent, text=skey.replace("_", " ").title(), padding=6)
@@ -92,6 +98,10 @@ class ResultsPanel(ttk.Frame):
         setattr(self, f"_p3btn_{skey}", p3_btn)
 
         return card
+
+    def set_system_caps(self, caps: dict) -> None:
+        """Store system resource caps for use by the executive summary."""
+        self._system_caps = dict(caps) if caps else {}
 
     def set_results(self, solutions: List["SolutionResult"]) -> None:
         """Populate the cards with solution data."""
@@ -172,12 +182,22 @@ class ResultsPanel(ttk.Frame):
                     )
                 if len(sol.scenarios) > 3:
                     scenario_parts.append(f"+{len(sol.scenarios) - 3} more")
+
+                # Summarise worst functional status across scenarios
+                sat_scenarios = [s for s in sol.scenarios if s.satisfiable]
+                non_func = sum(1 for s in sat_scenarios if s.system_non_functional)
+                degraded = sum(1 for s in sat_scenarios if s.system_degraded and not s.system_non_functional)
+                if non_func:
+                    scenario_parts.append(f"NON-FUNC:{non_func}")
+                elif degraded:
+                    scenario_parts.append(f"DEGRADED:{degraded}")
                 phase3_lbl.config(text="; ".join(scenario_parts))
             else:
                 phase3_lbl.config(text="—")
 
         self._view_report_btn.state(["!disabled"])
         self._compare_btn.state(["!disabled"])
+        self._exec_summary_btn.state(["!disabled"])
 
     def clear(self) -> None:
         """Reset all cards to empty state."""
@@ -196,6 +216,7 @@ class ResultsPanel(ttk.Frame):
                 lbl.config(text="—")
         self._view_report_btn.state(["disabled"])
         self._compare_btn.state(["disabled"])
+        self._exec_summary_btn.state(["disabled"])
         if self._report_window:
             self._report_window.destroy()
             self._report_window = None
@@ -231,6 +252,12 @@ class ResultsPanel(ttk.Frame):
             return
         _Phase1DetailDialog(self, sol.phase1)
 
+    def _on_exec_summary(self) -> None:
+        if not self._solutions:
+            return
+        caps = getattr(self, "_system_caps", {})
+        _ExecutiveSummaryDialog(self, self._solutions, system_caps=caps)
+
     def _on_compare(self) -> None:
         if not self._solutions:
             return
@@ -264,6 +291,162 @@ class ResultsPanel(ttk.Frame):
 
         text_widget.insert("1.0", report_text)
         text_widget.configure(state="disabled")
+
+
+# ---------------------------------------------------------------------------
+# Executive Summary Dialog
+# ---------------------------------------------------------------------------
+
+class _ExecutiveSummaryDialog(tk.Toplevel):
+    """
+    Analyses all Phase 1/2/3 data across strategies and presents a concise
+    executive summary emphasizing the most important findings, the primary
+    bottleneck ("long pole"), and whether the architecture needs redesign.
+    """
+
+    _FONT  = ("Courier New", 10)
+    _BG    = "#0a0a18"
+    _FG    = "#d0d8e8"
+
+    # Colour tags for severity levels
+    _COLOURS = {
+        "CRITICAL": "#ff4444",
+        "HIGH":     "#ff8844",
+        "MEDIUM":   "#dddd44",
+        "LOW":      "#88cc88",
+        "GOOD":     "#44dd44",
+        "HEADER":   "#88aaff",
+        "VERDICT_OK":  "#44dd88",
+        "VERDICT_BAD": "#ff5555",
+        "LONGPOLE":    "#ffaa00",
+    }
+
+    def __init__(self, parent, solutions, *, system_caps: dict | None = None) -> None:
+        super().__init__(parent)
+        self.transient(parent)
+        self.title("Executive Security & Resilience Summary")
+        self.geometry("900x700")
+        self.grab_set()
+
+        self._solutions = solutions
+        self._system_caps = system_caps or {}
+        self._build_ui()
+        self.wait_window()
+
+    def _build_ui(self) -> None:
+        # Generate the summary
+        from dse_tool.core.executive_summary import (
+            ExecutiveSummaryAnalyser, format_executive_summary,
+        )
+
+        max_luts = self._system_caps.get("max_luts", 0) or 53200
+        max_power = self._system_caps.get("max_power", 0) or 15000
+
+        analyser = ExecutiveSummaryAnalyser(
+            self._solutions, max_luts=max_luts, max_power=max_power,
+        )
+        summary = analyser.analyse()
+        text = format_executive_summary(summary)
+
+        # Main text widget
+        frm = ttk.Frame(self)
+        frm.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+
+        self._text = tk.Text(
+            frm, font=self._FONT, bg=self._BG, fg=self._FG,
+            wrap=tk.WORD, state=tk.DISABLED, padx=12, pady=8,
+            insertbackground=self._FG, spacing1=1, spacing3=1,
+        )
+        vsb = ttk.Scrollbar(frm, orient=tk.VERTICAL, command=self._text.yview)
+        self._text.configure(yscrollcommand=vsb.set)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self._text.pack(fill=tk.BOTH, expand=True)
+
+        # Configure tags
+        for tag, colour in self._COLOURS.items():
+            self._text.tag_configure(tag, foreground=colour)
+        self._text.tag_configure("HEADER", foreground="#88aaff",
+                                 font=("Courier New", 10, "bold"))
+        self._text.tag_configure("VERDICT_OK", foreground="#44dd88",
+                                 font=("Courier New", 11, "bold"))
+        self._text.tag_configure("VERDICT_BAD", foreground="#ff5555",
+                                 font=("Courier New", 11, "bold"))
+        self._text.tag_configure("LONGPOLE", foreground="#ffaa00",
+                                 font=("Courier New", 10, "bold"))
+        self._text.tag_configure("SEP", foreground="#555577")
+
+        # Insert and colorize
+        self._text.configure(state=tk.NORMAL)
+        self._insert_coloured(text, summary)
+        self._text.configure(state=tk.DISABLED)
+
+        # Bottom buttons
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=8, pady=(0, 8))
+        ttk.Button(btn_frame, text="Copy to Clipboard",
+                   command=self._copy).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="Close",
+                   command=self.destroy).pack(side=tk.RIGHT, padx=4)
+
+        # Status label
+        arch_tag = ("ADEQUATE" if summary.architecture_adequate
+                    else "REDESIGN RECOMMENDED")
+        tag_colour = ("green" if summary.architecture_adequate else "red")
+        ttk.Label(btn_frame, text=f"Architecture: {arch_tag}",
+                  foreground=tag_colour,
+                  font=("TkDefaultFont", 10, "bold")).pack(side=tk.LEFT, padx=12)
+
+    def _insert_coloured(self, text: str, summary) -> None:
+        """Insert text with syntax colouring for the summary format."""
+        import re
+        for line in text.split("\n"):
+            stripped = line.strip()
+
+            # Separator lines
+            if stripped and all(c in "=-" for c in stripped):
+                self._text.insert(tk.END, line + "\n", "SEP")
+                continue
+
+            # Section headers (ALL CAPS lines)
+            if stripped and stripped == stripped.upper() and len(stripped) > 3 and not stripped.startswith(">>>"):
+                self._text.insert(tk.END, line + "\n", "HEADER")
+                continue
+
+            # Architecture verdict banner
+            if ">>> ADEQUATE <<<" in line:
+                self._text.insert(tk.END, line + "\n", "VERDICT_OK")
+                continue
+            if ">>> REDESIGN RECOMMENDED <<<" in line:
+                self._text.insert(tk.END, line + "\n", "VERDICT_BAD")
+                continue
+            if "ARCHITECTURE REDESIGN REQUIRED" in line:
+                self._text.insert(tk.END, line + "\n", "VERDICT_BAD")
+                continue
+
+            # Long pole marker
+            if "<<<< LONG POLE" in line:
+                self._text.insert(tk.END, line + "\n", "LONGPOLE")
+                continue
+
+            # Severity tags in bottleneck lines
+            sev_match = re.search(r'\[(CRITICAL|HIGH|MEDIUM|LOW)\]', line)
+            if sev_match:
+                sev = sev_match.group(1)
+                self._text.insert(tk.END, line + "\n", sev)
+                continue
+
+            # "Long Pole" section content
+            if stripped.startswith("Category") or stripped.startswith("Severity"):
+                self._text.insert(tk.END, line + "\n", "LONGPOLE")
+                continue
+
+            # Default
+            self._text.insert(tk.END, line + "\n")
+
+    def _copy(self) -> None:
+        content = self._text.get("1.0", tk.END)
+        self.clipboard_clear()
+        self.clipboard_append(content)
 
 
 # ---------------------------------------------------------------------------
@@ -494,15 +677,25 @@ class _Phase3DetailDialog(tk.Toplevel):
         lines.append(f"Total risk   : {sc.total_risk:.2f}")
         lines.append("")
 
-        # Blast radii
-        lines.append("Blast radii (per component):")
-        lines.append("─" * 40)
+        # Blast radii — structural and effective
+        eff_br = getattr(sc, "effective_blast_radii", {})
+        has_effective = bool(eff_br)
+        header = "Blast radii (structural / effective):" if has_effective else "Blast radii (per component):"
+        lines.append(header)
+        lines.append("─" * 56)
         if sc.blast_radii:
             for comp, r in sorted(sc.blast_radii.items(), key=lambda x: -x[1]):
-                bar = "█" * min(r, 30)
-                lines.append(f"  {comp:<22} {r:>4}  {bar}")
+                eff = eff_br.get(comp, r)
+                bar = "█" * min(r, 25)
+                if has_effective and eff < r:
+                    eff_bar = "░" * min(eff, 25)
+                    lines.append(f"  {comp:<18} {r:>3}/{eff:<3}  {eff_bar}{'▓' * min(r - eff, 25)}")
+                else:
+                    lines.append(f"  {comp:<18} {r:>3}      {bar}")
         else:
             lines.append("  (no data)")
+        if has_effective:
+            lines.append("  (█ = structural, ░ = effective with firewalls)")
         lines.append("")
 
         # Asset risks
@@ -521,9 +714,12 @@ class _Phase3DetailDialog(tk.Toplevel):
         lines.append(f"Services unavail   : {', '.join(sc.services_unavail) or '—'}")
         lines.append("")
 
-        # Unavailable / cut-off
+        # Unavailable / compromised / cut-off
         if sc.unavailable:
             lines.append(f"Unavailable assets : {', '.join(sc.unavailable)}")
+        assets_comp = getattr(sc, "assets_compromised", [])
+        if assets_comp:
+            lines.append(f"Compromised assets : {', '.join(assets_comp)}")
         if sc.cut_off:
             lines.append(f"Cut-off nodes      : {', '.join(sc.cut_off)}")
         lines.append("")
@@ -545,13 +741,98 @@ class _Phase3DetailDialog(tk.Toplevel):
         # Exposure types
         direct     = getattr(sc, "direct_exp",     [])
         cross      = getattr(sc, "cross_exp",      [])
+        same       = getattr(sc, "same_exp",       [])
         unmediated = getattr(sc, "unmediated_exp", [])
         if direct:
             lines.append(f"Direct exposure    : {', '.join(str(x) for x in direct)}")
         if cross:
-            lines.append(f"Cross exposure     : {', '.join(str(x) for x in cross)}")
+            lines.append(f"Cross-trust expos. : {', '.join(str(x) for x in cross)}")
+        if same:
+            lines.append(f"Same-trust expos.  : {', '.join(str(x) for x in same)}")
         if unmediated:
             lines.append(f"Unmediated exposure: {', '.join(str(x) for x in unmediated)}")
+
+        # ── Attack paths (WP5) ──────────────────────────────────────────
+        attack_paths = getattr(sc, "attack_paths", [])
+        struct_paths = getattr(sc, "structural_attack_paths", [])
+        escalation   = getattr(sc, "escalation_paths", [])
+        if attack_paths or struct_paths:
+            lines.append("")
+            lines.append("Attack Paths to Critical Targets (effective / structural):")
+            lines.append("─" * 56)
+            # Build lookup for structural distances
+            struct_lookup = {}
+            for src, tgt, dist in struct_paths:
+                struct_lookup[(src, tgt)] = dist
+            if attack_paths:
+                for src, tgt, dist in sorted(attack_paths, key=lambda x: x[2]):
+                    sd = struct_lookup.get((src, tgt))
+                    if sd is not None and sd < dist:
+                        lines.append(f"  {src} -> {tgt}  ({dist} hops, {sd} without FW)")
+                    else:
+                        lines.append(f"  {src} -> {tgt}  ({dist} hops)")
+            elif struct_paths:
+                lines.append("  (no effective paths — firewalls block all attack routes)")
+                lines.append("  Structural (worst-case, no firewalls):")
+                for src, tgt, dist in sorted(struct_paths, key=lambda x: x[2]):
+                    lines.append(f"    {src} -> {tgt}  ({dist} hops)")
+        if escalation:
+            lines.append("")
+            lines.append("Privilege Escalation Paths:")
+            lines.append("─" * 40)
+            for src, tgt, sd, td in escalation:
+                lines.append(f"  {src}({sd}) -> {tgt}({td})")
+
+        # ── Functional resilience ────────────────────────────────────────
+        caps_ok   = getattr(sc, "capabilities_ok",       [])
+        caps_deg  = getattr(sc, "capabilities_degraded",  [])
+        caps_lost = getattr(sc, "capabilities_lost",      [])
+        ess_lost  = getattr(sc, "essential_caps_lost",     [])
+        reasons   = getattr(sc, "capability_reasons",      {})
+        sys_func  = getattr(sc, "system_functional",       True)
+        sys_deg   = getattr(sc, "system_degraded",         False)
+        sys_nf    = getattr(sc, "system_non_functional",   False)
+
+        has_caps = caps_ok or caps_deg or caps_lost
+        lines.append("")
+        lines.append("Mission Capabilities:")
+        lines.append("=" * 56)
+
+        if has_caps:
+            # System-level status banner
+            if sys_nf:
+                lines.append("  SYSTEM STATUS: NON-FUNCTIONAL")
+            elif sys_deg:
+                lines.append("  SYSTEM STATUS: DEGRADED")
+            elif sys_func:
+                lines.append("  SYSTEM STATUS: FULLY FUNCTIONAL")
+            else:
+                lines.append("  SYSTEM STATUS: UNKNOWN (no solver verdict)")
+            lines.append("")
+        else:
+            lines.append("  (no mission capabilities defined for this topology)")
+            lines.append("")
+
+        if has_caps:
+
+            if caps_ok:
+                lines.append(f"  OK         : {', '.join(sorted(caps_ok))}")
+            if caps_deg:
+                lines.append(f"  DEGRADED   : {', '.join(sorted(caps_deg))}")
+            if caps_lost:
+                lines.append(f"  LOST       : {', '.join(sorted(caps_lost))}")
+            if ess_lost:
+                lines.append(f"  ESSENTIAL  : {', '.join(sorted(ess_lost))} (CRITICAL)")
+            lines.append("")
+
+            # Show reasons for each lost/degraded capability
+            for cap in sorted(set(caps_lost + caps_deg)):
+                cap_reasons = reasons.get(cap, [])
+                if cap_reasons:
+                    status = "LOST" if cap in caps_lost else "DEGRADED"
+                    lines.append(f"  {cap} [{status}]:")
+                    for r in cap_reasons:
+                        lines.append(f"    - {r}")
 
         body = "\n".join(lines)
         self._detail.configure(state=tk.NORMAL)
@@ -664,39 +945,113 @@ class _Phase1DetailDialog(tk.Toplevel):
         nb.add(tab, text="  Risk Breakdown  ")
         t = self._make_text(tab)
         lines = []
-        new_risk = p1.new_risk or []
-        lines.append(f"Per-asset risk entries  ({len(new_risk)} total):")
-        lines.append("─" * 56)
-        # new_risk items — try to unpack flexibly
-        if new_risk:
-            lines.append(f"  {'Asset/Chain':<28} {'Op':<8} {'Risk':>5}")
-            lines.append(f"  {'─'*27} {'─'*7} {'─'*5}")
-            for entry in sorted(new_risk, key=lambda x: -x[-1] if x else 0):
-                try:
-                    if len(entry) == 4:
-                        chain, asset, op, risk = entry
-                        key = f"{chain}/{asset}"
-                    elif len(entry) == 3:
-                        asset, op, risk = entry
-                        key = str(asset)
-                    else:
-                        key = str(entry[0]) if entry else "?"
-                        op, risk = "?", entry[-1] if entry else 0
-                    lines.append(f"  {str(key):<28} {str(op):<8} {int(risk):>5}")
-                except Exception:
-                    lines.append(f"  {entry}")
+
+        HDR = f"  {'Component':<10} {'Register':<10} {'Op':<8} {'Risk':>5}  DB  EM  {'Security':<16} {'Logging'}"
+        SEP = "  " + "─" * 80
+
+        # ── Section 1: Non-redundant components (additive security risk) ──
+        sec_risks = p1.security_residual_risk or []
+        lines.append("NON-REDUNDANT COMPONENTS  —  Additive Security Residual Risk")
+        lines.append("  Risk = Impact + DomainBonus(DB) + ExploitMod(EM) − Protect − LogProtect")
+        lines.append("  DB: untrusted=0, low=0, normal=1, privileged=2, high/root=3")
+        lines.append("  EM: exploitability−3  (hard=−2, neutral=0, trivial=+2)")
+        lines.append(SEP)
+        if sec_risks:
+            lines.append(HDR)
+            lines.append(SEP)
+            for comp, reg, op, risk in sorted(sec_risks, key=lambda x: -x[3]):
+                sec  = p1.security.get(comp, "—")
+                log  = p1.logging.get(comp,  "—")
+                db   = p1.domain_bonus.get(comp, "?")
+                em   = p1.exploit_mod.get(comp,  "?")
+                lines.append(f"  {comp:<10} {reg:<10} {op:<8} {risk:>5}  {str(db):>2}  {str(em):>2}  {sec:<16} {log}")
+        else:
+            lines.append("  (no data — check #show security_residual_risk/4 in encoding)")
+
+        # ── Section 2: Redundant group members (probabilistic avail risk) ──
+        lines.append("")
+        avail_risks = p1.avail_risk or []
+        lines.append("REDUNDANT GROUP MEMBERS  —  Probabilistic Availability Risk")
+        lines.append("  Risk = Impact × denorm_combined_prob / 100  (floor set by Mu × group size)")
+        lines.append(SEP)
+        if avail_risks:
+            lines.append(HDR)
+            lines.append(SEP)
+            for comp, reg, op, risk in sorted(avail_risks, key=lambda x: -x[3]):
+                sec  = p1.security.get(comp, "—")
+                log  = p1.logging.get(comp,  "—")
+                db   = p1.domain_bonus.get(comp, "?")
+                em   = p1.exploit_mod.get(comp,  "?")
+                lines.append(f"  {comp:<10} {reg:<10} {op:<8} {risk:>5}  {str(db):>2}  {str(em):>2}  {sec:<16} {log}")
+        else:
+            lines.append("  (no data — check #show avail_risk/4 in encoding)")
+
+        # ── Section 3: Per-component totals (risk budget contribution) ──
+        lines.append("")
+        lines.append("PER-COMPONENT RISK TOTALS  (sum over all assets and actions)")
+        lines.append(SEP)
+        by_comp = p1.risk_by_component()
+        if by_comp:
+            lines.append(f"  {'Component':<12} {'Total Risk':>10}  Bar")
+            lines.append(SEP)
+            for comp, r in sorted(by_comp.items(), key=lambda x: -x[1]):
+                bar = "█" * min(r // max(1, max(by_comp.values()) // 20), 20)
+                lines.append(f"  {comp:<12} {r:>10}  {bar}")
         else:
             lines.append("  (no risk data)")
+
+        # ── Section 4: Per-asset-register max risk ──
         lines.append("")
-        lines.append(f"Total risk: {p1.total_risk()}")
+        lines.append("MAX RISK PER ASSET REGISTER  (max over read/write operations)")
+        lines.append(SEP)
         per_asset = p1.max_risk_per_asset()
         if per_asset:
-            lines.append("")
-            lines.append("Max risk per asset:")
-            lines.append("─" * 40)
+            max_v = max(per_asset.values()) if per_asset else 1
+            lines.append(f"  {'Register':<12} {'Max Risk':>8}  Bar")
+            lines.append(SEP)
             for asset, r in sorted(per_asset.items(), key=lambda x: -x[1]):
-                bar = "█" * min(r, 20)
-                lines.append(f"  {asset:<25} {r:>4}  {bar}")
+                bar = "█" * min(r * 20 // max(max_v, 1), 20)
+                lines.append(f"  {asset:<12} {r:>8}  {bar}")
+        else:
+            lines.append("  (no asset risk data)")
+
+        lines.append("")
+        lines.append(f"TOTAL RISK (unweighted): {p1.total_risk()}")
+
+        # ── Section 5: CIA dimension summary ──
+        lines.append("")
+        lines.append("CIA DIMENSION SUMMARY")
+        lines.append(SEP)
+        lines.append("  Dimension  Raw Risk  Weight  Weighted")
+        lines.append(SEP)
+        from ..core.solution_ranker import CIA_WEIGHTS
+        action_map  = {"read": "C — Confidentiality", "write": "I — Integrity", "avail": "A — Availability"}
+        dim_totals: dict = {"read": 0, "write": 0, "avail": 0}
+        all_entries = list(p1.security_residual_risk) + list(p1.avail_risk) or list(p1.new_risk)
+        for _c, _a, action, risk in all_entries:
+            if action in dim_totals:
+                dim_totals[action] += risk
+        for action, label in action_map.items():
+            raw = dim_totals[action]
+            w   = CIA_WEIGHTS.get(action, 1.0)
+            wt  = raw * w
+            lines.append(f"  {label:<28} {raw:>8}  {w:>6.1f}  {wt:>8.1f}")
+        weighted_total = sum(dim_totals[a] * CIA_WEIGHTS.get(a, 1.0) for a in dim_totals)
+        lines.append(SEP)
+        lines.append(f"  {'WEIGHTED TOTAL':<28} {'':>8}  {'':>6}  {weighted_total:>8.1f}")
+        lines.append("  (security_score uses weighted total; lower is better)")
+
+        # Risk weights (amplification proxy)
+        if p1.risk_weights:
+            lines.append("")
+            lines.append("TOPOLOGY RISK WEIGHTS  (amplification proxy per asset)")
+            lines.append(SEP)
+            lines.append(f"  {'Asset':<14} {'Weight':>6}  (higher = prioritised by Phase 1 solver)")
+            lines.append(SEP)
+            for asset, w in sorted(p1.risk_weights.items(), key=lambda x: -x[1]):
+                bar = "█" * (w // 5)
+                lines.append(f"  {asset:<14} {w:>6}  {bar}")
+
         self._write(t, "\n".join(lines))
 
 
@@ -842,6 +1197,30 @@ class _StrategyComparisonDialog(tk.Toplevel):
                       True))
         rows.append(("Avg Blast Radius",
                       [fmt(s.avg_blast_radius()) for s in solutions],
+                      True))
+        # Capability retention across scenarios
+        def _cap_retention(sol):
+            sat = [sc for sc in sol.scenarios if sc.satisfiable] if sol and sol.scenarios else []
+            if not sat:
+                return "—"
+            scores = []
+            for sc in sat:
+                total = len(sc.capabilities_ok) + len(sc.capabilities_degraded) + len(sc.capabilities_lost)
+                if total > 0:
+                    pct = (len(sc.capabilities_ok) + 0.5 * len(sc.capabilities_degraded)) / total * 100
+                    scores.append(pct)
+            return fmt(sum(scores) / len(scores)) if scores else "—"
+
+        rows.append(("Cap. Retention %",
+                      [_cap_retention(s) for s in solutions],
+                      False))
+
+        def _nonfunc_count(sol):
+            sat = [sc for sc in sol.scenarios if sc.satisfiable] if sol and sol.scenarios else []
+            return str(sum(1 for sc in sat if sc.system_non_functional)) if sat else "—"
+
+        rows.append(("Non-Func Scenarios",
+                      [_nonfunc_count(s) for s in solutions],
                       True))
         return rows
 

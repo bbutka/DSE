@@ -162,7 +162,7 @@ class ClingoRunner:
         Variant for Phase 3 scenarios — no optimisation, just satisfiability.
 
         Loads files, adds scenario_facts as a separate program, grounds and
-        solves for a single model.
+        solves for a single model.  Respects the instance timeout.
         """
         result: Dict[str, Any] = {
             "status": "ERROR",
@@ -195,7 +195,30 @@ class ClingoRunner:
             def on_model(m: clingo.Model) -> None:
                 found.extend(m.symbols(shown=True))
 
-            sr = ctl.solve(on_model=on_model)
+            if self.timeout > 0:
+                solve_done = threading.Event()
+                solve_result = [None]
+
+                def _solve() -> None:
+                    solve_result[0] = ctl.solve(on_model=on_model)
+                    solve_done.set()
+
+                t = threading.Thread(target=_solve, daemon=True)
+                t.start()
+                finished = solve_done.wait(self.timeout)
+                if not finished:
+                    result["status"] = "TIMEOUT"
+                    result["message"] = f"Scenario timed out after {self.timeout}s"
+                    result["atoms"] = found  # partial results if any
+                    return result
+                sr = solve_result[0]
+            else:
+                sr = ctl.solve(on_model=on_model)
+
+            if sr is None:
+                result["status"] = "ERROR"
+                result["message"] = "Solve returned None"
+                return result
 
             if sr.unsatisfiable:
                 result["status"] = "UNSAT"

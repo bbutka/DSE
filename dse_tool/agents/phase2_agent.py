@@ -53,13 +53,15 @@ class Phase2Agent:
         strategy: str = "max_security",
         progress_queue: Optional[queue.Queue] = None,
         timeout: int = 60,
+        extra_instance_facts: str = "",
     ) -> None:
-        self.clingo_dir     = clingo_dir
-        self.testcase_lp    = testcase_lp
-        self.phase1_result  = phase1_result
-        self.strategy       = strategy
-        self.progress_queue = progress_queue
-        self.timeout        = timeout
+        self.clingo_dir           = clingo_dir
+        self.testcase_lp          = testcase_lp
+        self.phase1_result        = phase1_result
+        self.strategy             = strategy
+        self.progress_queue       = progress_queue
+        self.timeout              = timeout
+        self.extra_instance_facts = extra_instance_facts
 
     # ------------------------------------------------------------------
     # Public API
@@ -85,11 +87,17 @@ class Phase2Agent:
 
         lp_files = self._build_lp_list()
         p1_facts = p1.as_p1_facts()
+        # Combine generated instance facts (topology) with Phase 1 output
+        all_extra = self.extra_instance_facts
+        if all_extra and p1_facts:
+            all_extra = all_extra + "\n" + p1_facts
+        elif p1_facts:
+            all_extra = p1_facts
 
         runner = ClingoRunner(timeout=self.timeout)
         result_raw = runner.solve(
             lp_files=lp_files,
-            extra_facts=p1_facts,
+            extra_facts=all_extra,
             num_solutions=1,
             opt_mode="optN",
         )
@@ -97,7 +105,7 @@ class Phase2Agent:
         status = result_raw["status"]
 
         if status == "UNSAT":
-            reason = self._diagnose_unsat(lp_files, p1_facts)
+            reason = self._diagnose_unsat(lp_files, all_extra)
             self._post(
                 f"[Phase 2/{self.strategy}] WARNING: UNSAT — {reason}"
             )
@@ -132,7 +140,7 @@ class Phase2Agent:
     def _build_lp_list(self) -> list:
         """Build the LP file list for Phase 2."""
         files = []
-        if self.testcase_lp and os.path.isfile(self.testcase_lp):
+        if not self.extra_instance_facts and self.testcase_lp and os.path.isfile(self.testcase_lp):
             files.append(self.testcase_lp)
         for name in self.PHASE2_LP_NAMES:
             path = os.path.join(self.clingo_dir, name)
@@ -142,25 +150,76 @@ class Phase2Agent:
                 self._post(f"[Phase 2] WARNING: LP file not found: {path}")
         return files
 
-    def _diagnose_unsat(self, lp_files: list, p1_facts: str) -> str:
+    def _diagnose_unsat(self, lp_files: list, all_extra: str) -> str:
         """
-        Attempt to identify conflicting constraints by relaxing soft constraints
-        one at a time.  Returns a human-readable diagnosis string.
+        Attempt to identify conflicting constraints by selectively
+        relaxing hard constraints one at a time.
+
+        Returns a human-readable diagnosis string.
         """
-        # Try without the hard firewall placement constraint
-        relaxed = p1_facts + "\n% Diagnosis: relaxed — allow 0 firewalls\n"
-        runner  = ClingoRunner(timeout=30)
-        r2 = runner.solve(lp_files=lp_files, extra_facts=relaxed,
+        runner = ClingoRunner(timeout=20)
+        issues: list = []
+
+        # Test 1: Relax the critical-IP firewall constraint
+        #   :- master(M), low_trust_domain(M), critical(IP),
+        #      reachable(M, IP), not protected(M, IP).
+        relax_fw = (
+            all_extra + "\n"
+            "% DIAG: override critical-IP FW constraint\n"
+            "protected(M, IP) :- master(M), receiver(IP).\n"
+        )
+        r1 = runner.solve(lp_files=lp_files, extra_facts=relax_fw,
+                          num_solutions=1, opt_mode="opt")
+        if r1["status"] == "SAT":
+            issues.append(
+                "critical-IP firewall constraint: a low-trust master can "
+                "reach a critical IP with no on-path firewall candidate. "
+                "Check on_path(FW, Master, IP) and ip_loc(IP, FW) facts."
+            )
+
+        # Test 2: Relax the safety-critical isolation constraint
+        #   :- safety_critical(C), not isolated(C, _).
+        relax_iso = (
+            all_extra + "\n"
+            "% DIAG: override safety-critical isolation\n"
+            "isolated(C, attack_confirmed) :- safety_critical(C).\n"
+        )
+        r2 = runner.solve(lp_files=lp_files, extra_facts=relax_iso,
                           num_solutions=1, opt_mode="opt")
         if r2["status"] == "SAT":
-            return (
-                "Over-constrained firewall placement: the firewall requirement "
-                "conflicts with available topology facts. Check on_path/ip_loc facts."
+            issues.append(
+                "safety-critical isolation constraint: a safety-critical "
+                "component cannot be isolated in any security mode. "
+                "Check that deny rules cover all low-trust masters."
             )
+
+        # Test 3: Relax the FW-governance constraint
+        #   :- place_fw(FWL), ip_loc(IP, FWL), not governs_ip(_, IP).
+        relax_gov = (
+            all_extra + "\n"
+            "% DIAG: override governance constraint\n"
+            "governs_ip(ps_diag, IP) :- ip_loc(IP, _).\n"
+            "place_ps(ps_diag).\n"
+            "cand_ps(ps_diag).\n"
+            "ps_cost(ps_diag, 0).\n"
+        )
+        r3 = runner.solve(lp_files=lp_files, extra_facts=relax_gov,
+                          num_solutions=1, opt_mode="opt")
+        if r3["status"] == "SAT":
+            issues.append(
+                "FW governance constraint: a placed firewall has no "
+                "governing policy server. Check governs(PS, FW) facts "
+                "cover all candidate firewalls that must be placed."
+            )
+
+        if issues:
+            return "UNSAT root cause(s): " + " | ".join(issues)
+
         return (
             "Policy encoding is unsatisfiable. Possible causes: "
             "missing allow/access_need facts, contradictory domain assignments, "
-            "or incompatible Phase 1 feature selections."
+            "incompatible Phase 1 feature selections, or structural topology gap. "
+            "Use 'Show ASP Facts' to dump instance facts and run clingo manually."
         )
 
     def _post(self, msg: str) -> None:

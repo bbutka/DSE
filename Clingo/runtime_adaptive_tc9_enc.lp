@@ -11,6 +11,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 0. GRADUATED DOMAIN HELPERS  (mirrors zta_policy_enc.lp)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+high_trust_domain(N) :- domain(N, privileged).
+high_trust_domain(N) :- domain(N, high).
+high_trust_domain(N) :- domain(N, root).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 1. TOPOLOGY / CONTEXT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -135,7 +143,7 @@ base_penalty(N, 5) :-
 
 base_penalty(N, 5) :-
     receiver(N),
-    domain(N, high),
+    high_trust_domain(N),
     not key_storage(N).
 
 base_score(N, Score) :-

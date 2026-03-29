@@ -16,12 +16,63 @@
 % final product by 1000^(N-1) — the mathematically correct normalisation
 % for N parallel redundant components.
 %
+% FULL CIA RISK MODEL
+% ===================
+% Risk is computed for all three CIA action types: read (confidentiality),
+% write (integrity), avail (availability / DoS).  Each action type uses the
+% same additive formula but dispatches to a different protection-value table:
+%
+%   read  / write → security_protect_val  (MAC / ZTA access control)
+%   avail         → avail_protect_val     (DoS mitigation / rate-limiting)
+%
+% Avail impact facts are only emitted by the generator when impact_avail > 0,
+% so existing models without avail facts are unaffected.
+%
+% EXPLOITABILITY MODIFIER
+% =======================
+%   exploit_mod(C, Mod) where Mod = exploitability(C) - 3
+%   Range: -2 (hard to exploit) to +2 (trivially exploitable)
+%   Default: 0 (neutral) when no exploitability/2 fact is present.
+%   This aligns with CVSS exploitability scoring: attack vector, complexity,
+%   and privileges required collectively determine how easy it is to reach
+%   a component and trigger the impact.
+%
+% GRADUATED TRUST DOMAINS
+% =======================
+%   untrusted  → domain_bonus = 0  (externally-facing, no implicit trust)
+%   low        → domain_bonus = 0  (backward compat alias for untrusted)
+%   normal     → domain_bonus = 1  (standard OS/application domain)
+%   privileged → domain_bonus = 2  (elevated privilege, e.g. TEE app domain)
+%   high       → domain_bonus = 3  (backward compat alias for root)
+%   root       → domain_bonus = 3  (root domain: boot ROM, PMU, secure world)
+%   (default)  → domain_bonus = 1  (normal, when no domain fact asserted)
+%
+% DUAL-RISK BUDGET (Option A)
+% ===========================
+% Two independent risk budgets replace the single max_asset_risk cap:
+%
+%   max_security_risk  — caps the ADDITIVE residual risk for non-redundant
+%                        components.  This is what security feature placement
+%                        controls: Risk = Impact + DomainBonus + ExplMod
+%                                         - EffectiveProtect - LogProtect.
+%
+%   max_avail_risk     — caps the PROBABILISTIC availability risk for redundant
+%                        groups.  This is what redundancy architecture controls:
+%                        Risk = Imp * denorm_combined_prob / 100.
+%
+% The two budgets are entirely independent.  A design can violate one, the
+% other, or both.  The solver enforces them as separate hard constraints.
+%
 % Inputs expected from instance/selected files:
-%   component/1, asset/3, impact/3
+%   component/1, asset/3, impact/3          (read, write, and/or avail)
 %   vulnerability/2, logging/2
 %   selected_security/2, selected_logging/2
 %   redundant_group/2
-%   system_capability(max_asset_risk, MaxRisk)
+%   domain/2  (untrusted | low | normal | privileged | high | root)
+%   exploitability/2  (optional, 1–5; default = 3 neutral)
+%   security_protect_val/2, log_protect_val/2, avail_protect_val/2
+%   system_capability(max_security_risk, Cap)
+%   system_capability(max_avail_risk,    Cap)
 
 % --- Parameters ---
 mu(25).
@@ -37,36 +88,61 @@ logging_score(C, L)        :- selected_logging(C, Lf), logging(Lf, L).
 #show vulnerability_score/2.
 #show logging_score/2.
 
-% --- Domain bonus: high-domain components carry additional exposure risk ---
-domain_bonus(C, 3) :- component(C), domain(C, high).
+% --- Graduated domain bonus ---
+% Supports: untrusted(0) | low(0) | normal(1) | privileged(2) | high(3) | root(3)
+% Default: 1 (normal) when no domain fact is asserted.
+domain_bonus(C, 0) :- component(C), domain(C, untrusted).
 domain_bonus(C, 0) :- component(C), domain(C, low).
-domain_bonus(C, 0) :- component(C), not domain(C, high), not domain(C, low).
+domain_bonus(C, 1) :- component(C), domain(C, normal).
+domain_bonus(C, 2) :- component(C), domain(C, privileged).
+domain_bonus(C, 3) :- component(C), domain(C, high).
+domain_bonus(C, 3) :- component(C), domain(C, root).
+domain_bonus(C, 1) :- component(C),
+    not domain(C, untrusted), not domain(C, low),
+    not domain(C, normal),    not domain(C, privileged),
+    not domain(C, high),      not domain(C, root).
+
+% --- Exploitability modifier ---
+% Mod = E - 3: E=1 → -2 (hard to exploit), E=3 → 0 (neutral), E=5 → +2 (trivial)
+% Default: 0 when no exploitability fact is present.
+exploit_mod(C, Mod) :- exploitability(C, E), Mod = E - 3.
+exploit_mod(C, 0)   :- component(C), not exploitability(C, _).
 
 % --- Additive protection scores per component ---
 security_protect_score(C, SP) :- selected_security(C, S), security_protect_val(S, SP).
-log_protect_score(C,    LP) :- selected_logging(C, Lf),  log_protect_val(Lf, LP).
+log_protect_score(C,    LP)   :- selected_logging(C, Lf),  log_protect_val(Lf, LP).
+avail_protect_score(C,  AP)   :- selected_security(C, S),  avail_protect_val(S, AP).
 
-% --- Original risk: additive model ---
-% Residual risk = Impact + DomainBonus − SecurityProtection − LogProtection, clamped to 0.
-% Rationale: ordinal impact scores are not ratio-scale; adding them avoids the
-% multiplicative artefact where reducing a low factor yields disproportionate
-% risk reduction.  Consistent with NIST 800-30 qualitative combination.
+% --- Action-dispatched effective protection ---
+% read/write use security_protect_val; avail uses avail_protect_val.
+% This lets the solver select security features that are appropriate for
+% the threat type: MAC/ZTA for C/I, DoS mitigation for A.
+effective_protect_score(C, read,  P) :- security_protect_score(C, P).
+effective_protect_score(C, write, P) :- security_protect_score(C, P).
+effective_protect_score(C, avail, P) :- avail_protect_score(C, P).
+
+% --- Additive residual risk per component (all CIA action types) ---
+% Risk = Impact + DomainBonus + ExploitMod - EffectiveProtect - LogProtect,
+% clamped to 0.  Consistent with NIST 800-30 qualitative risk combination
+% extended with CVSS exploitability weighting.
 original_register_risk(C, R, Action, Risk) :-
     component(C), asset(C, R, Action),
     impact(R, Action, Imp),
     domain_bonus(C, DB),
-    security_protect_score(C, SP),
+    exploit_mod(C, EM),
+    effective_protect_score(C, Action, P),
     log_protect_score(C, LP),
-    Risk = Imp + DB - SP - LP,
+    Risk = Imp + DB + EM - P - LP,
     Risk >= 0.
 
 original_register_risk(C, R, Action, 0) :-
     component(C), asset(C, R, Action),
     impact(R, Action, Imp),
     domain_bonus(C, DB),
-    security_protect_score(C, SP),
+    exploit_mod(C, EM),
+    effective_protect_score(C, Action, P),
     log_protect_score(C, LP),
-    Imp + DB - SP - LP < 0.
+    Imp + DB + EM - P - LP < 0.
 
 % --- Original combined probability V*L ---
 original_prob(C, Prob) :-
@@ -90,23 +166,12 @@ group_size(G, N) :-
     N = #count { C : redundant_group(G, C) }.
 
 % --- Canonical rank within each group (lexicographic order via <) ---
-% Rank is unique: each member gets exactly one position 1..N.
 group_rank(G, C, R) :-
     redundant_group(G, C),
     N = #count { C2 : redundant_group(G, C2), C2 < C },
     R = N + 1.
 
 % --- Running normalised partial product ---
-%
-% At rank 1 the running value is simply the component's own normalised prob.
-% At each subsequent rank we multiply in the next component and immediately
-% divide by 1000, keeping the running value in [0, 1000] at all times.
-% This is overflow-safe for any group size under Clingo 5's 32-bit integers
-% (max intermediate = 1000 * 1000 = 10^6, well within 2^31 - 1).
-%
-% After N steps the value equals P1*P2*...*PN / 1000^(N-1), which is the
-% correct combined normalised probability for N redundant components.
-
 partial_norm(G, 1, C, P) :-
     group_rank(G, C, 1),
     original_prob_normalized(C, P).
@@ -136,34 +201,66 @@ new_prob_denormalized(C, Denorm) :-
     omega(Omega),
     Denorm = (P * (Omega - Mu) / 1000) + Mu * 10.
 
-% --- Risk for components NOT in any redundancy group ---
-new_risk(C, R, A, Risk) :-
+% ===========================================================================
+% DUAL-RISK BUDGET — named risk predicates and independent hard constraints
+% ===========================================================================
+
+% Security residual risk: additive model, applies to non-redundant components.
+% These are the components whose risk the security feature DSE directly controls.
+security_residual_risk(C, R, A, Risk) :-
     component(C),
     not in_any_group(C),
     original_register_risk(C, R, A, Risk).
 
-% --- Risk for components IN a redundancy group ---
-new_risk(C, R, Action, Risk) :-
+% Availability risk: probabilistic model, applies to redundant group members.
+% These components benefit from redundancy; their risk floor is set by the
+% group size and the Mu * 10 denormalisation constant, not security features alone.
+avail_risk(C, R, Action, Risk) :-
     component(C),
+    in_any_group(C),
     asset(C, R, Action),
     impact(R, Action, Imp),
     new_prob_denormalized(C, P),
     Risk = Imp * P / 100.
 
-% --- Hard risk cap ---
-% Use the MAXIMUM declared cap so that topology-specific LP files can provide
-% a permissive floor (e.g. for redundant groups whose probabilistic formula
-% produces inherently higher numbers) while still allowing the GUI/extra_facts
-% to inject a tighter cap for non-redundant topologies.
-% Rationale: if both tgt_system_tc9_inst.lp (cap=20, for redundant group floor)
-% and GUI extra_facts (cap=3, for non-redundant additive model) are present,
-% the effective cap is max(20, 3) = 20 — feasible for TC9's redundant group.
-% For fresh topologies with only GUI injection (cap=3), the effective cap is 3.
-effective_risk_cap(Cap) :- Cap = #max { V : system_capability(max_asset_risk, V) }.
-:- new_risk(_, _, _, Risk), effective_risk_cap(Cap), Risk > Cap.
+% Unified new_risk feeds the minimize objective and downstream phases.
+new_risk(C, R, A, Risk) :- security_residual_risk(C, R, A, Risk).
+new_risk(C, R, A, Risk) :- avail_risk(C, R, A, Risk).
 
-% --- Minimise total asset risk (deduplicated on all four key fields) ---
-#minimize { Risk, C, Asset, Action : new_risk(C, Asset, Action, Risk) }.
+% --- Security risk budget (hard constraint) ---
+% Enforces the additive cap on non-redundant components only.
+:- security_residual_risk(_, _, _, Risk),
+   system_capability(max_security_risk, Cap),
+   Risk > Cap.
+
+% --- Availability risk budget (hard constraint) ---
+% Enforces the probabilistic cap on redundant group members.
+:- avail_risk(_, _, _, Risk),
+   system_capability(max_avail_risk, Cap),
+   Risk > Cap.
+
+% --- Minimise total weighted asset risk ---
+% When risk_weight/2 facts are present (emitted by ASPGenerator), the objective
+% weights each risk point by the topology-derived amplification proxy for that
+% asset.  This causes the solver to preferentially reduce risk on assets that
+% Phase 3 scenario analysis will amplify most (safety-critical, high blast-radius,
+% privileged-domain components).
+%
+% When no risk_weight/2 facts are present (standalone / legacy runs) the fallback
+% objective is unweighted — identical to the original behaviour.
+%
+% The two-literal disjunction in the weight expression ensures exactly one fires
+% per (C, Asset, Action) triple regardless of whether risk_weight is defined.
+weighted_risk(C, Asset, Action, WR) :-
+    new_risk(C, Asset, Action, Risk),
+    risk_weight(Asset, W),
+    WR = Risk * W.
+
+weighted_risk(C, Asset, Action, Risk) :-
+    new_risk(C, Asset, Action, Risk),
+    not risk_weight(Asset, _).
+
+#minimize { WR, C, Asset, Action : weighted_risk(C, Asset, Action, WR) }.
 
 % --- Output ---
 #show original_register_risk/4.
@@ -171,6 +268,12 @@ effective_risk_cap(Cap) :- Cap = #max { V : system_capability(max_asset_risk, V)
 #show original_prob_normalized/2.
 #show new_prob_normalized/2.
 #show new_prob_denormalized/2.
+#show security_residual_risk/4.
+#show avail_risk/4.
 #show new_risk/4.
 #show combined_prob_norm/2.
-#show effective_risk_cap/1.
+#show domain_bonus/2.
+#show exploit_mod/2.
+#show effective_protect_score/3.
+#show risk_weight/2.
+#show weighted_risk/4.
