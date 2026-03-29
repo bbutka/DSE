@@ -148,7 +148,7 @@ class Phase1Agent:
         self._post(
             f"[Phase 1/{self.strategy}] Done — "
             f"Risk: {r.total_risk()}, "
-            f"LUTs: {r.total_luts:,} ({r.total_luts/53200*100:.1f}%), "
+            f"LUTs: {r.total_luts:,}, "
             f"Power: {r.total_power:,} mW"
         )
         return r

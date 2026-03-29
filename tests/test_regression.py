@@ -1286,6 +1286,128 @@ class TestEdgeCases(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# CSV Export
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestCSVExport(unittest.TestCase):
+    """Tests for the CSV export function."""
+
+    def _make_solution(self, strategy: str) -> SolutionResult:
+        p1 = Phase1Result(strategy=strategy, satisfiable=True)
+        p1.security = {"c1": "zero_trust"}
+        p1.logging = {"c1": "zero_trust_logger"}
+        p1.new_risk = [("c1", "c1r1", "read", 2)]
+        p1.total_luts = 5000
+        p1.total_power = 3000
+        p2 = Phase2Result(satisfiable=True)
+        p2.placed_fws = ["fw1"]
+        p2.placed_ps = ["ps1"]
+        sc = ScenarioResult(name="baseline", compromised=[], failed=[],
+                            satisfiable=True)
+        sc.blast_radii = {"c1": 3}
+        sol = SolutionResult(strategy=strategy, label=strategy,
+                             phase1=p1, phase2=p2, scenarios=[sc], complete=True)
+        sol.security_score = 80.0
+        sol.resilience_score = 70.0
+        return sol
+
+    def test_csv_export_creates_file(self):
+        """export_csv writes a valid CSV file with correct columns."""
+        from dse_tool.core.comparison import export_csv
+        import tempfile, csv
+        sols = [self._make_solution(s) for s in
+                ["max_security", "min_resources", "balanced"]]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv",
+                                         delete=False) as f:
+            path = f.name
+        try:
+            export_csv(sols, path)
+            with open(path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+            self.assertEqual(len(rows), 3)
+            self.assertIn("Strategy", rows[0])
+            self.assertIn("Security_Score", rows[0])
+            self.assertIn("CIA_C", rows[0])
+            self.assertEqual(rows[0]["Strategy"], "max_security")
+        finally:
+            os.unlink(path)
+
+    def test_csv_export_values(self):
+        """CSV values match solution data."""
+        from dse_tool.core.comparison import export_csv
+        import tempfile, csv
+        sols = [self._make_solution("max_security")]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv",
+                                         delete=False) as f:
+            path = f.name
+        try:
+            export_csv(sols, path)
+            with open(path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                row = next(reader)
+            self.assertEqual(row["LUTs"], "5000")
+            self.assertEqual(row["Power_mW"], "3000")
+            self.assertEqual(row["FWs_Placed"], "1")
+            self.assertEqual(row["Security_Score"], "80.0")
+        finally:
+            os.unlink(path)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RefSoC Full Pipeline Integration
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestRefSoCFullPipeline(unittest.TestCase):
+    """End-to-end pipeline test for RefSoC-16 topology."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import clingo
+            cls.has_clingo = True
+        except ImportError:
+            cls.has_clingo = False
+        cls.has_lp = os.path.isdir(CLINGO_DIR)
+        if cls.has_clingo and cls.has_lp:
+            cls.model = make_reference_soc()
+            cls.gen = ASPGenerator(cls.model)
+            cls.facts = cls.gen.generate()
+
+    def test_refsoc_max_security_pipeline(self):
+        """RefSoC max_security: Phase 1+2+3 all SAT."""
+        if not self.has_clingo or not self.has_lp:
+            self.skipTest("clingo or LP files not available")
+        from dse_tool.agents.phase1_agent import Phase1Agent
+        from dse_tool.agents.phase2_agent import Phase2Agent
+        from dse_tool.agents.phase3_agent import Phase3Agent, generate_scenarios
+
+        p1 = Phase1Agent(clingo_dir=CLINGO_DIR, testcase_lp="",
+                         strategy="max_security",
+                         extra_instance_facts=self.facts, timeout=60).run()
+        self.assertTrue(p1.satisfiable, "RefSoC Phase 1 should be SAT")
+
+        p2 = Phase2Agent(clingo_dir=CLINGO_DIR, testcase_lp="",
+                         phase1_result=p1, strategy="max_security",
+                         timeout=60, extra_instance_facts=self.facts).run()
+        self.assertTrue(p2.satisfiable, "RefSoC Phase 2 should be SAT")
+
+        scenarios = generate_scenarios(self.model, full=False)
+        self.assertGreater(len(scenarios), 5, "Should generate 5+ scenarios")
+
+        p3 = Phase3Agent(clingo_dir=CLINGO_DIR, testcase_lp="",
+                         phase1_result=p1, phase2_result=p2,
+                         strategy="max_security", timeout=30,
+                         extra_instance_facts=self.facts
+                         ).run(model_scenarios=scenarios)
+        sat_sc = [s for s in p3 if s.satisfiable]
+        self.assertGreater(len(sat_sc), 0, "At least one scenario should be SAT")
+        # Check capabilities are assessed
+        any_caps = any(s.capabilities_ok or s.capabilities_lost for s in sat_sc)
+        self.assertTrue(any_caps, "RefSoC has 8 capabilities — should be assessed")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Runner
 # ═══════════════════════════════════════════════════════════════════════════
 

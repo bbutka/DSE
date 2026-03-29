@@ -187,7 +187,6 @@ class NetworkModel:
         "max_bram":         140,
         "max_security_risk":  3,   # additive cap: non-redundant components
         "max_avail_risk":    20,   # probabilistic cap: redundant groups
-        "max_bufg":          32,
     })
     cand_fws: List[str] = field(default_factory=list)
     cand_ps: List[str] = field(default_factory=list)
@@ -763,7 +762,6 @@ def make_tc9_network() -> NetworkModel:
         "max_bram":         140,
         "max_security_risk":  3,   # additive cap: non-redundant components
         "max_avail_risk":    20,   # probabilistic cap: redundant groups
-        "max_bufg":          32,
     }
 
     # ── Candidates ───────────────────────────────────────────────────────────
@@ -1091,7 +1089,6 @@ def make_reference_soc() -> NetworkModel:
         "max_bram":            140,
         "max_security_risk":    4,  # tighter: forces mac+ on high-impact assets
         "max_avail_risk":      25,  # allows sensor group with moderate security
-        "max_bufg":             32,
     }
 
     # ── Candidate firewalls and policy servers ───────────────────────────

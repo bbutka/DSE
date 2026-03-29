@@ -17,9 +17,9 @@ The DSE Security Analysis Tool is a three-phase design space exploration framewo
 | TC9 (max_security) | SAT | SAT | SAT (7+ scenarios) | PASS | **PASS** |
 | TC9 (min_resources) | SAT | SAT | SAT (7+ scenarios) | PASS | **PASS** |
 | TC9 (balanced) | SAT | SAT | SAT (7+ scenarios) | PASS | **PASS** |
-| RefSoC-16 (max_security) | SAT | UNSAT | Blocked | N/A | **PHASE 2 BLOCKED** |
-| RefSoC-16 (min_resources) | SAT | UNSAT | Blocked | N/A | **PHASE 2 BLOCKED** |
-| RefSoC-16 (balanced) | SAT | UNSAT | Blocked | N/A | **PHASE 2 BLOCKED** |
+| RefSoC-16 (max_security) | SAT | SAT | SAT (39 scenarios) | PASS | **PASS** |
+| RefSoC-16 (min_resources) | SAT | SAT | SAT (39 scenarios) | PASS | **PASS** |
+| RefSoC-16 (balanced) | SAT | SAT | SAT (39 scenarios) | PASS | **PASS** |
 
 ### Regression Test Suite
 
@@ -128,27 +128,20 @@ The DSE Security Analysis Tool is a three-phase design space exploration framewo
 
 ## 4. Known Issues — Future Work
 
-### 4a. RefSoC-16 Phase 2 UNSAT (HIGH PRIORITY)
+### 4a. RefSoC-16 Phase 2 — RESOLVED
 
-**Status:** Phase 1 passes for all 3 strategies. Phase 2 returns UNSAT, blocking Phase 3.
-
-**Diagnosis:** Topology validation passes (no structural UNSAT risks detected). UNSAT diagnosis probes need runtime verification. Most likely cause is constraint interaction between critical-IP firewall coverage and ZTA policy rules when the topology has 3 masters, 3 bus segments, and 10+ receivers with mixed trust domains.
-
-**Recommended fix path:**
-1. Dump RefSoC Phase 2 facts and run Clingo manually to get UNSAT core
-2. Run the 3 diagnostic probes and identify which constraint(s) conflict
-3. Fix the specific constraint interaction
+**Status:** All 3 strategies pass all 3 phases. 39/39 scenarios SAT per strategy. The fw_comm firewall candidate and generalized PS rules resolved the UNSAT.
 
 ### 4b. Remaining Plan Work Packages
 
 | WP | Description | Status | Depends On |
 |----|-------------|--------|------------|
-| WP1 | Fix RefSoC Phase 2 UNSAT | IN PROGRESS | Nothing |
-| WP2 | Generalize resilience encoding (rename tc9 files) | DONE | — |
-| WP3 | Auto-generate scenarios from topology | DONE | WP2 |
-| WP4 | Firewall-aware blast radius | DONE | WP2 |
-| WP5 | Attack path enumeration | DONE | WP2, WP4 |
-| WP6 | Protection-aware exposure model | DONE | WP2 |
+| WP1 | Fix RefSoC Phase 2 UNSAT | **DONE** | — |
+| WP2 | Generalize resilience encoding (rename tc9 files) | **DONE** | — |
+| WP3 | Auto-generate scenarios from topology | **DONE** | WP2 |
+| WP4 | Firewall-aware blast radius | **DONE** | WP2 |
+| WP5 | Attack path enumeration | **DONE** | WP2, WP4 |
+| WP6 | Protection-aware exposure model | **DONE** | WP2 |
 
 ### 4c. Minor Issues
 

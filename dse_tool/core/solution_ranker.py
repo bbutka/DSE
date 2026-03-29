@@ -180,11 +180,13 @@ class SolutionRanker:
                 #   - Excess penalty: each excess privilege costs 2 points
                 #   - Trust gap penalty: each missing anchor costs 3 points
                 placed = len(set(p2.placed_fws))
-                total_cands = max(placed, 1)
-                # If Phase1 data available, use candidate count from there
-                if p1 and p1.satisfiable:
-                    # Estimate total candidates from all placed FWs across solutions
-                    total_cands = max(placed, len(set(p2.placed_fws)), 1)
+                # Estimate total candidates from the union of all placed FWs
+                # across all solutions (the superset approximates cand_fws)
+                all_fws: set = set()
+                for other in self.solutions:
+                    if other.phase2 and other.phase2.satisfiable:
+                        all_fws.update(other.phase2.placed_fws)
+                total_cands = max(len(all_fws), placed, 1)
                 fw_ratio = placed / total_cands if total_cands > 0 else 0
                 excess_penalty = min(30.0, len(p2.excess_privileges) * 2.0)
                 gap_penalty = min(20.0, (

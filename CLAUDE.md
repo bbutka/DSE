@@ -94,7 +94,9 @@
 
 ## Testing
 
-- No formal test suite exists. Test by loading TC9 or RefSoC-16 in the GUI and running all 3 phases.
+- **127-test regression suite**: `py -3.12 -m unittest tests.test_regression -v`
+- Covers: data model, factories (TC9 + RefSoC), ASP generation, topology validation, solution parsing (Phase 1/2/3), solution ranker (CIA-weighted scoring), comparison engine, executive summary, scenario generation, Clingo integration, full pipeline (orchestrator + executive summary), edge cases.
+- **Full pipeline passes** for both TC9 and RefSoC-16 topologies across all 3 strategies x 3 phases.
 - Quick validation: `py -3.12 -c "from dse_tool.core.asp_generator import make_tc9_network, ASPGenerator; m = make_tc9_network(); print(ASPGenerator(m).generate()[:200])"`
 - For Clingo-dependent tests, import from `dse_tool.core.clingo_runner` (requires clingo module).
 

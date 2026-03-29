@@ -609,3 +609,112 @@ def generate_report_text(
     lines.append(SEP)
 
     return "\n".join(lines)
+
+
+def export_csv(
+    solutions: List[SolutionResult],
+    path: str,
+    max_luts: int = 0,
+    max_power: int = 0,
+    max_ffs: int = 0,
+) -> None:
+    """
+    Export per-strategy metrics to a CSV file.
+
+    Parameters
+    ----------
+    solutions : list[SolutionResult]
+        The three strategy solutions from the orchestrator.
+    path : str
+        Output CSV file path.
+    max_luts, max_power, max_ffs : int
+        FPGA resource budgets (0 = use module defaults).
+    """
+    import csv
+
+    _max_luts  = max_luts  if max_luts  > 0 else MAX_LUTS
+    _max_power = max_power if max_power > 0 else MAX_POWER_MW
+    _max_ffs   = max_ffs   if max_ffs   > 0 else 106_400
+
+    fieldnames = [
+        "Strategy", "Label",
+        "Phase1_SAT", "Phase2_SAT",
+        "Total_Risk", "Security_Score", "Resource_Score",
+        "Power_Score", "Latency_Score", "Resilience_Score", "Policy_Score",
+        "LUTs", "LUT_Pct", "FFs", "FF_Pct", "Power_mW", "Power_Pct",
+        "DSPs", "LUTRAM", "BRAM",
+        "FWs_Placed", "PSs_Placed", "Excess_Privileges", "Missing_Privileges",
+        "Trust_Gaps_RoT", "Trust_Gaps_SBoot", "Trust_Gaps_Attest",
+        "Scenarios_Total", "Scenarios_SAT",
+        "Worst_Scenario", "Worst_Scenario_Risk", "Max_Blast_Radius",
+        "Avg_Blast_Radius",
+        "Cap_OK", "Cap_Degraded", "Cap_Lost", "Non_Functional_Scenarios",
+        "CIA_C", "CIA_I", "CIA_A",
+    ]
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for sol in solutions:
+            p1 = sol.phase1
+            p2 = sol.phase2
+            sat_sc = [s for s in sol.scenarios if s.satisfiable] if sol.scenarios else []
+            worst = sol.worst_scenario()
+
+            # Capability aggregation
+            cap_ok = cap_deg = cap_lost = nf = 0
+            for sc in sat_sc:
+                cap_ok   += len(sc.capabilities_ok)
+                cap_deg  += len(sc.capabilities_degraded)
+                cap_lost += len(sc.capabilities_lost)
+                if sc.system_non_functional:
+                    nf += 1
+
+            lut_pct = (p1.total_luts / _max_luts * 100) if (p1 and p1.satisfiable and _max_luts) else 0
+            ff_pct  = (p1.total_ffs  / _max_ffs  * 100) if (p1 and p1.satisfiable and _max_ffs)  else 0
+            pwr_pct = (p1.total_power / _max_power * 100) if (p1 and p1.satisfiable and _max_power) else 0
+
+            row = {
+                "Strategy":           sol.strategy,
+                "Label":              sol.label,
+                "Phase1_SAT":         p1.satisfiable if p1 else False,
+                "Phase2_SAT":         p2.satisfiable if p2 else False,
+                "Total_Risk":         p1.total_risk() if (p1 and p1.satisfiable) else "N/A",
+                "Security_Score":     round(sol.security_score, 1),
+                "Resource_Score":     round(sol.resource_score, 1),
+                "Power_Score":        round(sol.power_score, 1),
+                "Latency_Score":      round(sol.latency_score, 1),
+                "Resilience_Score":   round(sol.resilience_score, 1),
+                "Policy_Score":       round(sol.policy_score, 1),
+                "LUTs":               p1.total_luts if (p1 and p1.satisfiable) else 0,
+                "LUT_Pct":            round(lut_pct, 1),
+                "FFs":                p1.total_ffs if (p1 and p1.satisfiable) else 0,
+                "FF_Pct":             round(ff_pct, 1),
+                "Power_mW":           p1.total_power if (p1 and p1.satisfiable) else 0,
+                "Power_Pct":          round(pwr_pct, 1),
+                "DSPs":               p1.total_dsps if (p1 and p1.satisfiable) else 0,
+                "LUTRAM":             p1.total_lutram if (p1 and p1.satisfiable) else 0,
+                "BRAM":               p1.total_bram if (p1 and p1.satisfiable) else 0,
+                "FWs_Placed":         len(set(p2.placed_fws)) if (p2 and p2.satisfiable) else 0,
+                "PSs_Placed":         len(set(p2.placed_ps)) if (p2 and p2.satisfiable) else 0,
+                "Excess_Privileges":  len(p2.excess_privileges) if (p2 and p2.satisfiable) else 0,
+                "Missing_Privileges": len(p2.missing_privileges) if (p2 and p2.satisfiable) else 0,
+                "Trust_Gaps_RoT":     len(p2.trust_gap_rot) if (p2 and p2.satisfiable) else 0,
+                "Trust_Gaps_SBoot":   len(p2.trust_gap_sboot) if (p2 and p2.satisfiable) else 0,
+                "Trust_Gaps_Attest":  len(p2.trust_gap_attest) if (p2 and p2.satisfiable) else 0,
+                "Scenarios_Total":    len(sol.scenarios) if sol.scenarios else 0,
+                "Scenarios_SAT":      len(sat_sc),
+                "Worst_Scenario":     worst.name if worst else "N/A",
+                "Worst_Scenario_Risk": round(worst.total_risk, 1) if worst else 0,
+                "Max_Blast_Radius":   max((s.max_blast_radius for s in sat_sc), default=0),
+                "Avg_Blast_Radius":   round(sol.avg_blast_radius(), 1),
+                "Cap_OK":             cap_ok,
+                "Cap_Degraded":       cap_deg,
+                "Cap_Lost":           cap_lost,
+                "Non_Functional_Scenarios": nf,
+                "CIA_C":              sol.cia_scores.get("C", 0),
+                "CIA_I":              sol.cia_scores.get("I", 0),
+                "CIA_A":              sol.cia_scores.get("A", 0),
+            }
+            writer.writerow(row)

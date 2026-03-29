@@ -465,44 +465,16 @@ class MainWindow(tk.Tk):
         if not path:
             return
         try:
-            import csv
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                # Header
-                writer.writerow([
-                    "Strategy", "Label", "P1 SAT", "P1 Optimal",
-                    "LUTs", "FFs", "DSPs", "BRAMs", "Power", "Total Risk",
-                    "P2 SAT", "FWs Placed", "PSes Placed",
-                    "Protected IPs", "P2 Cost", "Avg Tightness",
-                    "Num Scenarios", "Worst Risk", "Avg Blast Radius",
-                ])
-                for sol in solutions:
-                    if sol is None:
-                        continue
-                    p1 = sol.phase1
-                    p2 = sol.phase2
-                    ws = sol.worst_scenario()
-                    writer.writerow([
-                        sol.strategy,
-                        sol.label or "",
-                        "SAT" if (p1 and p1.satisfiable) else "UNSAT",
-                        "Yes" if (p1 and p1.optimal) else "No",
-                        p1.total_luts   if p1 else "",
-                        p1.total_ffs    if p1 else "",
-                        p1.total_dsps   if p1 else "",
-                        p1.total_bram   if p1 else "",
-                        p1.total_power  if p1 else "",
-                        p1.total_risk() if p1 else "",
-                        "SAT" if (p2 and p2.satisfiable) else ("UNSAT" if p2 else ""),
-                        ", ".join(p2.placed_fws) if p2 else "",
-                        ", ".join(p2.placed_ps)  if p2 else "",
-                        len(set(ip for _, ip in p2.protected)) if p2 else "",
-                        p2.total_cost   if p2 else "",
-                        f"{p2.avg_policy_tightness():.1f}" if p2 else "",
-                        len(sol.scenarios),
-                        f"{ws.total_risk:.2f}" if ws else "",
-                        f"{sol.avg_blast_radius():.2f}",
-                    ])
+            from ..core.comparison import export_csv
+            caps = {}
+            if self._orchestrator and hasattr(self._orchestrator, "network_model"):
+                caps = self._orchestrator.network_model.system_caps
+            export_csv(
+                solutions, path,
+                max_luts=caps.get("max_luts", 0),
+                max_power=caps.get("max_power", 0),
+                max_ffs=caps.get("max_ffs", 0),
+            )
             self._set_status(f"Exported: {os.path.basename(path)}")
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
