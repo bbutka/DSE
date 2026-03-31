@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 340" font-family="Arial, Helvetica, sans-serif" font-size="10">
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#555"/>
+    </marker>
+    <marker id="a-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c62828"/>
+    </marker>
+  </defs>
+
+  <text x="370" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Automated DSE Workflow — Five Deliverables from a Single Model</text>
+
+  <!-- INPUT MODEL -->
+  <rect x="10" y="55" width="110" height="130" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>
+  <text x="65" y="72" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">Input Model</text>
+  <text x="65" y="88" text-anchor="middle" font-size="8" fill="#555">SoC topology graph</text>
+  <text x="65" y="100" text-anchor="middle" font-size="8" fill="#555">Components, buses</text>
+  <text x="65" y="112" text-anchor="middle" font-size="8" fill="#555">Trust domains</text>
+  <text x="65" y="124" text-anchor="middle" font-size="8" fill="#555">Assets, impacts</text>
+  <text x="65" y="136" text-anchor="middle" font-size="8" fill="#555">Latency constraints</text>
+  <text x="65" y="148" text-anchor="middle" font-size="8" fill="#555">FPGA budget</text>
+  <text x="65" y="164" text-anchor="middle" font-size="8" fill="#1565c0" font-style="italic">Single .lp file</text>
+  <text x="65" y="178" text-anchor="middle" font-size="8" fill="#1565c0" font-style="italic">or GUI editor</text>
+
+  <!-- Arrow to Phase 1 -->
+  <line x1="120" y1="120" x2="140" y2="120" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- PHASE 1 -->
+  <rect x="145" y="40" width="120" height="100" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+  <text x="205" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#e65100">Phase 1</text>
+  <text x="205" y="72" text-anchor="middle" font-size="9" fill="#e65100">Security DSE</text>
+  <line x1="160" y1="80" x2="250" y2="80" stroke="#e65100" stroke-width="0.5"/>
+  <text x="205" y="94" text-anchor="middle" font-size="8" fill="#555">Feature selection</text>
+  <text x="205" y="106" text-anchor="middle" font-size="8" fill="#555">Risk minimization</text>
+  <text x="205" y="118" text-anchor="middle" font-size="8" fill="#555">Resource constraints</text>
+  <text x="205" y="130" text-anchor="middle" font-size="8" fill="#555">Dual-risk budget</text>
+
+  <!-- Arrow to Phase 2 -->
+  <line x1="265" y1="90" x2="285" y2="90" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- PHASE 2 -->
+  <rect x="290" y="40" width="120" height="100" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="350" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">Phase 2</text>
+  <text x="350" y="72" text-anchor="middle" font-size="9" fill="#2e7d32">ZTA Synthesis</text>
+  <line x1="305" y1="80" x2="395" y2="80" stroke="#2e7d32" stroke-width="0.5"/>
+  <text x="350" y="94" text-anchor="middle" font-size="8" fill="#555">FW/PS placement</text>
+  <text x="350" y="106" text-anchor="middle" font-size="8" fill="#555">ACL generation</text>
+  <text x="350" y="118" text-anchor="middle" font-size="8" fill="#555">Mode-aware policy</text>
+  <text x="350" y="130" text-anchor="middle" font-size="8" fill="#555">Trust gap detection</text>
+
+  <!-- Arrow to Phase 3 -->
+  <line x1="410" y1="90" x2="430" y2="90" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- PHASE 3 -->
+  <rect x="435" y="40" width="120" height="100" rx="6" fill="#fce4ec" stroke="#c62828" stroke-width="2"/>
+  <text x="495" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#c62828">Phase 3</text>
+  <text x="495" y="72" text-anchor="middle" font-size="9" fill="#c62828">Resilience</text>
+  <line x1="450" y1="80" x2="540" y2="80" stroke="#c62828" stroke-width="0.5"/>
+  <text x="495" y="94" text-anchor="middle" font-size="8" fill="#555">Scenario generation</text>
+  <text x="495" y="106" text-anchor="middle" font-size="8" fill="#555">Blast radius</text>
+  <text x="495" y="118" text-anchor="middle" font-size="8" fill="#555">Service availability</text>
+  <text x="495" y="130" text-anchor="middle" font-size="8" fill="#555">Attack paths</text>
+
+  <!-- Arrow to Phase 4 -->
+  <line x1="555" y1="90" x2="575" y2="90" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- PHASE 4 -->
+  <rect x="580" y="40" width="120" height="100" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="640" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#6a1b9a">Phase 4</text>
+  <text x="640" y="72" text-anchor="middle" font-size="9" fill="#6a1b9a">Runtime Adapt</text>
+  <line x1="595" y1="80" x2="685" y2="80" stroke="#6a1b9a" stroke-width="0.5"/>
+  <text x="640" y="94" text-anchor="middle" font-size="8" fill="#555">Monitor placement</text>
+  <text x="640" y="106" text-anchor="middle" font-size="8" fill="#555">Anomaly scoring</text>
+  <text x="640" y="118" text-anchor="middle" font-size="8" fill="#555">Mode transition</text>
+  <text x="640" y="130" text-anchor="middle" font-size="8" fill="#555">Response actions</text>
+
+  <!-- UNSAT callout -->
+  <rect x="310" y="148" width="100" height="18" rx="3" fill="#ffcdd2" stroke="#c62828" stroke-width="1"/>
+  <text x="360" y="161" text-anchor="middle" font-size="8" font-weight="bold" fill="#c62828">UNSAT → diagnosis</text>
+
+  <!-- Strategy variants bracket -->
+  <rect x="145" y="170" width="555" height="22" rx="4" fill="#f5f5f5" stroke="#888" stroke-width="1"/>
+  <text x="422" y="185" text-anchor="middle" font-size="9" fill="#555">× 3 strategies: <tspan font-weight="bold" fill="#e65100">max_security</tspan> | <tspan font-weight="bold" fill="#1565c0">min_resources</tspan> | <tspan font-weight="bold" fill="#2e7d32">balanced</tspan></text>
+
+  <!-- Five deliverables -->
+  <text x="370" y="215" text-anchor="middle" font-size="11" font-weight="bold" fill="#222">Five Deliverables</text>
+
+  <rect x="10" y="228" width="130" height="44" rx="4" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="75" y="246" text-anchor="middle" font-size="9" font-weight="bold" fill="#e65100">① Pareto-Optimal</text>
+  <text x="75" y="260" text-anchor="middle" font-size="8" fill="#555">Architectures</text>
+
+  <rect x="150" y="228" width="130" height="44" rx="4" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="215" y="246" text-anchor="middle" font-size="9" font-weight="bold" fill="#2e7d32">② Access Control</text>
+  <text x="215" y="260" text-anchor="middle" font-size="8" fill="#555">Policies (9 modes)</text>
+
+  <rect x="290" y="228" width="130" height="44" rx="4" fill="#fce4ec" stroke="#c62828" stroke-width="1.5"/>
+  <text x="355" y="246" text-anchor="middle" font-size="9" font-weight="bold" fill="#c62828">③ Resilience</text>
+  <text x="355" y="260" text-anchor="middle" font-size="8" fill="#555">Checklists</text>
+
+  <rect x="430" y="228" width="130" height="44" rx="4" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="495" y="246" text-anchor="middle" font-size="9" font-weight="bold" fill="#6a1b9a">④ Runtime-Adaptive</text>
+  <text x="495" y="260" text-anchor="middle" font-size="8" fill="#555">Response Policies</text>
+
+  <rect x="570" y="228" width="130" height="44" rx="4" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="635" y="246" text-anchor="middle" font-size="9" font-weight="bold" fill="#1565c0">⑤ Strategy</text>
+  <text x="635" y="260" text-anchor="middle" font-size="8" fill="#555">Comparison Reports</text>
+
+  <!-- Caption -->
+  <text x="370" y="300" text-anchor="middle" font-size="9" fill="#555">Fig. 1. Automated DSE workflow. A single SoC model produces five deliverables through four sequential ASP solving phases,</text>
+  <text x="370" y="312" text-anchor="middle" font-size="9" fill="#555">run for each of three optimization strategies. Phase 2 returns UNSAT with diagnostic when constraints are infeasible.</text>
+
+  <!-- Solver label -->
+  <rect x="300" y="22" width="140" height="16" rx="3" fill="#f5f5f5" stroke="#888" stroke-width="0.5"/>
+  <text x="370" y="34" text-anchor="middle" font-size="8" fill="#555">Clingo 5.8 ASP Solver (optN mode)</text>
+</svg>

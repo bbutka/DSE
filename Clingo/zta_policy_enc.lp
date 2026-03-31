@@ -204,8 +204,9 @@ reachable_low(IP, S) :-
 
 isolated(C, S) :- receiver(C), mode(S), not reachable_low(C, S).
 
-% Safety requirement
-:- safety_critical(C), not isolated(C, _).
+% Safety requirement: safety-critical RECEIVERS must be isolated in at least one mode.
+% Masters are not subject to isolation (they initiate access, not receive it).
+:- safety_critical(C), receiver(C), not isolated(C, _).
 
 % Final access decisions
 final_allow(M, IP, S) :- allow(M, IP, S), not deny(M, IP, S), mode(S), S != normal.

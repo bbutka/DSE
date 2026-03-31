@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" font-family="Arial, Helvetica, sans-serif" font-size="11">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#555"/>
+    </marker>
+    <marker id="arrow-dash" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#999"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="340" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">SoCDrone (TC9) — SoC Topology with ZTA Overlay</text>
+
+  <!-- noc0 bus -->
+  <rect x="100" y="100" width="420" height="28" rx="4" fill="#e8e8e8" stroke="#888" stroke-width="1.5"/>
+  <text x="310" y="118" text-anchor="middle" font-size="10" fill="#555" font-weight="bold">noc0</text>
+
+  <!-- noc1 bus -->
+  <rect x="380" y="220" width="240" height="28" rx="4" fill="#e8e8e8" stroke="#888" stroke-width="1.5"/>
+  <text x="500" y="238" text-anchor="middle" font-size="10" fill="#555" font-weight="bold">noc1</text>
+
+  <!-- Masters -->
+  <rect x="30" y="50" width="80" height="32" rx="4" fill="#fff3cd" stroke="#856404" stroke-width="1.5"/>
+  <text x="70" y="70" text-anchor="middle" font-size="10" font-weight="bold" fill="#856404">sys_cpu</text>
+  <text x="70" y="44" text-anchor="middle" font-size="8" fill="#856404">master (low)</text>
+  <line x1="70" y1="82" x2="150" y2="100" stroke="#856404" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="180" y="50" width="80" height="32" rx="4" fill="#fff3cd" stroke="#856404" stroke-width="1.5"/>
+  <text x="220" y="70" text-anchor="middle" font-size="10" font-weight="bold" fill="#856404">dma</text>
+  <text x="220" y="44" text-anchor="middle" font-size="8" fill="#856404">master (low)</text>
+  <line x1="220" y1="82" x2="250" y2="100" stroke="#856404" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="250" y1="82" x2="430" y2="220" stroke="#856404" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- PEP_GROUP firewall -->
+  <rect x="120" y="140" width="90" height="24" rx="3" fill="#fce4ec" stroke="#c62828" stroke-width="1.5"/>
+  <text x="165" y="156" text-anchor="middle" font-size="9" font-weight="bold" fill="#c62828">🛡 pep_group</text>
+
+  <!-- PEP_STANDALONE firewall -->
+  <rect x="405" y="258" width="110" height="24" rx="3" fill="#fce4ec" stroke="#c62828" stroke-width="1.5"/>
+  <text x="460" y="274" text-anchor="middle" font-size="9" font-weight="bold" fill="#c62828">🛡 pep_standalone</text>
+
+  <!-- Redundancy group bracket -->
+  <rect x="75" y="178" width="370" height="28" rx="0" fill="none" stroke="#1565c0" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="260" y="198" text-anchor="middle" font-size="9" fill="#1565c0" font-style="italic">redundant_group (5-member, quorum=3)</text>
+
+  <!-- c1-c5 (high domain, redundancy group) -->
+  <rect x="80" y="210" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="108" y="230" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c1</text>
+  <line x1="130" y1="128" x2="108" y2="210" stroke="#888" stroke-width="1"/>
+
+  <rect x="148" y="210" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="176" y="230" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c2</text>
+  <line x1="180" y1="128" x2="176" y2="210" stroke="#888" stroke-width="1"/>
+
+  <rect x="216" y="210" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="244" y="230" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c3</text>
+  <line x1="240" y1="128" x2="244" y2="210" stroke="#888" stroke-width="1"/>
+
+  <rect x="284" y="210" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="312" y="230" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c4</text>
+  <line x1="310" y1="128" x2="312" y2="210" stroke="#888" stroke-width="1"/>
+
+  <rect x="352" y="210" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="380" y="230" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c5</text>
+  <line x1="380" y1="128" x2="380" y2="210" stroke="#888" stroke-width="1"/>
+
+  <!-- c6 (high) -->
+  <rect x="420" y="295" width="56" height="32" rx="4" fill="#bbdefb" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="448" y="315" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c6</text>
+  <line x1="448" y1="282" x2="448" y2="295" stroke="#888" stroke-width="1"/>
+
+  <!-- c7 (low) -->
+  <rect x="490" y="295" width="56" height="32" rx="4" fill="#f5f5f5" stroke="#757575" stroke-width="1.5"/>
+  <text x="518" y="315" text-anchor="middle" font-size="10" font-weight="bold" fill="#757575">c7</text>
+  <text x="518" y="340" text-anchor="middle" font-size="8" fill="#757575">(low)</text>
+  <line x1="500" y1="248" x2="518" y2="295" stroke="#888" stroke-width="1"/>
+
+  <!-- c8 (high, safety-critical) -->
+  <rect x="560" y="295" width="56" height="32" rx="4" fill="#bbdefb" stroke="#c62828" stroke-width="2"/>
+  <text x="588" y="315" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">c8</text>
+  <text x="588" y="340" text-anchor="middle" font-size="8" fill="#c62828">★ safety-critical</text>
+  <line x1="555" y1="248" x2="588" y2="295" stroke="#888" stroke-width="1"/>
+
+  <!-- Policy servers -->
+  <rect x="520" y="90" width="80" height="28" rx="4" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="560" y="108" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">ps0</text>
+  <text x="560" y="82" text-anchor="middle" font-size="8" fill="#2e7d32">signed ✓</text>
+  <line x1="520" y1="108" x2="210" y2="152" stroke="#2e7d32" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dash)"/>
+  <line x1="560" y1="118" x2="460" y2="258" stroke="#2e7d32" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dash)"/>
+
+  <rect x="520" y="140" width="80" height="28" rx="4" fill="#f1f8e9" stroke="#558b2f" stroke-width="1"/>
+  <text x="560" y="158" text-anchor="middle" font-size="10" fill="#558b2f">ps1</text>
+  <text x="560" y="178" text-anchor="middle" font-size="8" fill="#e65100">unsigned ✗</text>
+  <line x1="520" y1="152" x2="210" y2="152" stroke="#558b2f" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Legend -->
+  <rect x="20" y="360" width="640" height="50" rx="4" fill="#fafafa" stroke="#ccc" stroke-width="1"/>
+  <rect x="30" y="370" width="16" height="12" fill="#bbdefb" stroke="#1565c0" stroke-width="1"/>
+  <text x="50" y="380" font-size="9" fill="#333">High domain</text>
+  <rect x="130" y="370" width="16" height="12" fill="#f5f5f5" stroke="#757575" stroke-width="1"/>
+  <text x="150" y="380" font-size="9" fill="#333">Low domain</text>
+  <rect x="230" y="370" width="16" height="12" fill="#fff3cd" stroke="#856404" stroke-width="1"/>
+  <text x="250" y="380" font-size="9" fill="#333">Bus master</text>
+  <rect x="330" y="370" width="16" height="12" fill="#fce4ec" stroke="#c62828" stroke-width="1"/>
+  <text x="350" y="380" font-size="9" fill="#333">PEP (firewall)</text>
+  <rect x="440" y="370" width="16" height="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1"/>
+  <text x="460" y="380" font-size="9" fill="#333">Policy server</text>
+  <text x="560" y="380" font-size="9" fill="#c62828">★ = safety-critical</text>
+  <text x="30" y="400" font-size="9" fill="#555">Fig. 3. SoCDrone (TC9) SoC topology. The 5-member redundancy group shares noc0, creating a common-mode bus failure risk.</text>
+</svg>
