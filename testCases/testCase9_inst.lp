@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% By: Abigail Butka
+% By: [Author]
 % File: Test Case 2
 % Last Edited: 6/26/2025
 % Purpose: Define a system with eight components, one asset

@@ -1,0 +1,1402 @@
+[
+  {
+    "name": "baseline",
+    "compromised": [],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "mc_compromise",
+    "compromised": [
+      "mc"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 56.2,
+    "total_risk_scaled": 562,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "fc_compromise",
+    "compromised": [
+      "fc"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 56.2,
+    "total_risk_scaled": 562,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "flight_control"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "gs_compromise",
+    "compromised": [
+      "gs"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 60.2,
+    "total_risk_scaled": 602,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": [
+      [
+        "gs",
+        "mc",
+        "untrusted",
+        "privileged"
+      ]
+    ]
+  },
+  {
+    "name": "radio_drv_compromise",
+    "compromised": [
+      "radio_drv"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 67.0,
+    "total_risk_scaled": 670,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [
+      "comms_svc"
+    ],
+    "capabilities_lost": [
+      "ground_comms"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": [
+      [
+        "radio_drv",
+        "mc",
+        "low",
+        "privileged"
+      ]
+    ]
+  },
+  {
+    "name": "wifi_drv_compromise",
+    "compromised": [
+      "wifi_drv"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 66.2,
+    "total_risk_scaled": 662,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc"
+    ],
+    "services_degraded": [
+      "maintenance_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "ota_update"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": [
+      [
+        "wifi_drv",
+        "mc",
+        "untrusted",
+        "privileged"
+      ]
+    ]
+  },
+  {
+    "name": "swu_compromise",
+    "compromised": [
+      "swu"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 63.8,
+    "total_risk_scaled": 638,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc"
+    ],
+    "services_degraded": [
+      "maintenance_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "ota_update"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "geofence_compromise",
+    "compromised": [
+      "geofence"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 55.0,
+    "total_risk_scaled": 550,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [
+      "flight_safety_svc",
+      "navigation_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "navigation"
+    ],
+    "capabilities_degraded": [
+      "flight_control"
+    ],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "fpln_filt_compromise",
+    "compromised": [
+      "fpln_filt"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 55.0,
+    "total_risk_scaled": 550,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [
+      "flight_safety_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [
+      "flight_control"
+    ],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "uart_drv_compromise",
+    "compromised": [
+      "uart_drv"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 63.0,
+    "total_risk_scaled": 630,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [
+      "flight_safety_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "flight_control"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [
+      [
+        "uart_drv",
+        "fc",
+        2
+      ],
+      [
+        "uart_drv",
+        "fc",
+        4
+      ]
+    ],
+    "escalation_paths": [
+      [
+        "uart_drv",
+        "mc",
+        "normal",
+        "privileged"
+      ],
+      [
+        "uart_drv",
+        "fc",
+        "normal",
+        "privileged"
+      ]
+    ]
+  },
+  {
+    "name": "bus_rf_failure",
+    "compromised": [],
+    "failed": [
+      "bus_rf"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 4,
+      "fpln": 5,
+      "wpm": 5,
+      "cam_mgr": 5,
+      "wifi_drv": 4,
+      "uart_drv": 7,
+      "nfzdb": 5,
+      "attest_gate": 5,
+      "geofence": 5,
+      "fpln_filt": 5,
+      "swu": 5
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "ground_comms"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "bus_mc_failure",
+    "compromised": [],
+    "failed": [
+      "bus_mc"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 2,
+      "fpln": 0,
+      "wpm": 0,
+      "cam_mgr": 3,
+      "wifi_drv": 2,
+      "uart_drv": 2,
+      "nfzdb": 0,
+      "attest_gate": 0,
+      "geofence": 0,
+      "fpln_filt": 0,
+      "swu": 0
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "navigation",
+      "ota_update",
+      "attestation",
+      "flight_control",
+      "ground_comms"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "bus_uart_failure",
+    "compromised": [],
+    "failed": [
+      "bus_uart"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 7,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "bus_wifi_failure",
+    "compromised": [],
+    "failed": [
+      "bus_wifi"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 4,
+      "fpln": 5,
+      "wpm": 5,
+      "cam_mgr": 5,
+      "wifi_drv": 0,
+      "uart_drv": 7,
+      "nfzdb": 5,
+      "attest_gate": 5,
+      "geofence": 5,
+      "fpln_filt": 5,
+      "swu": 5
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "ota_update"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "fc_failure",
+    "compromised": [],
+    "failed": [
+      "fc"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 8,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "flight_control"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "geofence_failure",
+    "compromised": [],
+    "failed": [
+      "geofence"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [
+      "flight_safety_svc",
+      "navigation_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "navigation"
+    ],
+    "capabilities_degraded": [
+      "flight_control"
+    ],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "uart_drv_failure",
+    "compromised": [],
+    "failed": [
+      "uart_drv"
+    ],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [
+      "flight_safety_svc"
+    ],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "flight_control"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "ps_mc_compromise",
+    "compromised": [
+      "ps_mc"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 42.2,
+    "total_risk_scaled": 422,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "policy_management"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "ps_uart_compromise",
+    "compromised": [
+      "ps_uart"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 87.0,
+    "total_risk_scaled": 870,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [
+      "attestation",
+      "navigation",
+      "flight_control",
+      "surveillance",
+      "ota_update"
+    ],
+    "capabilities_available": [],
+    "cp_degraded": true,
+    "cp_stale": false,
+    "cp_compromised": true,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "pep_mc_bypass",
+    "compromised": [
+      "pep_mc"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 87.0,
+    "total_risk_scaled": 870,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [
+      "attestation",
+      "navigation",
+      "flight_control",
+      "surveillance",
+      "ota_update"
+    ],
+    "capabilities_available": [],
+    "cp_degraded": true,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "all_ps_failure",
+    "compromised": [],
+    "failed": [
+      "ps_mc",
+      "ps_uart"
+    ],
+    "satisfiable": true,
+    "total_risk": 45.4,
+    "total_risk_scaled": 454,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [
+      "policy_management"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": true,
+    "cp_stale": true,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "radio_drv_comp_bus_mc_fail",
+    "compromised": [
+      "radio_drv"
+    ],
+    "failed": [
+      "bus_mc"
+    ],
+    "satisfiable": true,
+    "total_risk": 67.0,
+    "total_risk_scaled": 670,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 2,
+      "fpln": 0,
+      "wpm": 0,
+      "cam_mgr": 3,
+      "wifi_drv": 2,
+      "uart_drv": 2,
+      "nfzdb": 0,
+      "attest_gate": 0,
+      "geofence": 0,
+      "fpln_filt": 0,
+      "swu": 0
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [
+      "comms_svc"
+    ],
+    "capabilities_lost": [
+      "ground_comms",
+      "navigation",
+      "ota_update",
+      "attestation",
+      "flight_control"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "mc_comp_bus_uart_fail",
+    "compromised": [
+      "mc"
+    ],
+    "failed": [
+      "bus_uart"
+    ],
+    "satisfiable": true,
+    "total_risk": 56.2,
+    "total_risk_scaled": 562,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 7,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "comms_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [],
+    "capabilities_lost": [],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": []
+  },
+  {
+    "name": "gs_radio_chain",
+    "compromised": [
+      "gs",
+      "radio_drv"
+    ],
+    "failed": [],
+    "satisfiable": true,
+    "total_risk": 67.0,
+    "total_risk_scaled": 670,
+    "blast_radii": {
+      "radio_drv": 17,
+      "fpln": 17,
+      "wpm": 17,
+      "cam_mgr": 17,
+      "wifi_drv": 17,
+      "uart_drv": 17,
+      "nfzdb": 17,
+      "attest_gate": 17,
+      "geofence": 17,
+      "fpln_filt": 17,
+      "swu": 17
+    },
+    "effective_blast_radii": {
+      "radio_drv": 6,
+      "fpln": 7,
+      "wpm": 7,
+      "cam_mgr": 7,
+      "wifi_drv": 6,
+      "uart_drv": 9,
+      "nfzdb": 7,
+      "attest_gate": 7,
+      "geofence": 7,
+      "fpln_filt": 7,
+      "swu": 7
+    },
+    "services_ok": [
+      "flight_safety_svc",
+      "navigation_svc",
+      "surveillance_svc",
+      "maintenance_svc"
+    ],
+    "services_degraded": [],
+    "services_unavailable": [
+      "comms_svc"
+    ],
+    "capabilities_lost": [
+      "ground_comms"
+    ],
+    "capabilities_degraded": [],
+    "capabilities_available": [],
+    "cp_degraded": false,
+    "cp_stale": false,
+    "cp_compromised": false,
+    "attack_paths": [],
+    "escalation_paths": [
+      [
+        "radio_drv",
+        "mc",
+        "low",
+        "privileged"
+      ],
+      [
+        "gs",
+        "mc",
+        "untrusted",
+        "privileged"
+      ]
+    ]
+  }
+]

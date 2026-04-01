@@ -1,0 +1,203 @@
+[RUNNER] Output directory: /content/drive/MyDrive/darpa_uav/HOST26_Code/colab_outputs/darpa_uav_min_resources_optimality
+[RUNNER] Source root: /content/drive/MyDrive/darpa_uav/DSE_ADD
+[RUNNER] Timeout schedule: [60, 120, 300, 600, 1200, 1800, 3600]
+[RUNNER] Max timeout: 21600
+[RUNNER] Attempt 1 with timeout 60s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (2.5s)
+[Phase 1] [min_resources] Grounding done (15.9s). Solving (timeout=60s)...
+  [Phase 1] Model #1  cost=[14230, 11]  optimal_proven=False  (33.4s)
+  [Phase 1] Model #2  cost=[11750, 32]  optimal_proven=False  (34.0s)
+  [Phase 1] Model #3  cost=[11610, 30]  optimal_proven=False  (39.1s)
+  [Phase 1] Model #4  cost=[11180, 35]  optimal_proven=False  (39.3s)
+  [Phase 1] Model #5  cost=[11000, 36]  optimal_proven=False  (39.4s)
+  [Phase 1] Model #6  cost=[10980, 36]  optimal_proven=False  (39.5s)
+  [Phase 1] Model #7  cost=[10850, 39]  optimal_proven=False  (46.3s)
+  [Phase 1] Model #8  cost=[10780, 39]  optimal_proven=False  (56.1s)
+  [Phase 1] Model #9  cost=[10770, 39]  optimal_proven=False  (56.6s)
+  [Phase 1] Model #10  cost=[10680, 39]  optimal_proven=False  (57.1s)
+  [Phase 1] Model #11  cost=[10480, 39]  optimal_proven=False  (57.3s)
+  [Phase 1] Model #12  cost=[10460, 42]  optimal_proven=False  (57.4s)
+  [Phase 1] Model #13  cost=[10380, 40]  optimal_proven=False  (61.5s)
+  [Phase 1] Model #14  cost=[10300, 43]  optimal_proven=False  (88.3s)
+  [Phase 1] Model #15  cost=[10240, 38]  optimal_proven=False  (92.6s)
+  [Phase 1] Timeout (60s) — interrupting, using best model found
+[Phase 1] [min_resources] DONE in 92.8s — BEST-FOUND (timeout)  Risk=31  LUTs=10240/53200 (19%)
+  attest_gate    sec=mac              log=some_logging
+  cam_mgr        sec=mac              log=no_logging
+  fpln           sec=dynamic_mac      log=zero_trust_logger
+  fpln_filt      sec=mac              log=some_logging
+  geofence       sec=zero_trust       log=no_logging
+  nfzdb          sec=mac              log=some_logging
+  radio_drv      sec=mac              log=zero_trust_logger
+  swu            sec=mac              log=no_logging
+  uart_drv       sec=mac              log=some_logging
+  wifi_drv       sec=dynamic_mac      log=no_logging
+  wpm            sec=mac              log=some_logging
+[RUNNER] Attempt 2 with timeout 120s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (0.1s)
+[Phase 1] [min_resources] Grounding done (14.7s). Solving (timeout=120s)...
+  [Phase 1] Model #1  cost=[10080, 44]  optimal_proven=False  (81.9s)
+  [Phase 1] Model #2  cost=[10040, 46]  optimal_proven=False  (82.0s)
+  [Phase 1] Model #3  cost=[9930, 43]  optimal_proven=False  (97.8s)
+  [Phase 1] Model #4  cost=[9860, 44]  optimal_proven=False  (114.5s)
+  [Phase 1] Model #5  cost=[9860, 43]  optimal_proven=False  (115.6s)
+  [Phase 1] Model #6  cost=[9860, 42]  optimal_proven=False  (115.6s)
+  [Phase 1] Model #7  cost=[9680, 44]  optimal_proven=False  (115.6s)
+  [Phase 1] Model #8  cost=[9500, 49]  optimal_proven=False  (134.1s)
+  [Phase 1] Model #9  cost=[9450, 48]  optimal_proven=False  (134.3s)
+  [Phase 1] Model #10  cost=[9380, 46]  optimal_proven=False  (135.5s)
+  [Phase 1] Timeout (120s) — interrupting, using best model found
+[Phase 1] [min_resources] DONE in 152.0s — BEST-FOUND (timeout)  Risk=34  LUTs=9380/53200 (17%)
+  attest_gate    sec=mac              log=some_logging
+  cam_mgr        sec=mac              log=no_logging
+  fpln           sec=mac              log=no_logging
+  fpln_filt      sec=dynamic_mac      log=some_logging
+  geofence       sec=dynamic_mac      log=no_logging
+  nfzdb          sec=mac              log=some_logging
+  radio_drv      sec=mac              log=some_logging
+  swu            sec=zero_trust       log=no_logging
+  uart_drv       sec=mac              log=some_logging
+  wifi_drv       sec=mac              log=no_logging
+  wpm            sec=mac              log=some_logging
+[RUNNER] Attempt 3 with timeout 300s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (0.1s)
+[Phase 1] [min_resources] Grounding done (13.8s). Solving (timeout=300s)...
+  [Phase 1] Model #1  cost=[9370, 46]  optimal_proven=False  (94.3s)
+  [Phase 1] Model #2  cost=[9260, 51]  optimal_proven=False  (200.9s)
+  [Phase 1] Model #3  cost=[9200, 49]  optimal_proven=False  (225.6s)
+  [Phase 1] Model #4  cost=[9130, 50]  optimal_proven=False  (263.1s)
+  [Phase 1] Timeout (300s) — interrupting, using best model found
+[Phase 1] [min_resources] DONE in 330.5s — BEST-FOUND (timeout)  Risk=38  LUTs=9130/53200 (17%)
+  attest_gate    sec=mac              log=some_logging
+  cam_mgr        sec=dynamic_mac      log=no_logging
+  fpln           sec=mac              log=no_logging
+  fpln_filt      sec=mac              log=some_logging
+  geofence       sec=dynamic_mac      log=no_logging
+  nfzdb          sec=mac              log=some_logging
+  radio_drv      sec=mac              log=some_logging
+  swu            sec=mac              log=no_logging
+  uart_drv       sec=mac              log=some_logging
+  wifi_drv       sec=dynamic_mac      log=no_logging
+  wpm            sec=mac              log=some_logging
+[RUNNER] Attempt 4 with timeout 600s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (0.1s)
+[Phase 1] [min_resources] Grounding done (14.5s). Solving (timeout=600s)...
+  [Phase 1] Model #1  cost=[8890, 53]  optimal_proven=False  (207.2s)
+  [Phase 1] Model #2  cost=[8890, 51]  optimal_proven=False  (441.4s)
+  [Phase 1] Model #3  cost=[8890, 49]  optimal_proven=False  (441.4s)
+  [Phase 1] Model #4  cost=[8710, 52]  optimal_proven=False  (441.4s)
+  [Phase 1] Model #5  cost=[8650, 53]  optimal_proven=False  (514.0s)
+  [Phase 1] Model #6  cost=[8650, 52]  optimal_proven=False  (619.3s)
+  [Phase 1] Model #7  cost=[8530, 54]  optimal_proven=False  (619.5s)
+  [Phase 1] Model #8  cost=[8410, 55]  optimal_proven=False  (624.4s)
+  [Phase 1] Timeout (600s) — interrupting, using best model found
+[Phase 1] [min_resources] DONE in 632.3s — BEST-FOUND (timeout)  Risk=39  LUTs=8410/53200 (15%)
+  attest_gate    sec=mac              log=some_logging
+  cam_mgr        sec=mac              log=no_logging
+  fpln           sec=mac              log=no_logging
+  fpln_filt      sec=mac              log=some_logging
+  geofence       sec=mac              log=some_logging
+  nfzdb          sec=mac              log=some_logging
+  radio_drv      sec=mac              log=some_logging
+  swu            sec=mac              log=no_logging
+  uart_drv       sec=mac              log=some_logging
+  wifi_drv       sec=mac              log=no_logging
+  wpm            sec=mac              log=some_logging
+[RUNNER] Attempt 5 with timeout 1200s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (0.1s)
+[Phase 1] [min_resources] Grounding done (15.2s). Solving (timeout=1200s)...
+  [Phase 1] Timeout (1200s) — interrupting, using best model found
+[Phase 1] Timeout before any better model was found â€” keeping incumbent and extending timeout.
+[RUNNER] Attempt 6 with timeout 1800s
+[Phase 1] [min_resources] Loading LP files...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading security_features_inst.lp
+  Loading init_enc.lp
+  Loading opt_redundancy_generic_enc.lp
+  Loading opt_latency_enc.lp
+  Loading opt_power_enc.lp
+  Loading opt_resource_enc.lp
+  Loading bridge_enc.lp
+[Phase 1] [min_resources] Grounding... (0.1s)
+[Phase 1] [min_resources] Grounding done (14.9s). Solving (timeout=1800s)...
+[Phase 1] No model better than incumbent — incumbent proven optimal.
+[RUNNER] Incumbent proven optimal on attempt 6
+[Phase 2] Loading ZTA policy encoding...
+  Loading tgt_system_darpa_uav_inst.lp
+  Loading zta_policy_enc.lp
+[Phase 2] Grounding... (0.3s)
+[Phase 2] Grounding done (0.3s). Solving...
+  [Phase 2] Model #1  cost=[350]  optimal_proven=False  (0.3s)
+  [Phase 2] Model #2  cost=[350]  optimal_proven=True  (0.3s)
+[Phase 2] DONE in 0.3s — Optimal=True  FWs=['pep_mc']  PS=['ps_uart']  cost=350  excess_privileges=22
+[Phase 3] Running 24 scenarios...
+  [1/24] baseline                            risk=42.2
+  [2/24] mc_compromise                       risk=56.2
+  [3/24] fc_compromise                       risk=56.2 LOST:flight_control
+  [4/24] gs_compromise                       risk=60.2
+  [5/24] radio_drv_compromise                risk=67.0 LOST:ground_comms
+  [6/24] wifi_drv_compromise                 risk=66.2 LOST:ota_update
+  [7/24] swu_compromise                      risk=63.8 LOST:ota_update
+  [8/24] geofence_compromise                 risk=55.0 LOST:navigation
+  [9/24] fpln_filt_compromise                risk=55.0
+  [10/24] uart_drv_compromise                 risk=63.0 LOST:flight_control
+  [11/24] bus_rf_failure                      risk=42.2 LOST:ground_comms
+  [12/24] bus_mc_failure                      risk=42.2 LOST:navigation,ota_update,attestation,flight_control,ground_comms
+  [13/24] bus_uart_failure                    risk=42.2
+  [14/24] bus_wifi_failure                    risk=42.2 LOST:ota_update
+  [15/24] fc_failure                          risk=42.2 LOST:flight_control
+  [16/24] geofence_failure                    risk=42.2 LOST:navigation
+  [17/24] uart_drv_failure                    risk=42.2 LOST:flight_control
+  [18/24] ps_mc_compromise                    risk=42.2 LOST:policy_management
+  [19/24] ps_uart_compromise                  risk=87.0 [CP-COMP]
+  [20/24] pep_mc_bypass                       risk=87.0 [CP-DEG]
+  [21/24] all_ps_failure                      risk=45.4 [CP-DEG] LOST:policy_management
+  [22/24] radio_drv_comp_bus_mc_fail          risk=67.0 LOST:ground_comms,navigation,ota_update,attestation,flight_control
+  [23/24] mc_comp_bus_uart_fail               risk=56.2
+  [24/24] gs_radio_chain                      risk=67.0 LOST:ground_comms
+[Phase 3] DONE — 24 scenarios in 1.0s

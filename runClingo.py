@@ -19,7 +19,7 @@ optimization_programs = [
 def main():
     export_security_features_to_lp(os.path.join("Clingo", "security_features_inst.lp"))
     # Find the clingo binary in the conda env
-    clingo_bin = r"C:\Users\butkaa\Anaconda3\envs\clingo\Library\bin\clingo.exe"
+    clingo_bin = r"C:\Users\[user]\Anaconda3\envs\clingo\Library\bin\clingo.exe"
 
     cmd = [clingo_bin] + optimization_programs
 

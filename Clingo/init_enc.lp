@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% By: Abigail Butka
+% By: [Author]
 % File: Initialize DSE Encoding
 % Last Edited: 6/24/2025
 % Purpose: Initialize the DSE with required constraints

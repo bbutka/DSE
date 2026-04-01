@@ -1,0 +1,378 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{balance}
+
+\begin{document}
+
+\title{Assurance-Aware Design Space Exploration\\
+for Zero-Trust Avionics SoC Security}
+
+\author{\IEEEauthorblockN{[Author names omitted for double-blind review]}}
+
+\maketitle
+
+\begin{abstract}
+Modern avionics platforms increasingly consolidate safety-critical and
+security-sensitive functions onto shared System-on-Chip (SoC) platforms.
+This consolidation improves size, weight, and power characteristics, but it
+also creates new attack surfaces because a compromised IP core or bus master
+can reach other assets through shared interconnects. This paper presents an
+assurance-aware design space exploration (DSE) workflow for avionics SoCs
+that jointly synthesizes security feature assignments and zero-trust
+enforcement policies under hardware constraints. The workflow uses Answer Set
+Programming (ASP) to assign per-component security and logging features
+subject to resource, power, and latency limits, then synthesizes firewall and
+policy-server placement together with least-privilege access control. The
+method exposes excess privileges, trust-anchor gaps, and topology-driven
+resilience weaknesses early in design. Evaluation on a primary 8-component
+SoC drone case and a secondary 11-component UAV translation shows that the
+workflow identifies actionable architectural findings while quantifying
+tradeoffs across security and implementation cost. On the primary case, the
+zero-trust overlay reduces baseline risk to~51 with 2 firewalls and 1 policy
+server, while exposing 9 excess privileges and 6 no-root-of-trust gaps. On
+the UAV case, the tool reveals a single-string internal-bus weakness and 22
+excess privileges that persist across all strategies.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Zero-Trust Architecture, System-on-Chip Security, Design Space Exploration,
+Answer Set Programming, Avionics
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Avionics architectures are moving toward deeper hardware consolidation.
+Processors, accelerators, DMA engines, sensors, and mission functions that
+were once separated across boards are increasingly realized on shared
+System-on-Chip (SoC) platforms. That transition improves SWaP
+characteristics, but it also changes the cybersecurity problem. A compromise
+on one bus-connected component can create architectural reachability to many
+other assets, including safety-critical ones, through the shared interconnect
+fabric.
+
+This creates a design-time problem rather than a purely operational one.
+Avionics architects must choose which hardware security features to deploy,
+where to place enforcement, and how to preserve latency and resource
+constraints. Manual hardening patterns help, but they do not explore the full
+design space and do not prove whether a selected architecture is
+resource-feasible or close to optimal. That gap is especially relevant to
+zero-trust avionics discussions, which increasingly emphasize explicit
+verification and least privilege but rarely address on-chip synthesis under
+hardware constraints~\cite{nist_zta,ztas_dasc}.
+
+This paper presents an assurance-aware DSE workflow for zero-trust avionics
+SoC security. Given a single architectural model, the workflow produces three
+practical outputs:
+\begin{enumerate}
+\item security and logging feature assignments under resource, power, and
+latency constraints;
+\item zero-trust enforcement placement and least-privilege policy synthesis;
+\item resilience-oriented architectural findings derived from compromise and
+failure scenarios.
+\end{enumerate}
+
+The paper focuses on the design-time core: feature assignment and policy
+synthesis. Runtime adaptation and certification-evidence generation remain
+important, but they are outside the scope of this DASC submission.
+
+The main contributions are:
+\begin{itemize}
+\item an ASP-based formulation for avionics SoC security feature selection
+under hardware constraints;
+\item automated zero-trust policy synthesis that places firewalls and policy
+servers while exposing excess privilege and trust gaps;
+\item evaluation on two avionics-relevant SoC topologies showing how the
+workflow surfaces topology-driven weaknesses that manual review can miss.
+\end{itemize}
+
+\section{Related Work}
+
+\textbf{SoC hardware security.}
+Hardware-enforced isolation on SoCs is well established through
+TrustZone-style partitioning~\cite{arm_tz}, FPGA isolation flows~\cite{xilinx_idf},
+and secure interconnect mechanisms~\cite{fiorin_noc}. These mechanisms are
+important building blocks, but they do not solve the synthesis problem of
+deciding which protections to deploy and where to place them under
+implementation constraints.
+
+\textbf{Avionics security and ZTA.}
+Avionics security is shaped by DO-326A~\cite{do326a} process concerns and
+partitioning assumptions such as ARINC~653~\cite{arinc653}. Zero-trust
+principles are defined by NIST~SP~800-207~\cite{nist_zta}. Hasan
+et~al.~\cite{hasan_saecps,hasan_jsys} applied zero-trust design patterns
+manually to cyber-physical architectures and highlighted the need for tool
+support at design time.
+
+\textbf{Risk and exact design exploration.}
+NIST~SP~800-30~\cite{nist_sp80030} motivates structured risk reasoning, while
+Aven~\cite{aven_riskmatrix} warns against over-interpreting multiplicative
+risk matrices on ordinal scales. We therefore use an additive residual-risk
+model for standalone components. For exact combinational design-space search,
+ASP provides solver-backed optimality and strong logical expressiveness for
+reachability and policy reasoning~\cite{gebser_asp}.
+
+Our position is narrower than a general avionics assurance framework. The
+contribution here is a constraint-based workflow that jointly reasons about
+feature assignment, zero-trust enforcement placement, and hardware budgets at
+the SoC architecture level.
+
+\section{System Model and Workflow}
+
+We model the SoC as a directed graph $G=(V,E)$ whose vertices represent bus
+masters, receiver IPs, buses, firewalls, and policy servers. Edges represent
+interconnect links. Each receiver component carries:
+\begin{itemize}
+\item asset impact values for read and write operations;
+\item candidate security and logging features;
+\item per-feature cost in LUTs, FFs, BRAM, and power;
+\item allowable read and write latency;
+\item trust-domain and trust-anchor information.
+\end{itemize}
+
+The workflow has two synthesis phases and one analysis phase.
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.95\columnwidth}{
+\centering
+\textbf{Workflow Overview}\\[3pt]
+Architectural model $\rightarrow$ Phase~1 feature assignment $\rightarrow$
+Phase~2 zero-trust synthesis $\rightarrow$ Phase~3 resilience analysis}}
+\caption{Workflow used in the DASC submission version. The paper focuses on
+design-time synthesis and compact resilience analysis, not runtime adaptation.}
+\label{fig:workflow}
+\end{figure}
+
+\subsection{Phase~1: Security Feature Assignment}
+
+Each component receives exactly one security feature and one logging feature.
+Table~\ref{tab:features} summarizes the feature set used in the experiments.
+
+\begin{table}[t]
+\caption{Feature Summary Used in Phase~1}
+\label{tab:features}
+\centering
+\scriptsize
+\begin{tabular}{l l r r r r r}
+\toprule
+Feature & Type & Lat. & LUTs & FFs & BRAM & mW \\
+\midrule
+zero\_trust       & sec & 3 & 1200 & 850 & 0 & 24 \\
+dynamic\_mac      & sec & 6 & 950  & 680 & 0 & 18 \\
+mac               & sec & 4 & 650  & 420 & 0 & 12 \\
+zero\_trust\_logger & log & 2 & 520  & 480 & 2 & 11 \\
+some\_logging     & log & 1 & 180  & 220 & 1 & 4 \\
+no\_logging       & log & 1 & 0    & 0   & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For standalone components, the residual-risk model is additive:
+\begin{equation}
+R = \max(0,\; \mathit{impact} + \mathit{domain\_bonus}
+- \mathit{security\_protect} - \mathit{log\_protect})
+\label{eq:risk}
+\end{equation}
+For redundant groups, the encoding uses a normalized group-compromise model so
+that common-mode dependence remains visible even when individual members
+appear well protected.
+
+The phase-1 solver minimizes total residual risk subject to:
+\begin{itemize}
+\item one security feature and one logging feature per component;
+\item LUT, FF, DSP, LUTRAM, BRAM, and power budgets;
+\item per-asset latency limits;
+\item effective per-asset risk caps.
+\end{itemize}
+
+The tool supports three strategy modes: \textit{max\_security},
+\textit{min\_resources}, and \textit{balanced}.
+
+\subsection{Phase~2: Zero-Trust Policy Synthesis}
+
+Phase~2 injects the phase-1 design as background facts and synthesizes
+firewall placement, policy-server placement, least-privilege access policies,
+and trust-anchor gap findings. The key constraint is architectural
+mediation: if a lower-trust master can topologically reach a protected
+target, the path must be mediated by an enforcement point. The solver also
+compares topology-implied access against declared \texttt{access\_need}
+facts, flagging excess privileges and missing privileges.
+
+\subsection{Phase~3: Resilience Analysis}
+
+Phase~3 is used here only for compact architectural assessment. It executes
+compromise and failure scenarios against the synthesized design and reports
+total scenario risk, worst-case amplification relative to baseline, service
+degradation or loss, and control-plane concentration effects. This DASC
+version keeps resilience analysis as a design-time diagnostic rather than a
+full runtime response framework.
+
+\section{Primary Case Study: SoCDrone (TC9)}
+
+The primary case is an 8-component avionics-style SoC with 2 masters, 2
+buses, a 5-member redundancy group, 3 standalone IPs, and one
+latency-sensitive safety-critical component.
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.95\columnwidth}{
+\centering
+\textbf{TC9 Topology}\\[3pt]
+Two buses; a 5-member redundancy group on noc0; standalone IPs on noc1;
+synthesized firewalls guarding each domain.}}
+\caption{Primary TC9 case study. The shared bus that supports the redundancy
+group also creates a common-mode weakness.}
+\label{fig:tc9}
+\end{figure}
+
+\subsection{Security Feature Results}
+
+Table~\ref{tab:tc9} summarizes the measured three-strategy results.
+
+\begin{table}[t]
+\caption{TC9 Strategy Comparison}
+\label{tab:tc9}
+\centering
+\scriptsize
+\begin{tabular}{lrrr}
+\toprule
+Metric & max\_sec & min\_res & balanced \\
+\midrule
+Total risk         & 51    & 69    & 51 \\
+LUTs used          & 9,340 & 5,380 & 6,840 \\
+FFs used           & 7,100 & 3,580 & 4,880 \\
+Power (mW)         & 184   & 100   & 132 \\
+Firewalls placed   & 2     & 2     & 2 \\
+Policy servers     & 1     & 1     & 1 \\
+Excess privileges  & 9     & 9     & 9 \\
+No-RoT trust gaps  & 6     & 6     & 6 \\
+Worst amplification& 3.0$\times$ & 2.839$\times$ & 3.0$\times$ \\
+Runtime (s)        & 6.366 & 10.185 & 19.250 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These results show a clear security-footprint tradeoff. \textit{min\_resources}
+reduces LUT use from 9,340 to 5,380, but raises total risk from 51 to 69.
+\textit{balanced} recovers the same total risk as \textit{max\_security}
+while cutting LUT use to 6,840.
+
+\subsection{Zero-Trust Synthesis Findings}
+
+Phase~2 produces stable structural findings across all strategies. The solver
+places 2 firewalls and 1 policy server, and it consistently identifies 9
+excess privileges, 6 no-root-of-trust gaps, and a concentrated policy-control
+dependency. The most important result is that the DMA master is materially
+over-privileged relative to declared need. That finding is topological, not
+merely a consequence of weak local protection settings.
+
+\subsection{Resilience Findings}
+
+The worst scenario for TC9 is compromise of the full redundancy group, which
+produces a 3.0$\times$ amplification over the secured baseline for
+\textit{max\_security} and \textit{balanced}. This exposes an avionics lesson:
+the 5-member group improves availability only if the interconnect itself
+remains healthy. Because the members share the same bus, the architecture
+still contains a common-mode weakness. The case also shows why design-time
+co-optimization matters: the safety-critical path is latency constrained,
+which prevents arbitrarily strong protection choices from being assigned
+without violating timing.
+
+\section{Secondary Portability Case: DARPA/UAV Translation}
+
+To show portability, the workflow was also applied to an 11-component UAV
+architecture translated from the DARPA CASE surveillance system used in prior
+manual hardening work~\cite{hasan_saecps,hasan_jsys,darpa_case}. The
+translated SoC contains 3 masters, 4 buses, no redundancy groups, 4
+safety-critical components, and one bridge from an untrusted ingress path
+into the trusted internal bus.
+
+\begin{table}[t]
+\caption{DARPA/UAV Portability Summary}
+\label{tab:uav}
+\centering
+\scriptsize
+\begin{tabular}{lrrr}
+\toprule
+Metric & max\_sec & min\_res & balanced \\
+\midrule
+Total risk         & 0      & 35     & 0 \\
+LUTs used          & 18,170 & 9,260  & 16,530 \\
+Firewalls placed   & 1      & 1      & 1 \\
+Policy servers     & 1      & 1      & 1 \\
+Excess privileges  & 22     & 22     & 22 \\
+No-RoT trust gaps  & 10     & 10     & 10 \\
+Worst amplification& N/A    & 2.105$\times$ & N/A \\
+Runtime (s)        & 12.228 & 71.054 & 12.482 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This case complements TC9. Under \textit{max\_security}, the architecture is
+strong enough to drive total residual risk to zero, but the topology still
+reveals 22 excess privileges and a narrow internal-bus trust boundary. Under
+\textit{min\_resources}, the architecture exposes a 2.105$\times$ worst-case
+amplification under policy-server compromise. In other words, even when
+feature assignment looks strong, the bus organization can still dominate the
+security story.
+
+This section should be read as portability evidence rather than as a strict
+``tool versus Hasan'' comparison. The manual AADL-based work and the present
+SoC DSE operate at different abstraction levels. The value of the current
+tool is that it exposes privilege and topology findings automatically once
+the SoC interconnect model is given.
+
+\section{Discussion and Limitations}
+
+Two results matter most for avionics architects.
+
+First, zero-trust feature assignment alone is not enough. The workflow
+repeatedly exposes structural weaknesses such as over-privileged DMA access,
+policy-control concentration, and narrow trust boundaries at bus bridges.
+These are design-time architecture issues, not just misconfigured
+access-control lists.
+
+Second, the tool provides a disciplined alternative to manual hardening trade
+studies. Instead of choosing protections qualitatively, the architect can ask
+whether a given protection mix is feasible under power, area, and latency
+constraints, and whether the resulting topology still contains avoidable
+privilege or trust gaps.
+
+The present paper has three main limits. It does not include a head-to-head
+baseline against CP-SAT or heuristic search. It models architecture-level
+timing through latency caps rather than cycle-accurate execution analysis.
+And it stops at design-time synthesis rather than full certification evidence
+or runtime adaptation. Those are important next steps, but they do not reduce
+the value of the current design-time workflow.
+
+\section{Conclusion}
+
+This paper presented an assurance-aware DSE workflow for zero-trust avionics
+SoC security. The workflow jointly synthesizes security feature assignments
+and enforcement placement under hardware constraints, then uses resilience
+scenarios to expose topology-driven weaknesses. The primary TC9 case showed a
+clear tradeoff between residual risk and FPGA footprint while revealing 9
+excess privileges and 6 no-root-of-trust gaps. The secondary DARPA/UAV case
+showed that even when high-security assignments drive residual risk to zero,
+the architecture can still retain serious privilege and trust-boundary
+weaknesses.
+
+The central conclusion is that avionics SoC security should be treated as a
+constrained architecture-synthesis problem, not a manual hardening exercise.
+ASP provides a practical way to solve that problem while keeping resource
+budgets, timing limits, and zero-trust enforcement visible to the designer.
+
+\balance
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

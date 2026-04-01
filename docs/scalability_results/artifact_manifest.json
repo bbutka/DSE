@@ -1,0 +1,15 @@
+{
+  "output_dir": "/content/drive/MyDrive/darpa_uav/HOST26_Code/colab_outputs/darpa_uav_min_resources_optimality",
+  "files": [
+    "attempts.json",
+    "darpa_uav_min_resources_optimality.log",
+    "darpa_uav_min_resources_p1_facts.lp",
+    "darpa_uav_min_resources_report.txt",
+    "phase1_result.json",
+    "phase2_result.json",
+    "phase3_scenarios.json",
+    "summary.json",
+    "summary.md"
+  ],
+  "bundle_zip": "darpa_uav_min_resources_optimality_bundle.zip"
+}

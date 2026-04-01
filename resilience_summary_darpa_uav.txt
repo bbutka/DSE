@@ -1,0 +1,635 @@
+==============================================================================
+  DARPA CASE UAV — Zero Trust SoC DSE Assessment
+  11 components | 3 masters | 4 buses | 0 redundancy groups
+  4 safety-critical | 3 strategies | PYNQ-Z2 target
+==============================================================================
+
+==============================================================================
+  STRATEGY COMPARISON
+==============================================================================
+
+  Metric                           max_security  min_resources       balanced
+  ------------------------------ -------------- -------------- --------------
+  Total risk                                  0             39              0
+  LUTs used                               18170           8410          16530
+  LUT %                                     34%            15%            31%
+  FFs used                                14120           6160          12640
+  Power (mW)                                367            160            333
+  Optimal                                  True           True           True
+  P2 SAT                                   True           True           True
+  FWs placed                                  1              1              1
+  PSs placed                                  1              1              1
+  Excess privs                               22             22             22
+  Trust gaps (no RoT)                        10             10             10
+
+==============================================================================
+  STRATEGY: max_security
+==============================================================================
+==============================================================================
+  DARPA CASE UAV — Zero Trust SoC Security DSE Assessment
+  11 components | 3 masters | 4 buses | 0 redundancy groups
+  4 safety-critical | PYNQ-Z2 target
+==============================================================================
+
+==============================================================================
+  A. PHASE 1 — OPTIMAL SECURITY FEATURE ASSIGNMENT
+==============================================================================
+  Optimality proven: True
+  Total base risk: 0
+
+  Component      Domain       Security         Logging              Exploit
+  -------------- ------------ ---------------- -------------------- --------
+  attest_gate    root         zero_trust       zero_trust_logger    1
+  cam_mgr        normal       dynamic_mac      zero_trust_logger    3
+  fpln           normal       zero_trust       zero_trust_logger    3
+  fpln_filt      high         zero_trust       zero_trust_logger    1
+  geofence       high         zero_trust       zero_trust_logger    1
+  nfzdb          high         zero_trust       zero_trust_logger    2
+  radio_drv      low          zero_trust       zero_trust_logger    5
+  swu            privileged   dynamic_mac      zero_trust_logger    4
+  uart_drv       normal       zero_trust       zero_trust_logger    3
+  wifi_drv       untrusted    dynamic_mac      zero_trust_logger    5
+  wpm            normal       zero_trust       zero_trust_logger    3
+
+  Resource usage (PYNQ-Z2):
+    LUTs    18170 / 53200  (34%)
+    FFs     14120 / 106400  (13%)
+    DSPs        0 / 220
+    LUTRAM    512 / 17400
+    BRAM       22 / 140
+    Power     367 mW / 15000 mW  (2%)
+
+  Per-asset risk:
+  Component      Asset              Read  Write  Avail    Max
+  -------------- ---------------- ------ ------ ------ ------
+  attest_gate    attest_gater1         0      0      0      0
+  cam_mgr        cam_mgrr1             0      0      0      0
+  fpln           fplnr1                0      0      0      0
+  fpln_filt      fpln_filtr1           0      0      0      0
+  geofence       geofencer1            0      0      0      0
+  nfzdb          nfzdbr1               0      0      0      0
+  radio_drv      radio_drvr1           0      0      0      0
+  swu            swur1                 0      0      0      0
+  uart_drv       uart_drvr1            0      0      0      0
+  wifi_drv       wifi_drvr1            0      0      0      0
+  wpm            wpmr1                 0      0      0      0
+
+==============================================================================
+  B. PHASE 2 — ZTA POLICY SYNTHESIS
+==============================================================================
+  Total ZTA hardware cost: 350
+  Firewalls placed   : pep_mc
+  Policy servers     : ps_uart
+
+
+  --- B1. Least-Privilege Analysis ---
+  Excess privileges: 22
+  gs: tightness 10%  [OVER-PRIVILEGED]
+    Excess: gs -> attest_gate (read)
+    Excess: gs -> cam_mgr (read)
+    Excess: gs -> cam_mgr (write)
+    Excess: gs -> fpln (read)
+    Excess: gs -> fpln (write)
+    Excess: gs -> fpln_filt (read)
+    Excess: gs -> fpln_filt (write)
+    Excess: gs -> geofence (read)
+    Excess: gs -> geofence (write)
+    Excess: gs -> nfzdb (read)
+    Excess: gs -> nfzdb (write)
+    Excess: gs -> swu (read)
+    Excess: gs -> swu (write)
+    Excess: gs -> uart_drv (read)
+    Excess: gs -> uart_drv (write)
+    Excess: gs -> wpm (read)
+    Excess: gs -> wpm (write)
+  mc: tightness 73%  
+    Excess: mc -> nfzdb (write)
+    Excess: mc -> swu (read)
+    Excess: mc -> swu (write)
+    Excess: mc -> wifi_drv (read)
+    Excess: mc -> wifi_drv (write)
+  Missing privileges:
+    MISSING: fc -> uart_drv (read)
+    MISSING: fc -> uart_drv (write)
+    MISSING: mc -> radio_drv (read)
+    MISSING: mc -> radio_drv (write)
+
+  --- B2. Trust Anchor Assessment ---
+  No hardware RoT  : ['cam_mgr', 'fpln', 'fpln_filt', 'geofence', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No secure boot   : ['cam_mgr', 'fpln', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No attestation   : ['fc', 'gs']
+  Unsigned PS      : ['ps_uart']
+  No key storage   : ['fpln_filt', 'geofence', 'swu']
+  Unattested masters accessing high-domain IPs:
+    gs -> attest_gate
+    gs -> fpln_filt
+    gs -> geofence
+    gs -> nfzdb
+    gs -> swu
+
+  --- B3. Mode-Aware Policy ---
+  attack_suspected      : 11 IPs isolated
+  attack_confirmed      : 11 IPs isolated
+
+  --- B4. Policy Exceptions ---
+  Critical exceptions:
+    ('gs', 'fpln', 'write', 'emergency', 'reason(emergency_recovery)')
+  Unexplained exceptions:
+    ('gs', 'fpln', 'write')
+
+==============================================================================
+  C. PHASE 3 — RESILIENCE UNDER FAULT/COMPROMISE
+==============================================================================
+  Baseline total risk: 0.0
+  Total scenarios: 24
+
+  Scenario                                Risk  vs Base    CP  Svcs OK/Deg/Una Caps Lost
+  ----------------------------------- -------- -------- ----- ---------------- --------------------
+  baseline                                 0.0    0.00x    ok             5/0/0 -
+  mc_compromise                            0.0    0.00x    ok             5/0/0 -
+  fc_compromise                            0.0    0.00x    ok             5/0/0 flight_control
+  gs_compromise                            0.0    0.00x    ok             5/0/0 -
+  radio_drv_compromise                     0.0    0.00x    ok             4/0/1 ground_comms
+  wifi_drv_compromise                      0.0    0.00x    ok             4/1/0 ota_update
+  swu_compromise                           0.0    0.00x    ok             4/1/0 ota_update
+  geofence_compromise                      0.0    0.00x    ok             3/2/0 navigation
+  fpln_filt_compromise                     0.0    0.00x    ok             4/1/0 -
+  uart_drv_compromise                      0.0    0.00x    ok             4/1/0 flight_control
+  bus_rf_failure                           0.0    0.00x    ok             5/0/0 ground_comms
+  bus_mc_failure                           0.0    0.00x    ok             5/0/0 navigation,ota_update,attestation,flight_control,ground_comms
+  bus_uart_failure                         0.0    0.00x    ok             5/0/0 -
+  bus_wifi_failure                         0.0    0.00x    ok             5/0/0 ota_update
+  fc_failure                               0.0    0.00x    ok             5/0/0 flight_control
+  geofence_failure                         0.0    0.00x    ok             3/2/0 navigation
+  uart_drv_failure                         0.0    0.00x    ok             4/1/0 flight_control
+  ps_mc_compromise                         0.0    0.00x    ok             5/0/0 policy_management
+  ps_uart_compromise                       0.0    0.00x  COMP             5/0/0 -
+  pep_mc_bypass                            0.0    0.00x   DEG             5/0/0 -
+  all_ps_failure                           0.0    0.00x   DEG             5/0/0 policy_management
+  radio_drv_comp_bus_mc_fail               0.0    0.00x    ok             4/0/1 ground_comms,navigation,ota_update,attestation,flight_control
+  mc_comp_bus_uart_fail                    0.0    0.00x    ok             5/0/0 -
+  gs_radio_chain                           0.0    0.00x    ok             4/0/1 ground_comms
+
+  Worst scenario: mc_compromise (0.0, N/A)
+
+  --- C1. Attack Paths to Critical Components ---
+  uart_drv -> fc (depth 2)
+  uart_drv -> fc (depth 4)
+
+  --- C2. Trust Escalation Paths ---
+  gs (untrusted) -> mc (privileged)
+  radio_drv (low) -> mc (privileged)
+  uart_drv (normal) -> fc (privileged)
+  uart_drv (normal) -> mc (privileged)
+  wifi_drv (untrusted) -> mc (privileged)
+
+  --- C3. Capability Impact Summary ---
+  Capability                # Scenarios Lost
+  flight_control            6
+  ground_comms              5
+  ota_update                5
+  navigation                4
+  attestation               2
+  policy_management         2
+
+  --- C4. Service Single Points of Failure ---
+  comms_svc                      unavailable in 3 scenarios
+
+==============================================================================
+  D. SUMMARY — KEY FINDINGS
+==============================================================================
+
+  1. Architecture: 11 receivers, 3 masters, 4 buses, 0 redundancy groups.
+     All services are SINGLE-STRING — no quorum redundancy.
+     Every component failure directly degrades at least one service.
+
+  2. Risk profile: Total base risk = 0.
+     LUT utilization = 34% (18170/53200).
+
+  3. Trust domains: 6-level model (untrusted → root).
+     CakeML-verified components (attest_gate, geofence, fpln_filt) at
+     high/root trust with exploitability=1.
+
+  4. Safety-critical components: fc, geofence, fpln_filt, uart_drv.
+     All on single-string service chains.
+
+  5. Bridge risk: radio_drv bridges untrusted GS RF bus into MC internal bus.
+     Exploitability=5, write impact=5. Primary attack vector.
+
+  6. WiFi maintenance interface: wifi_drv (untrusted, exploit=5) provides
+     firmware update path. Must be physically isolated or ZTA-gated
+     during operational flight.
+
+  7. ZTA overlay: 1 FW(s), 1 PS(s), cost=350.
+     Excess privileges: 22.
+     Trust gaps: 10 no-RoT, 8 no-SB, 2 unattested masters.
+
+==============================================================================
+
+==============================================================================
+  STRATEGY: min_resources
+==============================================================================
+==============================================================================
+  DARPA CASE UAV — Zero Trust SoC Security DSE Assessment
+  11 components | 3 masters | 4 buses | 0 redundancy groups
+  4 safety-critical | PYNQ-Z2 target
+==============================================================================
+
+==============================================================================
+  A. PHASE 1 — OPTIMAL SECURITY FEATURE ASSIGNMENT
+==============================================================================
+  Optimality proven: True
+  Total base risk: 39
+
+  Component      Domain       Security         Logging              Exploit
+  -------------- ------------ ---------------- -------------------- --------
+  attest_gate    root         mac              some_logging         1
+  cam_mgr        normal       mac              no_logging           3
+  fpln           normal       mac              no_logging           3
+  fpln_filt      high         mac              some_logging         1
+  geofence       high         mac              some_logging         1
+  nfzdb          high         mac              some_logging         2
+  radio_drv      low          mac              some_logging         5
+  swu            privileged   mac              no_logging           4
+  uart_drv       normal       mac              some_logging         3
+  wifi_drv       untrusted    mac              no_logging           5
+  wpm            normal       mac              some_logging         3
+
+  Resource usage (PYNQ-Z2):
+    LUTs     8410 / 53200  (15%)
+    FFs      6160 / 106400  (5%)
+    DSPs        0 / 220
+    LUTRAM      0 / 17400
+    BRAM        7 / 140
+    Power     160 mW / 15000 mW  (1%)
+
+  Per-asset risk:
+  Component      Asset              Read  Write  Avail    Max
+  -------------- ---------------- ------ ------ ------ ------
+  attest_gate    attest_gater1         0      0      4      4
+  cam_mgr        cam_mgrr1             0      0      0      0
+  fpln           fplnr1                0      2      4      4
+  fpln_filt      fpln_filtr1           0      1      4      4
+  geofence       geofencer1            0      1      4      4
+  nfzdb          nfzdbr1               0      2      4      4
+  radio_drv      radio_drvr1           1      2      4      4
+  swu            swur1                 2      4      0      4
+  uart_drv       uart_drvr1            0      1      4      4
+  wifi_drv       wifi_drvr1            1      2      3      3
+  wpm            wpmr1                 0      1      4      4
+
+==============================================================================
+  B. PHASE 2 — ZTA POLICY SYNTHESIS
+==============================================================================
+  Total ZTA hardware cost: 350
+  Firewalls placed   : pep_mc
+  Policy servers     : ps_uart
+
+
+  --- B1. Least-Privilege Analysis ---
+  Excess privileges: 22
+  gs: tightness 10%  [OVER-PRIVILEGED]
+    Excess: gs -> attest_gate (read)
+    Excess: gs -> cam_mgr (read)
+    Excess: gs -> cam_mgr (write)
+    Excess: gs -> fpln (read)
+    Excess: gs -> fpln (write)
+    Excess: gs -> fpln_filt (read)
+    Excess: gs -> fpln_filt (write)
+    Excess: gs -> geofence (read)
+    Excess: gs -> geofence (write)
+    Excess: gs -> nfzdb (read)
+    Excess: gs -> nfzdb (write)
+    Excess: gs -> swu (read)
+    Excess: gs -> swu (write)
+    Excess: gs -> uart_drv (read)
+    Excess: gs -> uart_drv (write)
+    Excess: gs -> wpm (read)
+    Excess: gs -> wpm (write)
+  mc: tightness 73%  
+    Excess: mc -> nfzdb (write)
+    Excess: mc -> swu (read)
+    Excess: mc -> swu (write)
+    Excess: mc -> wifi_drv (read)
+    Excess: mc -> wifi_drv (write)
+  Missing privileges:
+    MISSING: fc -> uart_drv (read)
+    MISSING: fc -> uart_drv (write)
+    MISSING: mc -> radio_drv (read)
+    MISSING: mc -> radio_drv (write)
+
+  --- B2. Trust Anchor Assessment ---
+  No hardware RoT  : ['cam_mgr', 'fpln', 'fpln_filt', 'geofence', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No secure boot   : ['cam_mgr', 'fpln', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No attestation   : ['fc', 'gs']
+  Unsigned PS      : ['ps_uart']
+  No key storage   : ['fpln_filt', 'geofence', 'swu']
+  Unattested masters accessing high-domain IPs:
+    gs -> attest_gate
+    gs -> fpln_filt
+    gs -> geofence
+    gs -> nfzdb
+    gs -> swu
+
+  --- B3. Mode-Aware Policy ---
+  attack_suspected      : 11 IPs isolated
+  attack_confirmed      : 11 IPs isolated
+
+  --- B4. Policy Exceptions ---
+  Critical exceptions:
+    ('gs', 'fpln', 'write', 'emergency', 'reason(emergency_recovery)')
+  Unexplained exceptions:
+    ('gs', 'fpln', 'write')
+
+==============================================================================
+  C. PHASE 3 — RESILIENCE UNDER FAULT/COMPROMISE
+==============================================================================
+  Baseline total risk: 42.2
+  Total scenarios: 24
+
+  Scenario                                Risk  vs Base    CP  Svcs OK/Deg/Una Caps Lost
+  ----------------------------------- -------- -------- ----- ---------------- --------------------
+  baseline                                42.2    1.00x    ok             5/0/0 -
+  mc_compromise                           56.2    1.33x    ok             5/0/0 -
+  fc_compromise                           56.2    1.33x    ok             5/0/0 flight_control
+  gs_compromise                           60.2    1.43x    ok             5/0/0 -
+  radio_drv_compromise                    67.0    1.59x    ok             4/0/1 ground_comms
+  wifi_drv_compromise                     66.2    1.57x    ok             4/1/0 ota_update
+  swu_compromise                          63.8    1.51x    ok             4/1/0 ota_update
+  geofence_compromise                     55.0    1.30x    ok             3/2/0 navigation
+  fpln_filt_compromise                    55.0    1.30x    ok             4/1/0 -
+  uart_drv_compromise                     63.0    1.49x    ok             4/1/0 flight_control
+  bus_rf_failure                          42.2    1.00x    ok             5/0/0 ground_comms
+  bus_mc_failure                          42.2    1.00x    ok             5/0/0 navigation,ota_update,attestation,flight_control,ground_comms
+  bus_uart_failure                        42.2    1.00x    ok             5/0/0 -
+  bus_wifi_failure                        42.2    1.00x    ok             5/0/0 ota_update
+  fc_failure                              42.2    1.00x    ok             5/0/0 flight_control
+  geofence_failure                        42.2    1.00x    ok             3/2/0 navigation
+  uart_drv_failure                        42.2    1.00x    ok             4/1/0 flight_control
+  ps_mc_compromise                        42.2    1.00x    ok             5/0/0 policy_management
+  ps_uart_compromise                      87.0    2.06x  COMP             5/0/0 -
+  pep_mc_bypass                           87.0    2.06x   DEG             5/0/0 -
+  all_ps_failure                          45.4    1.08x   DEG             5/0/0 policy_management
+  radio_drv_comp_bus_mc_fail              67.0    1.59x    ok             4/0/1 ground_comms,navigation,ota_update,attestation,flight_control
+  mc_comp_bus_uart_fail                   56.2    1.33x    ok             5/0/0 -
+  gs_radio_chain                          67.0    1.59x    ok             4/0/1 ground_comms
+
+  Worst scenario: ps_uart_compromise (87.0, 2.06x)
+
+  --- C1. Attack Paths to Critical Components ---
+  uart_drv -> fc (depth 2)
+  uart_drv -> fc (depth 4)
+
+  --- C2. Trust Escalation Paths ---
+  gs (untrusted) -> mc (privileged)
+  radio_drv (low) -> mc (privileged)
+  uart_drv (normal) -> fc (privileged)
+  uart_drv (normal) -> mc (privileged)
+  wifi_drv (untrusted) -> mc (privileged)
+
+  --- C3. Capability Impact Summary ---
+  Capability                # Scenarios Lost
+  flight_control            6
+  ground_comms              5
+  ota_update                5
+  navigation                4
+  attestation               2
+  policy_management         2
+
+  --- C4. Service Single Points of Failure ---
+  comms_svc                      unavailable in 3 scenarios
+
+==============================================================================
+  D. SUMMARY — KEY FINDINGS
+==============================================================================
+
+  1. Architecture: 11 receivers, 3 masters, 4 buses, 0 redundancy groups.
+     All services are SINGLE-STRING — no quorum redundancy.
+     Every component failure directly degrades at least one service.
+
+  2. Risk profile: Total base risk = 39.
+     LUT utilization = 15% (8410/53200).
+
+  3. Trust domains: 6-level model (untrusted → root).
+     CakeML-verified components (attest_gate, geofence, fpln_filt) at
+     high/root trust with exploitability=1.
+
+  4. Safety-critical components: fc, geofence, fpln_filt, uart_drv.
+     All on single-string service chains.
+
+  5. Bridge risk: radio_drv bridges untrusted GS RF bus into MC internal bus.
+     Exploitability=5, write impact=5. Primary attack vector.
+
+  6. WiFi maintenance interface: wifi_drv (untrusted, exploit=5) provides
+     firmware update path. Must be physically isolated or ZTA-gated
+     during operational flight.
+
+  7. ZTA overlay: 1 FW(s), 1 PS(s), cost=350.
+     Excess privileges: 22.
+     Trust gaps: 10 no-RoT, 8 no-SB, 2 unattested masters.
+
+==============================================================================
+
+==============================================================================
+  STRATEGY: balanced
+==============================================================================
+==============================================================================
+  DARPA CASE UAV — Zero Trust SoC Security DSE Assessment
+  11 components | 3 masters | 4 buses | 0 redundancy groups
+  4 safety-critical | PYNQ-Z2 target
+==============================================================================
+
+==============================================================================
+  A. PHASE 1 — OPTIMAL SECURITY FEATURE ASSIGNMENT
+==============================================================================
+  Optimality proven: True
+  Total base risk: 0
+
+  Component      Domain       Security         Logging              Exploit
+  -------------- ------------ ---------------- -------------------- --------
+  attest_gate    root         zero_trust       zero_trust_logger    1
+  cam_mgr        normal       mac              no_logging           3
+  fpln           normal       dynamic_mac      zero_trust_logger    3
+  fpln_filt      high         zero_trust       zero_trust_logger    1
+  geofence       high         zero_trust       zero_trust_logger    1
+  nfzdb          high         zero_trust       zero_trust_logger    2
+  radio_drv      low          zero_trust       zero_trust_logger    5
+  swu            privileged   zero_trust       no_logging           4
+  uart_drv       normal       zero_trust       zero_trust_logger    3
+  wifi_drv       untrusted    mac              zero_trust_logger    5
+  wpm            normal       zero_trust       zero_trust_logger    3
+
+  Resource usage (PYNQ-Z2):
+    LUTs    16530 / 53200  (31%)
+    FFs     12640 / 106400  (11%)
+    DSPs        0 / 220
+    LUTRAM    512 / 17400
+    BRAM       18 / 140
+    Power     333 mW / 15000 mW  (2%)
+
+  Per-asset risk:
+  Component      Asset              Read  Write  Avail    Max
+  -------------- ---------------- ------ ------ ------ ------
+  attest_gate    attest_gater1         0      0      0      0
+  cam_mgr        cam_mgrr1             0      0      0      0
+  fpln           fplnr1                0      0      0      0
+  fpln_filt      fpln_filtr1           0      0      0      0
+  geofence       geofencer1            0      0      0      0
+  nfzdb          nfzdbr1               0      0      0      0
+  radio_drv      radio_drvr1           0      0      0      0
+  swu            swur1                 0      0      0      0
+  uart_drv       uart_drvr1            0      0      0      0
+  wifi_drv       wifi_drvr1            0      0      0      0
+  wpm            wpmr1                 0      0      0      0
+
+==============================================================================
+  B. PHASE 2 — ZTA POLICY SYNTHESIS
+==============================================================================
+  Total ZTA hardware cost: 350
+  Firewalls placed   : pep_mc
+  Policy servers     : ps_uart
+
+
+  --- B1. Least-Privilege Analysis ---
+  Excess privileges: 22
+  gs: tightness 10%  [OVER-PRIVILEGED]
+    Excess: gs -> attest_gate (read)
+    Excess: gs -> cam_mgr (read)
+    Excess: gs -> cam_mgr (write)
+    Excess: gs -> fpln (read)
+    Excess: gs -> fpln (write)
+    Excess: gs -> fpln_filt (read)
+    Excess: gs -> fpln_filt (write)
+    Excess: gs -> geofence (read)
+    Excess: gs -> geofence (write)
+    Excess: gs -> nfzdb (read)
+    Excess: gs -> nfzdb (write)
+    Excess: gs -> swu (read)
+    Excess: gs -> swu (write)
+    Excess: gs -> uart_drv (read)
+    Excess: gs -> uart_drv (write)
+    Excess: gs -> wpm (read)
+    Excess: gs -> wpm (write)
+  mc: tightness 73%  
+    Excess: mc -> nfzdb (write)
+    Excess: mc -> swu (read)
+    Excess: mc -> swu (write)
+    Excess: mc -> wifi_drv (read)
+    Excess: mc -> wifi_drv (write)
+  Missing privileges:
+    MISSING: fc -> uart_drv (read)
+    MISSING: fc -> uart_drv (write)
+    MISSING: mc -> radio_drv (read)
+    MISSING: mc -> radio_drv (write)
+
+  --- B2. Trust Anchor Assessment ---
+  No hardware RoT  : ['cam_mgr', 'fpln', 'fpln_filt', 'geofence', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No secure boot   : ['cam_mgr', 'fpln', 'nfzdb', 'radio_drv', 'swu', 'uart_drv', 'wifi_drv', 'wpm']
+  No attestation   : ['fc', 'gs']
+  Unsigned PS      : ['ps_uart']
+  No key storage   : ['fpln_filt', 'geofence', 'swu']
+  Unattested masters accessing high-domain IPs:
+    gs -> attest_gate
+    gs -> fpln_filt
+    gs -> geofence
+    gs -> nfzdb
+    gs -> swu
+
+  --- B3. Mode-Aware Policy ---
+  attack_suspected      : 11 IPs isolated
+  attack_confirmed      : 11 IPs isolated
+
+  --- B4. Policy Exceptions ---
+  Critical exceptions:
+    ('gs', 'fpln', 'write', 'emergency', 'reason(emergency_recovery)')
+  Unexplained exceptions:
+    ('gs', 'fpln', 'write')
+
+==============================================================================
+  C. PHASE 3 — RESILIENCE UNDER FAULT/COMPROMISE
+==============================================================================
+  Baseline total risk: 0.0
+  Total scenarios: 24
+
+  Scenario                                Risk  vs Base    CP  Svcs OK/Deg/Una Caps Lost
+  ----------------------------------- -------- -------- ----- ---------------- --------------------
+  baseline                                 0.0    0.00x    ok             5/0/0 -
+  mc_compromise                            0.0    0.00x    ok             5/0/0 -
+  fc_compromise                            0.0    0.00x    ok             5/0/0 flight_control
+  gs_compromise                            0.0    0.00x    ok             5/0/0 -
+  radio_drv_compromise                     0.0    0.00x    ok             4/0/1 ground_comms
+  wifi_drv_compromise                      0.0    0.00x    ok             4/1/0 ota_update
+  swu_compromise                           0.0    0.00x    ok             4/1/0 ota_update
+  geofence_compromise                      0.0    0.00x    ok             3/2/0 navigation
+  fpln_filt_compromise                     0.0    0.00x    ok             4/1/0 -
+  uart_drv_compromise                      0.0    0.00x    ok             4/1/0 flight_control
+  bus_rf_failure                           0.0    0.00x    ok             5/0/0 ground_comms
+  bus_mc_failure                           0.0    0.00x    ok             5/0/0 navigation,ota_update,attestation,flight_control,ground_comms
+  bus_uart_failure                         0.0    0.00x    ok             5/0/0 -
+  bus_wifi_failure                         0.0    0.00x    ok             5/0/0 ota_update
+  fc_failure                               0.0    0.00x    ok             5/0/0 flight_control
+  geofence_failure                         0.0    0.00x    ok             3/2/0 navigation
+  uart_drv_failure                         0.0    0.00x    ok             4/1/0 flight_control
+  ps_mc_compromise                         0.0    0.00x    ok             5/0/0 policy_management
+  ps_uart_compromise                       0.0    0.00x  COMP             5/0/0 -
+  pep_mc_bypass                            0.0    0.00x   DEG             5/0/0 -
+  all_ps_failure                           0.0    0.00x   DEG             5/0/0 policy_management
+  radio_drv_comp_bus_mc_fail               0.0    0.00x    ok             4/0/1 ground_comms,navigation,ota_update,attestation,flight_control
+  mc_comp_bus_uart_fail                    0.0    0.00x    ok             5/0/0 -
+  gs_radio_chain                           0.0    0.00x    ok             4/0/1 ground_comms
+
+  Worst scenario: mc_compromise (0.0, N/A)
+
+  --- C1. Attack Paths to Critical Components ---
+  uart_drv -> fc (depth 2)
+  uart_drv -> fc (depth 4)
+
+  --- C2. Trust Escalation Paths ---
+  gs (untrusted) -> mc (privileged)
+  radio_drv (low) -> mc (privileged)
+  uart_drv (normal) -> fc (privileged)
+  uart_drv (normal) -> mc (privileged)
+  wifi_drv (untrusted) -> mc (privileged)
+
+  --- C3. Capability Impact Summary ---
+  Capability                # Scenarios Lost
+  flight_control            6
+  ground_comms              5
+  ota_update                5
+  navigation                4
+  attestation               2
+  policy_management         2
+
+  --- C4. Service Single Points of Failure ---
+  comms_svc                      unavailable in 3 scenarios
+
+==============================================================================
+  D. SUMMARY — KEY FINDINGS
+==============================================================================
+
+  1. Architecture: 11 receivers, 3 masters, 4 buses, 0 redundancy groups.
+     All services are SINGLE-STRING — no quorum redundancy.
+     Every component failure directly degrades at least one service.
+
+  2. Risk profile: Total base risk = 0.
+     LUT utilization = 31% (16530/53200).
+
+  3. Trust domains: 6-level model (untrusted → root).
+     CakeML-verified components (attest_gate, geofence, fpln_filt) at
+     high/root trust with exploitability=1.
+
+  4. Safety-critical components: fc, geofence, fpln_filt, uart_drv.
+     All on single-string service chains.
+
+  5. Bridge risk: radio_drv bridges untrusted GS RF bus into MC internal bus.
+     Exploitability=5, write impact=5. Primary attack vector.
+
+  6. WiFi maintenance interface: wifi_drv (untrusted, exploit=5) provides
+     firmware update path. Must be physically isolated or ZTA-gated
+     during operational flight.
+
+  7. ZTA overlay: 1 FW(s), 1 PS(s), cost=350.
+     Excess privileges: 22.
+     Trust gaps: 10 no-RoT, 8 no-SB, 2 unattested masters.
+
+==============================================================================

@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% By: Abigail Butka
+% By: [Author]
 % File: Optimize for Latency Encoding
 % Last Edited: 6/26/2025
 % Purpose: Calculate and optimize selected security and 

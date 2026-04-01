@@ -1,0 +1,104 @@
+[
+  {
+    "case": "DARPA_UAV",
+    "strategy": "max_security",
+    "scenario_count": 24,
+    "phase1_secs": 12.015,
+    "p1_sat": true,
+    "p1_optimal": true,
+    "risk": 0,
+    "luts": 18170,
+    "ffs": 14120,
+    "lutram": 512,
+    "bram": 22,
+    "power_mw": 367,
+    "phase2_secs": 0.011,
+    "p2_sat": true,
+    "p2_optimal": true,
+    "firewalls": [
+      "pep_mc"
+    ],
+    "policy_servers": [
+      "ps_uart"
+    ],
+    "fw_count": 1,
+    "ps_count": 1,
+    "excess_privs": 22,
+    "trust_gaps_rot": 10,
+    "trust_gaps_sboot": 8,
+    "trust_gaps_attest": 2,
+    "phase3_secs": 0.202,
+    "worst_scenario": "baseline",
+    "worst_risk": 0.0,
+    "worst_ratio": null,
+    "total_secs": 12.228
+  },
+  {
+    "case": "DARPA_UAV",
+    "strategy": "min_resources",
+    "scenario_count": 24,
+    "phase1_secs": 70.834,
+    "p1_sat": true,
+    "p1_optimal": false,
+    "risk": 35,
+    "luts": 9260,
+    "ffs": 6850,
+    "lutram": 64,
+    "bram": 7,
+    "power_mw": 178,
+    "phase2_secs": 0.009,
+    "p2_sat": true,
+    "p2_optimal": true,
+    "firewalls": [
+      "pep_mc"
+    ],
+    "policy_servers": [
+      "ps_uart"
+    ],
+    "fw_count": 1,
+    "ps_count": 1,
+    "excess_privs": 22,
+    "trust_gaps_rot": 10,
+    "trust_gaps_sboot": 8,
+    "trust_gaps_attest": 2,
+    "phase3_secs": 0.211,
+    "worst_scenario": "ps_uart_compromise",
+    "worst_risk": 80.0,
+    "worst_ratio": 2.105,
+    "total_secs": 71.054
+  },
+  {
+    "case": "DARPA_UAV",
+    "strategy": "balanced",
+    "scenario_count": 24,
+    "phase1_secs": 12.271,
+    "p1_sat": true,
+    "p1_optimal": true,
+    "risk": 0,
+    "luts": 16530,
+    "ffs": 12640,
+    "lutram": 512,
+    "bram": 18,
+    "power_mw": 333,
+    "phase2_secs": 0.009,
+    "p2_sat": true,
+    "p2_optimal": true,
+    "firewalls": [
+      "pep_mc"
+    ],
+    "policy_servers": [
+      "ps_uart"
+    ],
+    "fw_count": 1,
+    "ps_count": 1,
+    "excess_privs": 22,
+    "trust_gaps_rot": 10,
+    "trust_gaps_sboot": 8,
+    "trust_gaps_attest": 2,
+    "phase3_secs": 0.202,
+    "worst_scenario": "baseline",
+    "worst_risk": 0.0,
+    "worst_ratio": null,
+    "total_secs": 12.482
+  }
+]

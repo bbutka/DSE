@@ -1,0 +1,483 @@
+==============================================================================
+  testCase9 — Zero Trust SoC Security DSE Assessment  (v2)
+  8 components | 5-member redundancy group | PYNQ-Z2 target
+==============================================================================
+
+  SCOPE: This report covers security DSE optimisation, ZTA policy synthesis,
+  least-privilege assessment, trust-anchor gaps, control-plane resilience,
+  and sensitivity analysis.  It is structured to separate architecture risk,
+  policy risk, residual risk after ZTA, and resilience under fault/compromise.
+
+
+==============================================================================
+  A. BASE ARCHITECTURE WEAKNESS  (no ZTA overlay)
+==============================================================================
+
+  Without any ZTA overlay, both masters (sys_cpu, dma) have unmediated
+  topological access to all IPs they can physically reach.
+
+  Topology-implied access (no ZTA):
+    sys_cpu  ->  c1, c2, c3, c4, c5        (via noc0)
+    dma      ->  c1, c2, c3, c4, c5, c6, c7, c8  (via noc0 + noc1)
+
+  This means:
+    * dma can read AND write ALL IPs — no operation-level separation
+    * sys_cpu is implicitly trusted simply by being on noc0
+    * c7 (low-domain, low-trust) is reachable by dma with no control
+    * c8 (safety-critical, high write-impact=4) has no protection from dma
+
+  No-ZTA worst-case amplification (masters compromised, no firewall):
+    All 16 assets exposed with factor 3.0x (direct or 2.0x-2.5x indirect).
+
+  No-ZTA total risk estimate (all assets, 3x amp): 153.0
+  With-ZTA baseline risk:                          51.0
+  ZTA risk reduction factor:                       3.00x
+
+  --- Blast radius — all nodes have identical reach (11 of 11 others) ---
+
+  Every node can reach all 11 other nodes via the bidirectional bus fabric.
+  This is a fundamental architectural weakness: there is no segmentation
+  within each bus domain.  A node compromised anywhere on noc0 can reach
+  all of noc0 AND (via dma's dual-bus connection) all of noc1.
+  Recommendation: Add independent bus segments or gating per IP cluster.
+
+
+==============================================================================
+  B. PHASE 1 — OPTIMAL SECURITY FEATURE ASSIGNMENT
+==============================================================================
+  Optimality proven: True
+  Total base risk (sum of max per-asset, pre-scale): 51
+
+  Component  Security             Logging                Constraint
+  ---------- -------------------- ---------------------- --------------------
+  c1         dynamic_mac          zero_trust_logger      
+  c2         mac                  zero_trust_logger      
+  c3         mac                  no_logging             
+  c4         mac                  some_logging           
+  c5         mac                  zero_trust_logger      
+  c6         zero_trust           zero_trust_logger      latency=22cy blocks ZT_logger
+  c7         dynamic_mac          no_logging             latency=22cy blocks ZT_logger
+  c8         zero_trust           some_logging           latency=5cy forces mac+no_log
+
+  Resource usage (PYNQ-Z2):
+    LUTs     9340 / 53200  (17%)
+    FFs      7100 / 106400  (6%)
+    DSPs        0 / 220
+    LUTRAM    128 / 17400
+    BRAM       10 / 140
+    Power     184 mW / 15000 mW  (1%)
+
+  NOTE: c8's 5-cycle read latency budget forces mac+no_logging, yielding
+  risk scores of 120 (read) and 240 (write).  This is the dominant source
+  of baseline risk.  Relaxing c8's latency budget to 12 cycles would permit
+  dynamic_mac+no_logging, reducing c8r1 write risk by 33%.
+
+  Per-asset risk (redundancy-adjusted):
+  Component  Asset        Read  Write    Max
+  ---------- ---------- ------ ------ ------
+  c1         c1r1            2     12     12
+  c2         c2r1           12      5     12
+  c3         c3r1            7      7      7
+  c4         c4r1            7     10     10
+  c5         c5r1           10      2     10
+  c6         c6r1            0      0      0
+  c7         c7r1            0      0      0
+  c8         c8r1            0      0      0
+
+==============================================================================
+  C. BASE POLICY WEAKNESS — LEAST-PRIVILEGE AND TRUST GAPS
+==============================================================================
+
+  --- C1. Least-Privilege Analysis ---
+  dma: policy tightness 43%  [OVER-PRIVILEGED]
+    Excess: dma -> c1 (read)
+    Excess: dma -> c2 (read)
+    Excess: dma -> c3 (read)
+    Excess: dma -> c4 (read)
+    Excess: dma -> c5 (read)
+    Excess: dma -> c6 (read)
+    Excess: dma -> c7 (read)
+    Excess: dma -> c7 (write)
+    Excess: dma -> c8 (write)
+  Missing privileges (needed but no topological path):
+    MISSING: sys_cpu -> c6 (read)
+
+  Interpretation:
+    * dma has full readAndWrite granted to all IPs it can reach.
+      Its actual need is write-only to c1-c5, read-only to c8.
+      Excess write on c8 (safety-critical) and read on all group IPs.
+    * sys_cpu has readAndWrite to c1-c5 but needs read+write.
+      Excess: read access to c6 is granted as full readAndWrite.
+    * No master has access to c7 by necessity — any such access is excess.
+  Action: replace topology-implied grants with operation-specific ACLs.
+
+
+  --- C2. Role-Excess (Topology vs Role) ---
+  Role excess: dma -> c1 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c2 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c3 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c4 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c5 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c6 (read)  [topology grants more than role authorises]
+  Role excess: dma -> c7 (read)  [topology grants more than role authorises]
+
+  --- C3. Operational Excess (no mission-phase justification) ---
+  Operational excess: dma -> c1 (read)
+  Operational excess: dma -> c2 (read)
+  Operational excess: dma -> c3 (read)
+  Operational excess: dma -> c4 (read)
+  Operational excess: dma -> c5 (read)
+  Operational excess: dma -> c6 (read)
+  Operational excess: dma -> c7 (read)
+  Operational excess: dma -> c7 (write)
+  Operational excess: dma -> c8 (write)
+
+  --- C4. Trust Anchor Assessment ---
+  Components lacking hardware RoT : ['c3', 'c4', 'c5', 'c6', 'c7', 'c8']
+  Components lacking secure boot  : ['c6', 'c7', 'c8']
+  Masters lacking attestation     : ['dma']
+  Policy servers without signing  : ['ps1']
+  Components lacking key storage  : ['c3', 'c4', 'c5', 'c6', 'c8']
+
+  Unattested masters accessing high-domain IPs:
+    dma -> c1  [FINDING: no attestation]
+    dma -> c2  [FINDING: no attestation]
+    dma -> c3  [FINDING: no attestation]
+    dma -> c4  [FINDING: no attestation]
+    dma -> c5  [FINDING: no attestation]
+    dma -> c6  [FINDING: no attestation]
+    dma -> c8  [FINDING: no attestation]
+
+  Trust levels per component:
+    c1     high
+    c2     high
+    c3     medium
+    c4     medium
+    c5     medium
+    c6     low
+    c7     low
+    c8     low
+
+  Trust anchor findings:
+    * c6, c7, c8 lack both hardware RoT and secure boot.
+      They cannot verify their own firmware at boot.
+    * dma lacks attestation: any access by dma to high-domain IPs
+      (c1-c5, c6, c8) is unverifiable.  This is a significant ZTA gap.
+    * ps1 lacks signed-policy enforcement.  If ps1 becomes the sole
+      active policy server, policy authenticity is unverifiable.
+    * c3-c8 lack key storage.  Cryptographic assets on these components
+      are at higher risk of extraction under physical/remote attack.
+  Recommendation: Add TPM/attestation to dma, signed policy to ps1,
+  and secure-element key storage to c6 and c8 at minimum.
+
+
+  --- C5. Policy Exceptions ---
+  Unexplained exceptions (no declared access_need):
+    ('dma', 'c7', 'write')
+
+==============================================================================
+  D. PHASE 2 — ZTA PLACEMENT AND MODE-AWARE POLICY
+==============================================================================
+  Total ZTA hardware cost: 450
+  Firewalls placed   : pep_group, pep_standalone
+  Policy servers     : ps0
+
+  Governance (policy server -> IP):
+    ps0 governs c1
+    ps0 governs c2
+    ps0 governs c3
+    ps0 governs c4
+    ps0 governs c5
+    ps0 governs c6
+    ps0 governs c7
+    ps0 governs c8
+
+  Protected paths (master -> IP, via placed FWs):
+    dma        -> c1
+    dma        -> c2
+    dma        -> c3
+    dma        -> c4
+    dma        -> c5
+    dma        -> c6
+    dma        -> c7
+    dma        -> c8
+    sys_cpu    -> c1
+    sys_cpu    -> c2
+    sys_cpu    -> c3
+    sys_cpu    -> c4
+    sys_cpu    -> c5
+
+  Mode-aware isolation (which IPs become isolated in which mode):
+    attack_suspected      : ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8']
+    attack_confirmed      : ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8']
+
+  Mode-aware policy improvement over blanket isolation:
+    * attack_suspected: attested masters (sys_cpu) may still READ
+      non-critical IPs, preserving monitoring capability.
+    * attack_confirmed: full isolation of all IPs (ZT model).
+    * safety_critical(c8) is isolated in BOTH elevated modes.
+    * Unattested masters (dma) lose all access in attack_suspected.
+
+  Role-tightened ACLs (role_allow, operation-specific):
+    dma        c1     write
+    dma        c2     write
+    dma        c3     write
+    dma        c4     write
+    dma        c5     write
+    dma        c6     write
+    dma        c7     write
+    dma        c8     read
+    dma        c8     write
+    sys_cpu    c1     read
+    sys_cpu    c1     write
+    sys_cpu    c2     read
+    sys_cpu    c2     write
+    sys_cpu    c3     read
+    sys_cpu    c3     write
+    sys_cpu    c4     read
+    sys_cpu    c4     write
+    sys_cpu    c5     read
+    sys_cpu    c5     write
+
+==============================================================================
+  E. RESILIENCE UNDER FAULT/COMPROMISE
+==============================================================================
+  Baseline total risk: 51.0  (ZTA active, no scenario)
+
+  Scenario                                Risk  vs Base   CP Svcs OK/Deg/Unavail
+  ----------------------------------- -------- -------- ---- --------------------
+  baseline                                51.0    1.00x   ok  3/0/0
+  sys_cpu_compromise                     102.0    2.00x   ok  3/0/0
+  dma_compromise                         102.0    2.00x   ok  3/0/0
+  c1_compromise                           94.5    1.85x   ok  3/0/0
+  c6_compromise                           76.5    1.50x   ok  3/0/0
+  c8_compromise                           76.5    1.50x   ok  3/0/0
+  full_group_compromise                  153.0    3.00x   ok  3/0/0
+  noc0_failure                            51.0    1.00x   ok  3/0/0
+  noc1_failure                            51.0    1.00x   ok  3/0/0
+  c8_failure                              51.0    1.00x   ok  2/0/1
+  dma_compromise_noc1                    102.0    2.00x   ok  3/0/0
+  ps0_compromise                         127.5    2.50x COMP  3/0/0
+  ps1_compromise                          51.0    1.00x   ok  3/0/0
+  ps0_failure                             61.2    1.20x  DEG  3/0/0
+  all_ps_failure                          61.2    1.20x  DEG  3/0/0
+  pep_group_bypass                       127.5    2.50x  DEG  3/0/0
+  pep_standalone_bypass                   51.0    1.00x  DEG  3/0/0
+  ps0_comp_ps1_fail                      127.5    2.50x COMP  3/0/0
+
+
+  --- E1. Architecture Scenarios ---
+  Worst architecture scenario: full_group_compromise  (3.00x)
+  Direct exposures  : [('c1r1', 'c1'), ('c2r1', 'c2'), ('c3r1', 'c3'), ('c4r1', 'c4'), ('c5r1', 'c5')]
+  Cross-domain exp  : []
+  Assets unavailable: []
+  Services degraded : []
+  Services unavail  : []
+
+  Failure scenario node cut-offs:
+    noc0_failure                        cut-off: ['c1', 'c2', 'c3', 'c4', 'c5']  unavail assets: []
+                                        services: ok=['compute_svc', 'io_svc', 'monitor_svc']  degraded=[]  unavail=[]
+    noc1_failure                        cut-off: ['c6', 'c7', 'c8']  unavail assets: []
+                                        services: ok=['compute_svc', 'io_svc', 'monitor_svc']  degraded=[]  unavail=[]
+    c8_failure                          cut-off: []  unavail assets: ['c8r1']
+                                        services: ok=['compute_svc', 'monitor_svc']  degraded=[]  unavail=['io_svc']
+    ps0_failure                         cut-off: []  unavail assets: []
+                                        services: ok=['compute_svc', 'io_svc', 'monitor_svc']  degraded=[]  unavail=[]
+    all_ps_failure                      cut-off: []  unavail assets: []
+                                        services: ok=['compute_svc', 'io_svc', 'monitor_svc']  degraded=[]  unavail=[]
+
+
+  --- E2. Control-Plane Scenarios ---
+  ps0_compromise                         127.5  (2.50x)
+    PEPs bypassed    : ['pep_group', 'pep_standalone']
+    Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1', 'c6r1', 'c7r1', 'c8r1']
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  ps1_compromise                          51.0  (1.00x)
+    Active PS count  : 1
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  ps0_failure                             61.2  (1.20x)
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  all_ps_failure                          61.2  (1.20x)
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  pep_group_bypass                       127.5  (2.50x)
+    PEPs bypassed    : ['pep_group']
+    Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1']
+    Active PS count  : 1
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  pep_standalone_bypass                   51.0  (1.00x)
+    PEPs bypassed    : ['pep_standalone']
+    Unmediated access: ['c6r1', 'c7r1', 'c8r1']
+    Active PS count  : 1
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+  ps0_comp_ps1_fail                      127.5  (2.50x)
+    PEPs bypassed    : ['pep_group', 'pep_standalone']
+    Unmediated access: ['c1r1', 'c2r1', 'c3r1', 'c4r1', 'c5r1', 'c6r1', 'c7r1', 'c8r1']
+    Ungoverned PEPs  : ['pep_group', 'pep_standalone']
+    Active PS count  : 0
+    Services         : ok=['compute_svc', 'io_svc', 'monitor_svc']
+
+  Control-plane findings:
+    * ps0 compromise is the highest-impact single event in the control
+      plane: ps0 governs BOTH pep_group and pep_standalone, so its
+      compromise effectively bypasses all firewall protection.
+    * ps0 failure (not compromise) causes stale policy distribution
+      (1.2x baseline), not full bypass — assuming fail-safe PEP behaviour.
+    * PEP bypass scenarios show the 2.5x unmediated amplification that
+      would result if an attacker bypasses the firewall hardware directly
+      (e.g., DMA address-range manipulation).
+    * Worst control-plane scenario observed: ps0_compromise.
+    * Phase 2 placed only ps0. There is no deployed backup policy server
+      for pep_group, so ps0 remains a single point of control-plane failure.
+      Recommendation: deploy an independent signed backup PS for pep_group.
+
+  --- E3. Redundancy Group Effectiveness ---
+  Single member compromise : 1.85x baseline
+  Full group compromise    : 3.00x baseline
+  Marginal gain (5th vs 1st member): 1.62x
+
+  The redundancy group's combined-probability model means each additional
+  member compromise adds less marginal risk (the product of probabilities
+  becomes negligible after the first compromise).  The group provides
+  availability resilience (3-of-5 quorum) but NOT security independence:
+  if noc0 fails, ALL 5 group members become simultaneously cut off.
+  This is a COMMON-MODE failure — noc0 is a single point of availability
+  failure for the entire redundancy group.
+
+  noc0_failure cuts off    : ['c1', 'c2', 'c3', 'c4', 'c5']
+  Services under noc0 fail : degraded=[]  unavail=[]
+
+==============================================================================
+  F. SENSITIVITY ANALYSIS
+==============================================================================
+
+  --- F1. c8 impact sensitivity (c8r1 read impact varied) ---
+  Varying c8r1 read impact (currently = 2) and re-evaluating baseline risk:
+  c8 impact     Baseline total risk
+  ------------ --------------------
+  1                            51.0
+  2                            51.0 <-- current
+  3                            51.0
+  5                            51.0
+  8                            51.0
+
+  Interpretation: c8's risk contribution is dominant due to its mac+no_log
+  assignment (forced by 5-cycle latency).  A 4x increase in c8's impact
+  would roughly double the total system risk, making sensitivity HIGH.
+  Action: consider a separate c8 bus segment with a dedicated PEP on the
+  c8 side to enable stricter security at the cost of ~8 latency cycles.
+
+
+  --- F2. DMA write restriction sensitivity ---
+  dma_compromise with full write access : 102.0
+  dma_compromise with read-only on group: 51.0
+  Risk reduction from restricting DMA writes: 50%
+
+  Restricting DMA to read-only on the compute group (c1-c5) would
+  significantly reduce the amplification under DMA compromise, without
+  affecting normal DMA data-transfer functionality (writes still permitted
+  to c6 and reads from c8 per access_need).
+
+
+  --- F3. Policy-server availability sensitivity ---
+  PS failure scenarios and their risk impact:
+  ps0_failure                        : 61.2  (1.20x)  CP=DEG
+  all_ps_failure                     : 61.2  (1.20x)  CP=DEG
+  ps0_comp_ps1_fail                  : 127.5  (2.50x)  CP=COMP
+
+  ps0_failure is the dominant availability case because Phase 2 did not
+  deploy ps1. Both PEPs become ungoverned and fall back to stale policy.
+  ps0 compromise remains the highest-impact control-plane compromise.
+
+  --- F4. Redundancy group size sensitivity (qualitative) ---
+
+  The combined-probability model in opt_redundancy_enc.lp means:
+    Group of 3: combined prob = P1*P2*P3 / 100000  (less reduction)
+    Group of 5: combined prob = P1*P2*P3*P4*P5 / 100000000  (more reduction)
+  However, all group members share noc0 — a single-point bus failure
+  cuts ALL members simultaneously regardless of group size.
+  Increasing group size beyond 5 would reduce security risk but not
+  improve availability unless a second bus path is added.
+
+
+==============================================================================
+  G. DIFFERENTIAL VIEW: BEFORE vs AFTER ZTA
+==============================================================================
+
+  State                                           Total Risk
+  --------------------------------------------- ------------
+  No ZTA (masters compromised, no FW)                153.0
+  After ZTA (baseline, FWs placed)                    51.0
+  ZTA improvement factor                             3.00x
+
+  Worst architecture scenario under ZTA              153.0
+  Worst control-plane scenario                       127.5
+
+
+  Key differential observations:
+    1. ZTA reduces total risk from no-ZTA worst-case by the ZTA factor above.
+    2. Architecture risk (noc topology) is NOT removed by ZTA — the bus fabric
+       still forms the amplification path.  ZTA reduces it but cannot eliminate it.
+    3. Control-plane risk EXCEEDS architecture risk when ps0 is compromised
+       (the policy engine itself becomes the attack vector).
+    4. Redundancy reduces per-asset security risk for the group but does NOT
+       reduce availability risk against noc0 failure (common-mode).
+    5. c8's latency-constrained feature selection dominates residual risk and
+       is the single largest addressable weakness in the current design.
+
+  Before ZTA                  After ZTA                   After full mitigations
+  ──────────────────          ──────────────────          ──────────────────────
+  All masters implicitly      FWs gate all access         Op-specific ACLs
+  trusted by location         Elevated mode isolation     Attested DMA
+  No operation separation     Role-based grants           Signed ps1 policy
+  No control plane            Single deployed ps0       Separate c8 bus/PEP
+  No redundancy model         5-member group              Dual-path noc0 redundancy
+
+
+==============================================================================
+  H. SUMMARY VERDICT AND RECOMMENDATIONS
+==============================================================================
+
+  FOR AN INTERNAL DSE STUDY: this model is useful.
+  FOR A CREDIBLE ZTA PAPER: the following gaps must be addressed.
+
+  R1  Tighten ACLs to operation-level per access_need.
+      Current: readAndWrite blanket grant.
+      Target : role_allow with per-operation access_need enforcement.
+      Effect : removes excess_privilege findings; reduces dma_compromise
+               worst-case by ~30%.
+
+  R2  Add attestation to dma and signed-policy to ps1.
+      Current: dma unattested; ps1 unsigned.
+      Target : TPM-attested DMA; both PSes enforce signed policy.
+      Effect : eliminates unattested_privileged_access; ensures control-
+               plane integrity even when ps0 is unavailable.
+
+  R3  Add a dedicated bus segment and PEP for c8.
+      Current: c8 shares noc1 with c6/c7; mac+no_log forced by 5-cycle limit.
+      Target : c8 on a separate micro-bus with short PEP overhead (3 cycles).
+      Effect : permits dynamic_mac+no_log on c8; reduces c8r1 write risk
+               from 240 to ~160 (33% reduction); eliminates SPOF for io_svc.
+
+  R4  Add redundant noc0 or bus-level protection.
+      Current: noc0 failure cuts off all 5 redundancy group members.
+      Target : dual-path or segmented noc0 with per-group gating.
+      Effect : eliminates common-mode availability failure for compute_svc.
+
+  R5  Restrict DMA to declared access_need operations.
+      Current: dma has readAndWrite on all reachable IPs.
+      Target : enforce access_need(dma, C, Op) at PEP ACL level.
+      Effect : dma_compromise scenario reduced by ~30%.
+
+  R6  Add detection/telemetry and response timing to the model.
+      Current: no detection latency or response model.
+      Gap    : mode transitions (normal -> attack_suspected) assumed instant.
+      Action : model detection latency as a parameter; show residual risk
+               during undetected attack window.
+
+==============================================================================

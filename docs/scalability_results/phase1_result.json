@@ -1,0 +1,233 @@
+{
+  "optimal": false,
+  "risk": 39,
+  "max_risk_per_asset": {
+    "wifi_drvr1": 3,
+    "radio_drvr1": 4,
+    "fplnr1": 4,
+    "wpmr1": 4,
+    "cam_mgrr1": 0,
+    "uart_drvr1": 4,
+    "swur1": 4,
+    "nfzdbr1": 4,
+    "geofencer1": 4,
+    "fpln_filtr1": 4,
+    "attest_gater1": 4
+  },
+  "security": {
+    "attest_gate": "mac",
+    "cam_mgr": "mac",
+    "fpln": "mac",
+    "fpln_filt": "mac",
+    "geofence": "mac",
+    "nfzdb": "mac",
+    "radio_drv": "mac",
+    "swu": "mac",
+    "uart_drv": "mac",
+    "wifi_drv": "mac",
+    "wpm": "mac"
+  },
+  "logging": {
+    "attest_gate": "some_logging",
+    "cam_mgr": "no_logging",
+    "fpln": "no_logging",
+    "fpln_filt": "some_logging",
+    "geofence": "some_logging",
+    "nfzdb": "some_logging",
+    "radio_drv": "some_logging",
+    "swu": "no_logging",
+    "uart_drv": "some_logging",
+    "wifi_drv": "no_logging",
+    "wpm": "some_logging"
+  },
+  "new_risk": [
+    {
+      "component": "wifi_drv",
+      "asset": "wifi_drvr1",
+      "action": "read",
+      "risk": 1
+    },
+    {
+      "component": "wifi_drv",
+      "asset": "wifi_drvr1",
+      "action": "write",
+      "risk": 2
+    },
+    {
+      "component": "wifi_drv",
+      "asset": "wifi_drvr1",
+      "action": "avail",
+      "risk": 3
+    },
+    {
+      "component": "radio_drv",
+      "asset": "radio_drvr1",
+      "action": "read",
+      "risk": 1
+    },
+    {
+      "component": "radio_drv",
+      "asset": "radio_drvr1",
+      "action": "write",
+      "risk": 2
+    },
+    {
+      "component": "radio_drv",
+      "asset": "radio_drvr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "fpln",
+      "asset": "fplnr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "fpln",
+      "asset": "fplnr1",
+      "action": "write",
+      "risk": 2
+    },
+    {
+      "component": "fpln",
+      "asset": "fplnr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "wpm",
+      "asset": "wpmr1",
+      "action": "write",
+      "risk": 1
+    },
+    {
+      "component": "wpm",
+      "asset": "wpmr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "cam_mgr",
+      "asset": "cam_mgrr1",
+      "action": "write",
+      "risk": 0
+    },
+    {
+      "component": "uart_drv",
+      "asset": "uart_drvr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "uart_drv",
+      "asset": "uart_drvr1",
+      "action": "write",
+      "risk": 1
+    },
+    {
+      "component": "uart_drv",
+      "asset": "uart_drvr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "swu",
+      "asset": "swur1",
+      "action": "read",
+      "risk": 2
+    },
+    {
+      "component": "swu",
+      "asset": "swur1",
+      "action": "write",
+      "risk": 4
+    },
+    {
+      "component": "nfzdb",
+      "asset": "nfzdbr1",
+      "action": "write",
+      "risk": 2
+    },
+    {
+      "component": "nfzdb",
+      "asset": "nfzdbr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "geofence",
+      "asset": "geofencer1",
+      "action": "write",
+      "risk": 1
+    },
+    {
+      "component": "geofence",
+      "asset": "geofencer1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "fpln_filt",
+      "asset": "fpln_filtr1",
+      "action": "write",
+      "risk": 1
+    },
+    {
+      "component": "fpln_filt",
+      "asset": "fpln_filtr1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "attest_gate",
+      "asset": "attest_gater1",
+      "action": "avail",
+      "risk": 4
+    },
+    {
+      "component": "wpm",
+      "asset": "wpmr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "cam_mgr",
+      "asset": "cam_mgrr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "nfzdb",
+      "asset": "nfzdbr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "geofence",
+      "asset": "geofencer1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "fpln_filt",
+      "asset": "fpln_filtr1",
+      "action": "read",
+      "risk": 0
+    },
+    {
+      "component": "attest_gate",
+      "asset": "attest_gater1",
+      "action": "read",
+      "risk": 0
+    }
+  ],
+  "resources": {
+    "luts": 8410,
+    "ffs": 6160,
+    "dsps": 0,
+    "lutram": 0,
+    "bram": 7,
+    "power_mw": 160
+  }
+}

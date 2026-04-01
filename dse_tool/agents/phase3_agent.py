@@ -15,13 +15,13 @@ import os
 import queue
 from typing import List, Optional, TYPE_CHECKING
 
-from ..core.clingo_runner import ClingoRunner
 from ..core.solution_parser import (
     Phase1Result, Phase2Result, ScenarioResult, SolutionParser
 )
 
 if TYPE_CHECKING:
     from ..core.asp_generator import NetworkModel
+    from ..core.clingo_runner import ClingoRunner
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +245,7 @@ class Phase3Agent:
                 base_facts += "\n" + p2_facts
 
         results: List[ScenarioResult] = []
+        from ..core.clingo_runner import ClingoRunner
         runner = ClingoRunner(timeout=self.timeout)
 
         for i, sc in enumerate(scenarios, 1):

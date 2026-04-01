@@ -1,0 +1,224 @@
+{
+  "satisfiable": true,
+  "optimal": true,
+  "total_cost": 350,
+  "placed_fws": [
+    "pep_mc"
+  ],
+  "placed_ps": [
+    "ps_uart"
+  ],
+  "excess_privileges": [
+    [
+      "gs",
+      "attest_gate",
+      "read"
+    ],
+    [
+      "gs",
+      "cam_mgr",
+      "read"
+    ],
+    [
+      "gs",
+      "cam_mgr",
+      "write"
+    ],
+    [
+      "gs",
+      "fpln",
+      "read"
+    ],
+    [
+      "gs",
+      "fpln",
+      "write"
+    ],
+    [
+      "gs",
+      "fpln_filt",
+      "read"
+    ],
+    [
+      "gs",
+      "fpln_filt",
+      "write"
+    ],
+    [
+      "gs",
+      "geofence",
+      "read"
+    ],
+    [
+      "gs",
+      "geofence",
+      "write"
+    ],
+    [
+      "gs",
+      "nfzdb",
+      "read"
+    ],
+    [
+      "gs",
+      "nfzdb",
+      "write"
+    ],
+    [
+      "gs",
+      "swu",
+      "read"
+    ],
+    [
+      "gs",
+      "swu",
+      "write"
+    ],
+    [
+      "gs",
+      "uart_drv",
+      "read"
+    ],
+    [
+      "gs",
+      "uart_drv",
+      "write"
+    ],
+    [
+      "gs",
+      "wpm",
+      "read"
+    ],
+    [
+      "gs",
+      "wpm",
+      "write"
+    ],
+    [
+      "mc",
+      "nfzdb",
+      "write"
+    ],
+    [
+      "mc",
+      "swu",
+      "read"
+    ],
+    [
+      "mc",
+      "swu",
+      "write"
+    ],
+    [
+      "mc",
+      "wifi_drv",
+      "read"
+    ],
+    [
+      "mc",
+      "wifi_drv",
+      "write"
+    ]
+  ],
+  "missing_privileges": [
+    [
+      "fc",
+      "uart_drv",
+      "read"
+    ],
+    [
+      "fc",
+      "uart_drv",
+      "write"
+    ],
+    [
+      "mc",
+      "radio_drv",
+      "read"
+    ],
+    [
+      "mc",
+      "radio_drv",
+      "write"
+    ]
+  ],
+  "policy_tightness": {
+    "mc": 73,
+    "gs": 10
+  },
+  "over_privileged": [
+    "gs"
+  ],
+  "trust_gap_rot": [
+    "cam_mgr",
+    "fpln",
+    "fpln_filt",
+    "geofence",
+    "nfzdb",
+    "radio_drv",
+    "swu",
+    "uart_drv",
+    "wifi_drv",
+    "wpm"
+  ],
+  "trust_gap_sboot": [
+    "cam_mgr",
+    "fpln",
+    "nfzdb",
+    "radio_drv",
+    "swu",
+    "uart_drv",
+    "wifi_drv",
+    "wpm"
+  ],
+  "trust_gap_attest": [
+    "fc",
+    "gs"
+  ],
+  "trust_gap_keys": [
+    "fpln_filt",
+    "geofence",
+    "swu"
+  ],
+  "unattested_access": [
+    [
+      "gs",
+      "attest_gate"
+    ],
+    [
+      "gs",
+      "fpln_filt"
+    ],
+    [
+      "gs",
+      "geofence"
+    ],
+    [
+      "gs",
+      "nfzdb"
+    ],
+    [
+      "gs",
+      "swu"
+    ]
+  ],
+  "unsigned_ps": [
+    "ps_uart"
+  ],
+  "critical_exceptions": [
+    [
+      "gs",
+      "fpln",
+      "write",
+      "emergency",
+      "reason(emergency_recovery)"
+    ]
+  ],
+  "unexplained_exceptions": [
+    [
+      "gs",
+      "fpln",
+      "write"
+    ]
+  ]
+}

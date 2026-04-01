@@ -9,9 +9,10 @@ existing runClingo_tc9.py analysis pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, TYPE_CHECKING
 
-import clingo
+if TYPE_CHECKING:
+    import clingo
 
 AMP_DENOM = 10  # risk is scaled by 10 in the ASP encodings
 
