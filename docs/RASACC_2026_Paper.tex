@@ -1,0 +1,273 @@
+\documentclass[conference]{IEEEtran}
+
+% ---------------------------------------------------------------
+% Packages
+% ---------------------------------------------------------------
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{array}
+\usepackage{balance}
+
+% ---------------------------------------------------------------
+% Document
+% ---------------------------------------------------------------
+\begin{document}
+
+\title{Automated Resilience Assessment for\\Autonomous System SoC Architectures}
+
+% Double-blind submission
+\author{\IEEEauthorblockN{[Author names omitted for double-blind review]}}
+
+\maketitle
+
+% ---------------------------------------------------------------
+\begin{abstract}
+Hardware consolidation onto System-on-Chip (SoC) platforms gives autonomous
+systems size, weight, and power advantages but creates shared-bus attack
+surfaces where a single compromise can propagate to safety-critical
+functions. We present an automated resilience assessment that takes an SoC
+architectural model with pre-computed security feature assignments and
+access-control policies, then systematically generates fault and compromise
+scenarios, computes firewall-aware blast radii, detects single points of
+failure (SPOFs), and quantifies risk amplification factors aligned with
+NIST SP~800-30. The analysis is formulated in Answer Set Programming (ASP)
+and runs in under 30 seconds for architectures up to 11 components.
+We evaluate on two case studies: an 8-component SoC drone (18 scenarios)
+and an 11-component DARPA CASE UAV (24 scenarios). The tool reveals that
+topology-driven weaknesses---policy server concentration, common-mode bus
+failures, and single-string service chains---persist across all
+optimization strategies, demonstrating that these are architectural
+vulnerabilities rather than policy-dependent artefacts.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Resilience Assessment, System-on-Chip, Autonomous Systems, Answer Set
+Programming, Zero-Trust Architecture, Fault Analysis
+\end{IEEEkeywords}
+
+% ---------------------------------------------------------------
+\section{Introduction}
+
+Autonomous systems increasingly rely on SoC platforms that consolidate
+sensing, computation, communication, and actuation onto shared bus
+interconnects. This consolidation creates cascading failure paths: a
+compromised IP core or failed bus can deny service to multiple
+safety-critical functions simultaneously. Standards such as
+DO-326A~\cite{do326a} require systematic security risk assessment, yet
+current practice relies on manual analysis that does not scale with
+architectural complexity.
+
+We address this gap with an automated resilience assessment phase that
+operates on an SoC graph model. The assessment is the third stage of a
+larger design space exploration (DSE) workflow: Phase~1 optimally assigns
+security features under FPGA resource constraints; Phase~2 synthesizes
+zero-trust access-control policies with firewall placement. Phase~3---the
+focus of this paper---consumes both outputs and automatically generates
+scenarios covering component compromise, bus failure, control-plane attack,
+redundancy-group degradation, and combined fault-plus-compromise events.
+
+For each scenario, the ASP solver computes: (i)~structural and
+firewall-aware blast radius, (ii)~service availability and capability
+impact, (iii)~risk amplification relative to the baseline, and
+(iv)~attack paths up to five hops. The key finding across both case
+studies is that the worst-case vulnerabilities are topology-driven---they
+persist identically across max-security, min-resource, and balanced
+optimization strategies---meaning they cannot be mitigated by feature
+selection alone and require architectural redesign.
+
+% ---------------------------------------------------------------
+\section{Background and Workflow Context}
+
+\textbf{SoC Graph Model.}
+The SoC is modeled as a directed graph $G=(V,E)$ with typed vertices:
+bus masters~$V_M$, receivers~$V_R$, bus interconnects~$V_B$, firewalls
+(PEPs)~$V_{FW}$, and policy servers (PDPs)~$V_{PS}$. Each component
+carries trust-domain, CIA-impact, and exploitability annotations.
+
+\textbf{Phase~1} assigns one security feature and one logging feature per
+component, minimizing weighted risk under LUT, flip-flop, and power
+constraints with solver-verified optimality~\cite{gebser_asp}. The risk
+model follows an additive formulation aligned with NIST
+SP~800-30~\cite{nist_sp80030}, avoiding multiplicative artefacts on
+ordinal scales.
+
+\textbf{Phase~2} synthesizes least-privilege access-control policies with
+firewall placement following NIST SP~800-207 zero-trust
+principles~\cite{nist_zta}. It identifies excess privileges and trust
+anchor gaps (missing hardware root of trust, attestation, secure boot).
+
+Phase~3 takes the complete annotated graph---with feature assignments,
+firewall topology, and ACL policies---as input for resilience analysis.
+
+% ---------------------------------------------------------------
+\section{Automated Resilience Assessment}
+
+\subsection{Scenario Generation}
+
+Scenarios are generated systematically from the topology, not manually
+enumerated. The generator produces six classes:
+
+\begin{enumerate}
+\item \textbf{Single-component compromise}: each master and receiver.
+\item \textbf{Bus failure}: each bus interconnect fails, severing all
+  connected components.
+\item \textbf{Control-plane attack}: policy server compromise (bypasses
+  governed firewalls) and PEP bypass.
+\item \textbf{Redundancy-group degradation}: progressive member failures
+  within quorum groups.
+\item \textbf{Combined fault+compromise}: compound events pairing a
+  component compromise with a bus failure.
+\item \textbf{Control-plane degradation}: all policy servers fail
+  simultaneously.
+\end{enumerate}
+
+\subsection{Blast Radius and Risk Amplification}
+
+For each scenario~$s$, the solver computes the set of components whose
+risk increases due to lost firewall protection, compromised policy
+decisions, or severed bus connectivity. The \emph{risk amplification
+factor} is:
+\begin{equation}
+\alpha(s) = \frac{\sum_{c} R_s(c)}{\sum_{c} R_{\mathit{base}}(c)}
+\label{eq:amplification}
+\end{equation}
+where $R_s(c)$ is the per-component risk under scenario~$s$ and
+$R_{\mathit{base}}(c)$ is the baseline risk from Phase~1. Amplification
+$\alpha > 1$ indicates risk increase; values exceeding $2\times$ flag
+critical architectural weaknesses.
+
+\subsection{SPOF and Capability Analysis}
+
+The solver maps each scenario to affected \emph{services} (groups of
+components providing a function) and \emph{capabilities} (mission-level
+functions such as flight control or navigation). A scenario that disables
+$k \ge 3$ capabilities simultaneously is flagged as a critical SPOF.
+Attack paths of up to five hops are enumerated from compromised
+components to safety-critical targets.
+
+% ---------------------------------------------------------------
+\section{Case Study Results}
+
+We evaluate on two architectures targeting the Xilinx Zynq-7000
+(PYNQ-Z2) FPGA platform, each analyzed under multiple Phase~1
+optimization strategies.
+
+\subsection{SoC Drone (TC9)}
+
+The TC9 architecture has 8 components, 2 bus masters, 2 NoC buses, a
+5-member redundancy group, and 1 safety-critical component. Phase~1
+produces solver-verified optimal assignments under three strategies
+(max-security: 74 weighted risk at 17\% LUTs; min-resources: 101 risk at
+10\% LUTs). Phase~2 places 2 firewalls and 1 policy server, identifying
+9 excess privileges and 6 trust anchor gaps.
+
+Phase~3 generates 18 scenarios. The two critical findings are:
+(1)~\texttt{ps0} compromise yields $2.5\times$ risk amplification because
+this single policy server governs both firewalls---a control-plane
+concentration SPOF; (2)~\texttt{noc0} failure is a common-mode event that
+simultaneously disables all 5 redundancy-group members, defeating the
+availability benefit of redundancy. Both findings are invariant across
+all three optimization strategies.
+
+\subsection{DARPA CASE UAV}
+
+The UAV architecture, translated from the DARPA CASE surveillance
+system~\cite{darpa_case,hasan_saecps}, has 11 components, 3 masters,
+4 buses, 4 safety-critical components, and zero redundancy groups.
+Phase~1 achieves risk~=~0 under max-security (34\% LUTs) and
+risk~=~39 under min-resources (15\% LUTs), both solver-verified optimal.
+Phase~2 places 1 firewall and 1 policy server, flagging 22 excess
+privileges and 10 trust anchor gaps.
+
+Phase~3 generates 24 scenarios. Under min-resources (baseline risk~42.2),
+\texttt{ps\_uart} compromise produces $2.06\times$ amplification
+(risk~87.0). The most severe availability finding is
+\texttt{bus\_mc\_failure}, which loses 5 capabilities simultaneously
+(flight control, navigation, OTA update, attestation, ground comms)---a
+catastrophic single-string SPOF that no security feature assignment can
+address. Under max-security, all 24 scenario risks are zero (base risk~0
+$\times$ amplification = 0), yet the topology-driven SPOF persists:
+\texttt{bus\_mc} failure still loses the same 5 capabilities.
+
+\begin{table}[t]
+\caption{Phase~3 Resilience Summary: Both Case Studies}
+\label{tab:resilience}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcc}
+\toprule
+Metric & TC9 (8-comp) & UAV (11-comp) \\
+\midrule
+Scenarios generated          & 18          & 24 \\
+Worst scenario               & ps0 comp.   & ps\_uart comp. \\
+Worst amplification          & $2.50\times$& $2.06\times$ \\
+Max capabilities lost (1 event) & 5 (noc0) & 5 (bus\_mc) \\
+Control-plane SPOFs          & 1 (ps0)     & 1 (ps\_uart) \\
+Common-mode bus failures     & 1 (noc0)    & 1 (bus\_mc) \\
+Invariant across strategies  & Yes         & Yes \\
+Solve time                   & $<$15\,s    & $<$30\,s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cross-Study Observations}
+
+Table~\ref{tab:resilience} summarizes both case studies. Despite different
+sizes, topologies, and redundancy characteristics, both architectures
+exhibit the same structural pattern: a single policy server whose
+compromise amplifies risk above $2\times$, and a single bus whose failure
+disables the majority of mission capabilities. These findings are
+\emph{strategy-invariant}---they appear identically under max-security,
+min-resources, and balanced optimization---confirming they are topological
+properties of the architecture rather than artefacts of any particular
+security policy configuration.
+
+The TC9 redundancy group illustrates a subtler failure mode: while
+quorum-based redundancy improves availability under independent component
+failures, the shared \texttt{noc0} bus creates a common-mode path that
+defeats the redundancy assumption entirely.
+
+% ---------------------------------------------------------------
+\section{Related Work}
+
+Hardware isolation on SoCs through TrustZone and secure interconnects
+provides static partitioning but not automated vulnerability
+assessment~\cite{fiorin_noc}. The DARPA CASE program~\cite{darpa_case}
+produced AADL-based model transformations with CakeML-verified
+components; Hasan et~al.~\cite{hasan_saecps} applied manual ZTA patterns
+to the same UAV system but did not perform systematic resilience
+analysis. Zero-trust principles for avionics were advocated
+in~\cite{ztas_dasc}, and NIST SP~800-207~\cite{nist_zta} provides the
+policy architecture framework. Our contribution is automated,
+solver-based scenario generation and blast-radius computation that
+complements these manual approaches.
+
+% ---------------------------------------------------------------
+\section{Conclusion}
+
+We presented an automated resilience assessment for SoC-based autonomous
+systems that generates fault and compromise scenarios from the
+architectural topology, computes firewall-aware blast radii, and detects
+single points of failure. Evaluation on an 8-component drone and an
+11-component DARPA CASE UAV shows that the worst-case
+vulnerabilities---policy server concentration and single-string bus
+dependencies---are topology-driven and persist across all optimization
+strategies. This demonstrates that security feature optimization alone is
+insufficient; architectural redundancy at the bus and control-plane
+levels is required for resilient autonomous system SoC designs. Future
+work includes multi-chip topology extension, runtime-adaptive mode
+transitions, and integration with DO-326A certification evidence
+generation.
+
+% ---------------------------------------------------------------
+\balance
+\bibliographystyle{IEEEtran}
+\bibliography{rasacc_references}
+
+\end{document}
