@@ -45,9 +45,9 @@ hybrid workflow. The benchmark demonstrates constraint sensitivity at
 realistic scale: latency constraints alone force three high-impact
 components off zero-trust; tightening LUTs raises risk from 1{,}804
 to 3{,}449 ($1.91\times$); restricting power forces a mixed
-security assignment exploiting redundancy-group structure that
-greedy and local-search heuristics match the optimum
-under two profiles but miss by 5\% under the tightest.
+security assignment exploiting redundancy-group structure.
+Greedy and local-search heuristics using the same objective match the
+optimum under two profiles but miss by 5\% under the tightest.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -66,7 +66,7 @@ lightweight MAC checker, for instance) affects system-wide risk exposure,
 implementation cost, and timing across the device. This makes
 security architecture a constrained optimization problem: security
 features, anomaly detectors, and bus monitors improve protection but
-consume the same LUT, FF, and power budget needed by the
+consume the same LUT, FF, power, and latency budget needed by the
 functional design.
 
 Prior work has argued that security should become a first-class
@@ -140,7 +140,7 @@ to proven optimality under FPGA resource constraints, (ii)~provide
 cross-solver validation of the reported optima, or (iii)~evaluate on an architecture-realistic benchmark derived
 from an open-source SoC.
 
-On the solver side, we note that ASP has been used for hardware
+On the solver side, ASP has been used for hardware
 configuration~\cite{gebser_potassco_2011} and combinatorial
 optimization. CP-SAT~\cite{ortools} is a state-of-the-art constraint
 programming solver. Using both on the same problem provides
@@ -206,7 +206,7 @@ Some Logging    & log & --- & --- & 3135 & --- & --- & 2502 & $L\!=\!10$ & 72 \\
 No Logging      & log & --- & --- &    0 & --- & --- &    0 & $L\!=\!20$ & 0 \\
 \bottomrule
 \multicolumn{10}{l}{\scriptsize Base costs are shared across components that use the same feature.} \\
-\multicolumn{10}{l}{\scriptsize $^a$Power ($10^{-2}$\,W): same three-tier model as LUTs (byAsset + byComponent + base).}
+\multicolumn{10}{l}{\scriptsize $^a$Power ($10^{-2}$\,W): byAsset + byComponent + base for security; base-only for logging.}
 \end{tabular}}
 \end{table}
 
@@ -237,7 +237,7 @@ of the selected security feature $s_c$ ($V\!=\!10,20,30$; lower is
 better), and $L$ is the logging score ($L\!=\!5,10,20$; lower is
 better). Both $V$ and $L$ are scaled by~10 for integer arithmetic;
 the divisor compensates, giving effective risk multipliers in
-$[5,\,600]$.
+$[5,\,60]$.
 
 The multiplicative form follows the standard risk = impact $\times$
 likelihood decomposition (ISO~27005, NIST SP~800-30): $V$ quantifies
@@ -393,7 +393,7 @@ one-time base costs for each feature used.
 \end{itemize}
 
 Both formulations encode the identical optimization problem. Any
-objective mismatch would indicate a bug in one or both encodings.
+objective mismatch would indicate a formulation error.
 
 %===================================================================
 \section{Experimental Setup}
@@ -619,10 +619,11 @@ Surprisingly, the three crypto accelerators (aes, hmac, kmac) all
 receive dynamic-MAC or MAC despite their high individual impact.
 Their redundancy group membership reduces combined probability enough
 that ZT's risk saving is less valuable than the power saved by a
-weaker feature.  An impact-ordered greedy would assign ZT to crypto
-engines first, yet the optimizer exploits redundancy coverage instead.
-This kind of multi-constraint, redundancy-aware assignment benefits
-from exact optimization.
+weaker feature.  Under OT-C's power pressure, the optimizer
+downgrades crypto engines to exploit redundancy coverage rather than
+spending the power budget on ZT for components whose group membership
+already reduces combined risk.  This multi-constraint coordination
+is where exact optimization adds the most value.
 
 \begin{figure}[t]
     \centering
@@ -709,7 +710,7 @@ feature-synthesis optimization, ASP for the downstream stages.
 
 \subsection{Relation to ILP/MIP Solvers}
 
-Since the resource constraints are linear and the objective can be
+The resource constraints are linear and the objective can be
 linearised, so ILP solvers (e.g.\ Gurobi~\cite{gurobi}) could solve
 the same problem. We chose CP-SAT because it is open-source and its
 element constraints map naturally to feature selection; an ILP
@@ -727,8 +728,12 @@ Power at 800~units (OT-C) forces a different trade: the optimizer
 keeps ZTL but downgrades security on 11~components to a
 9~ZT~+~7~DM~+~4~MAC mix at risk~1{,}854.  The Pareto sweep
 (Figure~\ref{fig:pareto}) provides a complete risk--resource tradeoff
-map.  Quantitative what-if analysis at this level requires an exact
-solver that reports provably optimal solutions under each constraint set.
+map.  Quantitative what-if analysis at this level is most reliable with an
+exact solver that reports provably optimal solutions under each
+constraint set; the greedy's 0\% gap on OT-A/OT-B shows that simpler
+methods suffice when few constraints bind, but the 5\% gap on OT-C
+illustrates the cost of sequential decision-making under tight
+multi-constraint pressure.
 
 \subsection{Limitations}
 
@@ -751,10 +756,9 @@ feature synthesis for SoCs be solved exactly, and does exactness
 actually matter compared to reasonable heuristics? The answer to both
 is yes, but the path taught us more than the destination.
 
-Cross-validating ASP against CP-SAT on 24 synthetic runs gave us confidence
-that the formulation is correct, not just that one solver happens to
-find good solutions. The perfect agreement across 24 synthetic runs
-was reassuring; the sharp divergence at 20 components was
+Cross-validating ASP against CP-SAT on 24 synthetic runs gave us
+confidence that the formulation is correct, not just that one solver
+happens to find good solutions.  The sharp divergence at 20 components was
 informative. We now view CP-SAT as the right production solver for
 feature synthesis, while ASP earns its keep in the downstream
 policy and resilience stages where recursive reasoning dominates.
@@ -765,8 +769,9 @@ zero-trust, producing a heterogeneous assignment even with non-binding resource 
 optimizer to downgrade 11 of 20 components, producing a
 9\,ZT~+~7\,DM~+~4\,MAC mix where the crypto accelerators receive
 weaker features because redundancy coverage absorbs the risk.
-Conventional priority ordering would protect crypto engines first; the
-optimizer correctly exploits group structure instead.
+The greedy heuristic matches on OT-A and OT-B but misses by 5\%
+on OT-C, where the power-latency interaction requires multi-component
+coordination that sequential assignment cannot achieve.
 
 Looking ahead, we plan to co-optimize firewall and policy placement
 with feature selection, evaluate resilience under component-compromise
