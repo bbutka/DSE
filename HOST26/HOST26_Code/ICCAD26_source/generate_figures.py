@@ -31,7 +31,8 @@ comp_count_map = {
 for entry in data:
     tc = entry["testcase"]
     n = comp_count_map.get(tc, 0)
-    asp_by_comp[n].append(entry["asp_time_s"])
+    if not entry.get("asp_skipped", False):
+        asp_by_comp[n].append(entry["asp_time_s"])
     cpsat_by_comp[n].append(entry["cpsat_time_s"])
 
 comps = sorted(asp_by_comp.keys())
@@ -65,7 +66,7 @@ print("Saved runtime_scaling.pdf/png")
 # ── Figure 2: OpenTitan Feature Assignment Heatmap ─────────────────
 # Build the heatmap from OT-A ASP data (the primary profile)
 ot_a_list = [e for e in data if e["testcase"] == "testCaseOT_inst" and ("ot1" in e.get("profile","") or "OT-A" in e.get("profile",""))]
-if not ot_a_list or "asp_security" not in ot_a_list[0]:
+if not ot_a_list or ("cpsat_security" not in ot_a_list[0] and "asp_security" not in ot_a_list[0]):
     print("Skipping heatmap: OT-A data with feature assignments not available.")
     import sys; sys.exit(0)
 ot_a = ot_a_list[0]
@@ -81,8 +82,10 @@ log_map = {"zero_trust_logger": 3, "some_logging": 2, "no_logging": 1}
 sec_labels = {3: "ZT", 2: "DM", 1: "MAC"}
 log_labels = {3: "ZTL", 2: "SL", 1: "NL"}
 
-sec_data = [sec_map[ot_a["asp_security"][c]] for c in components_order]
-log_data = [log_map[ot_a["asp_logging"][c]] for c in components_order]
+sec_src = ot_a.get("cpsat_security", ot_a.get("asp_security", {}))
+log_src = ot_a.get("cpsat_logging", ot_a.get("asp_logging", {}))
+sec_data = [sec_map[sec_src[c]] for c in components_order]
+log_data = [log_map[log_src[c]] for c in components_order]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 4.2), sharey=True)
 

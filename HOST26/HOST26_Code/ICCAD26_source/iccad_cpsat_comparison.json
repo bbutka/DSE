@@ -2,10 +2,26 @@
   {
     "testcase": "testCase1_inst",
     "profile": "A",
-    "asp_time_s": 0.125,
-    "cpsat_time_s": 0.01,
-    "asp_objective": 90,
     "cpsat_objective": 90,
+    "cpsat_time_s": 0.01,
+    "cpsat_luts": 35964,
+    "cpsat_ffs": 29228,
+    "cpsat_power": 735,
+    "cpsat_security": {
+      "p1": "zero_trust",
+      "c1": "zero_trust",
+      "c2": "zero_trust"
+    },
+    "cpsat_logging": {
+      "p1": "zero_trust_logger",
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger"
+    },
+    "asp_objective": 90,
+    "asp_time_s": 0.182,
+    "asp_luts": 35964,
+    "asp_ffs": 29228,
+    "asp_power": 735,
     "asp_security": {
       "p1": "zero_trust",
       "c1": "zero_trust",
@@ -22,27 +38,31 @@
       "c1r1": "zero_trust_logger",
       "p1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase1_inst",
+    "profile": "B",
+    "cpsat_objective": 180,
+    "cpsat_time_s": 0.006,
+    "cpsat_luts": 7745,
+    "cpsat_ffs": 6710,
+    "cpsat_power": 90,
     "cpsat_security": {
       "p1": "zero_trust",
       "c1": "zero_trust",
       "c2": "zero_trust"
     },
     "cpsat_logging": {
-      "p1": "zero_trust_logger",
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger"
+      "p1": "some_logging",
+      "c1": "some_logging",
+      "c2": "some_logging"
     },
-    "match": true,
-    "luts": 35964,
-    "power": 735
-  },
-  {
-    "testcase": "testCase1_inst",
-    "profile": "B",
-    "asp_time_s": 0.116,
-    "cpsat_time_s": 0.006,
     "asp_objective": 180,
-    "cpsat_objective": 180,
+    "asp_time_s": 0.18,
+    "asp_luts": 7745,
+    "asp_ffs": 6710,
+    "asp_power": 90,
     "asp_security": {
       "p1": "zero_trust",
       "c1": "zero_trust",
@@ -59,27 +79,31 @@
       "c1r1": "some_logging",
       "p1r1": "some_logging"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase1_inst",
+    "profile": "C",
+    "cpsat_objective": 90,
+    "cpsat_time_s": 0.005,
+    "cpsat_luts": 35964,
+    "cpsat_ffs": 29228,
+    "cpsat_power": 735,
     "cpsat_security": {
       "p1": "zero_trust",
       "c1": "zero_trust",
       "c2": "zero_trust"
     },
     "cpsat_logging": {
-      "p1": "some_logging",
-      "c1": "some_logging",
-      "c2": "some_logging"
+      "p1": "zero_trust_logger",
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 7745,
-    "power": 90
-  },
-  {
-    "testcase": "testCase1_inst",
-    "profile": "C",
-    "asp_time_s": 0.117,
-    "cpsat_time_s": 0.005,
     "asp_objective": 90,
-    "cpsat_objective": 90,
+    "asp_time_s": 0.154,
+    "asp_luts": 35964,
+    "asp_ffs": 29228,
+    "asp_power": 735,
     "asp_security": {
       "p1": "zero_trust",
       "c1": "zero_trust",
@@ -96,27 +120,41 @@
       "c1r1": "zero_trust_logger",
       "p1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "p1": "zero_trust",
-      "c1": "zero_trust",
-      "c2": "zero_trust"
-    },
-    "cpsat_logging": {
-      "p1": "zero_trust_logger",
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 35964,
-    "power": 735
+    "objective_match": true
   },
   {
     "testcase": "testCase2_inst",
     "profile": "A",
-    "asp_time_s": 2.424,
-    "cpsat_time_s": 0.007,
-    "asp_objective": 365,
     "cpsat_objective": 365,
+    "cpsat_time_s": 0.007,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
+    },
+    "asp_objective": 365,
+    "asp_time_s": 2.65,
+    "asp_luts": 39744,
+    "asp_ffs": 32884,
+    "asp_power": 756,
     "asp_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -153,37 +191,41 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase2_inst",
+    "profile": "B",
+    "cpsat_objective": 860,
+    "cpsat_time_s": 0.011,
+    "cpsat_luts": 9540,
+    "cpsat_ffs": 8754,
+    "cpsat_power": 109,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
+      "c3": "mac",
+      "c4": "mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase2_inst",
-    "profile": "B",
-    "asp_time_s": 3.616,
-    "cpsat_time_s": 0.011,
     "asp_objective": 860,
-    "cpsat_objective": 860,
+    "asp_time_s": 3.663,
+    "asp_luts": 9540,
+    "asp_ffs": 8754,
+    "asp_power": 109,
     "asp_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -220,37 +262,41 @@
       "c2r1": "some_logging",
       "c1r1": "some_logging"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase2_inst",
+    "profile": "C",
+    "cpsat_objective": 365,
+    "cpsat_time_s": 0.007,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging"
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 9540,
-    "power": 109
-  },
-  {
-    "testcase": "testCase2_inst",
-    "profile": "C",
-    "asp_time_s": 2.579,
-    "cpsat_time_s": 0.007,
     "asp_objective": 365,
-    "cpsat_objective": 365,
+    "asp_time_s": 2.594,
+    "asp_luts": 39744,
+    "asp_ffs": 32884,
+    "asp_power": 756,
     "asp_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -287,37 +333,27 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 39744,
-    "power": 756
+    "objective_match": true
   },
   {
     "testcase": "testCase3_inst",
     "profile": "A",
-    "asp_time_s": 0.002,
-    "cpsat_time_s": 0.001,
-    "asp_objective": 720,
     "cpsat_objective": 720,
+    "cpsat_time_s": 0.001,
+    "cpsat_luts": 31996,
+    "cpsat_ffs": 25568,
+    "cpsat_power": 727,
+    "cpsat_security": {
+      "c1": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger"
+    },
+    "asp_objective": 720,
+    "asp_time_s": 0.001,
+    "asp_luts": 31996,
+    "asp_ffs": 25568,
+    "asp_power": 727,
     "asp_security": {
       "c1": "mac",
       "c1r1": "mac",
@@ -340,23 +376,27 @@
       "c1r7": "zero_trust_logger",
       "c1r8": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 31996,
-    "power": 727
+    "objective_match": true
   },
   {
     "testcase": "testCase3_inst",
     "profile": "B",
-    "asp_time_s": 0.001,
-    "cpsat_time_s": 0.001,
-    "asp_objective": 1440,
     "cpsat_objective": 1440,
+    "cpsat_time_s": 0.001,
+    "cpsat_luts": 3777,
+    "cpsat_ffs": 3050,
+    "cpsat_power": 82,
+    "cpsat_security": {
+      "c1": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "some_logging"
+    },
+    "asp_objective": 1440,
+    "asp_time_s": 0.001,
+    "asp_luts": 3777,
+    "asp_ffs": 3050,
+    "asp_power": 82,
     "asp_security": {
       "c1": "mac",
       "c1r1": "mac",
@@ -379,23 +419,27 @@
       "c1r7": "some_logging",
       "c1r8": "some_logging"
     },
-    "cpsat_security": {
-      "c1": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "some_logging"
-    },
-    "match": true,
-    "luts": 3777,
-    "power": 82
+    "objective_match": true
   },
   {
     "testcase": "testCase3_inst",
     "profile": "C",
-    "asp_time_s": 0.001,
-    "cpsat_time_s": 0.001,
-    "asp_objective": 720,
     "cpsat_objective": 720,
+    "cpsat_time_s": 0.001,
+    "cpsat_luts": 31996,
+    "cpsat_ffs": 25568,
+    "cpsat_power": 727,
+    "cpsat_security": {
+      "c1": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger"
+    },
+    "asp_objective": 720,
+    "asp_time_s": 0.001,
+    "asp_luts": 31996,
+    "asp_ffs": 25568,
+    "asp_power": 727,
     "asp_security": {
       "c1": "mac",
       "c1r1": "mac",
@@ -418,157 +462,183 @@
       "c1r7": "zero_trust_logger",
       "c1r8": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 31996,
-    "power": 727
+    "objective_match": true
   },
   {
     "testcase": "testCase5_inst",
     "profile": "A",
-    "asp_time_s": 2.424,
-    "cpsat_time_s": 0.006,
-    "asp_objective": 365,
     "cpsat_objective": 365,
-    "asp_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
-      "c8r1": "mac",
-      "c7r1": "zero_trust",
-      "c6r1": "zero_trust",
-      "c5r1": "zero_trust",
-      "c4r1": "dynamic_mac",
-      "c3r1": "dynamic_mac",
-      "c2r1": "zero_trust",
-      "c1r1": "zero_trust"
-    },
-    "asp_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger",
-      "c8r1": "zero_trust_logger",
-      "c7r1": "zero_trust_logger",
-      "c6r1": "zero_trust_logger",
-      "c5r1": "zero_trust_logger",
-      "c4r1": "zero_trust_logger",
-      "c3r1": "zero_trust_logger",
-      "c2r1": "zero_trust_logger",
-      "c1r1": "zero_trust_logger"
-    },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase5_inst",
-    "profile": "B",
-    "asp_time_s": 3.436,
-    "cpsat_time_s": 0.011,
-    "asp_objective": 860,
-    "cpsat_objective": 860,
-    "asp_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
-      "c8": "mac",
-      "c8r1": "mac",
-      "c7r1": "zero_trust",
-      "c6r1": "zero_trust",
-      "c5r1": "zero_trust",
-      "c4r1": "mac",
-      "c3r1": "mac",
-      "c2r1": "zero_trust",
-      "c1r1": "zero_trust"
-    },
-    "asp_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging",
-      "c8r1": "some_logging",
-      "c7r1": "some_logging",
-      "c6r1": "some_logging",
-      "c5r1": "some_logging",
-      "c4r1": "some_logging",
-      "c3r1": "some_logging",
-      "c2r1": "some_logging",
-      "c1r1": "some_logging"
-    },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging"
-    },
-    "match": true,
-    "luts": 9540,
-    "power": 109
-  },
-  {
-    "testcase": "testCase5_inst",
-    "profile": "C",
-    "asp_time_s": 2.559,
     "cpsat_time_s": 0.007,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
+    },
     "asp_objective": 365,
+    "asp_time_s": 2.644,
+    "asp_luts": 39744,
+    "asp_ffs": 32884,
+    "asp_power": 756,
+    "asp_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
+      "c8r1": "mac",
+      "c7r1": "zero_trust",
+      "c6r1": "zero_trust",
+      "c5r1": "zero_trust",
+      "c4r1": "dynamic_mac",
+      "c3r1": "dynamic_mac",
+      "c2r1": "zero_trust",
+      "c1r1": "zero_trust"
+    },
+    "asp_logging": {
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger",
+      "c8r1": "zero_trust_logger",
+      "c7r1": "zero_trust_logger",
+      "c6r1": "zero_trust_logger",
+      "c5r1": "zero_trust_logger",
+      "c4r1": "zero_trust_logger",
+      "c3r1": "zero_trust_logger",
+      "c2r1": "zero_trust_logger",
+      "c1r1": "zero_trust_logger"
+    },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase5_inst",
+    "profile": "B",
+    "cpsat_objective": 860,
+    "cpsat_time_s": 0.011,
+    "cpsat_luts": 9540,
+    "cpsat_ffs": 8754,
+    "cpsat_power": 109,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "mac",
+      "c4": "mac",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging"
+    },
+    "asp_objective": 860,
+    "asp_time_s": 3.768,
+    "asp_luts": 9540,
+    "asp_ffs": 8754,
+    "asp_power": 109,
+    "asp_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c3": "mac",
+      "c4": "mac",
+      "c8": "mac",
+      "c8r1": "mac",
+      "c7r1": "zero_trust",
+      "c6r1": "zero_trust",
+      "c5r1": "zero_trust",
+      "c4r1": "mac",
+      "c3r1": "mac",
+      "c2r1": "zero_trust",
+      "c1r1": "zero_trust"
+    },
+    "asp_logging": {
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging",
+      "c8r1": "some_logging",
+      "c7r1": "some_logging",
+      "c6r1": "some_logging",
+      "c5r1": "some_logging",
+      "c4r1": "some_logging",
+      "c3r1": "some_logging",
+      "c2r1": "some_logging",
+      "c1r1": "some_logging"
+    },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase5_inst",
+    "profile": "C",
     "cpsat_objective": 365,
+    "cpsat_time_s": 0.006,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
+    },
+    "asp_objective": 365,
+    "asp_time_s": 2.494,
+    "asp_luts": 39744,
+    "asp_ffs": 32884,
+    "asp_power": 756,
     "asp_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -605,37 +675,31 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 39744,
-    "power": 756
+    "objective_match": true
   },
   {
     "testcase": "testCase6_inst",
     "profile": "A",
-    "asp_time_s": 0.107,
-    "cpsat_time_s": 0.015,
-    "asp_objective": 45,
     "cpsat_objective": 45,
+    "cpsat_time_s": 0.014,
+    "cpsat_luts": 9545,
+    "cpsat_ffs": 8110,
+    "cpsat_power": 90,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac"
+    },
+    "cpsat_logging": {
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging"
+    },
+    "asp_objective": 45,
+    "asp_time_s": 0.084,
+    "asp_luts": 37579,
+    "asp_ffs": 30416,
+    "asp_power": 733,
     "asp_security": {
       "c2": "zero_trust",
       "c1": "mac",
@@ -652,27 +716,31 @@
       "c2r1": "no_logging",
       "c1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac"
-    },
-    "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging"
-    },
-    "match": true,
-    "luts": 9545,
-    "power": 90
+    "objective_match": true
   },
   {
     "testcase": "testCase6_inst",
     "profile": "B",
-    "asp_time_s": 0.101,
+    "cpsat_objective": 45,
     "cpsat_time_s": 0.012,
+    "cpsat_luts": 9360,
+    "cpsat_ffs": 7898,
+    "cpsat_power": 88,
+    "cpsat_security": {
+      "c1": "dynamic_mac",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac"
+    },
+    "cpsat_logging": {
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging"
+    },
     "asp_objective": 45,
-    "cpsat_objective": 45,
+    "asp_time_s": 0.084,
+    "asp_luts": 9360,
+    "asp_ffs": 7898,
+    "asp_power": 88,
     "asp_security": {
       "c1": "zero_trust",
       "c3": "mac",
@@ -689,27 +757,31 @@
       "c2r1": "some_logging",
       "c1r1": "no_logging"
     },
-    "cpsat_security": {
-      "c1": "dynamic_mac",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac"
-    },
-    "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging"
-    },
-    "match": true,
-    "luts": 9360,
-    "power": 88
+    "objective_match": true
   },
   {
     "testcase": "testCase6_inst",
     "profile": "C",
-    "asp_time_s": 0.134,
-    "cpsat_time_s": 0.018,
-    "asp_objective": 45,
     "cpsat_objective": 45,
+    "cpsat_time_s": 0.014,
+    "cpsat_luts": 9545,
+    "cpsat_ffs": 8110,
+    "cpsat_power": 90,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac"
+    },
+    "cpsat_logging": {
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging"
+    },
+    "asp_objective": 45,
+    "asp_time_s": 0.08,
+    "asp_luts": 37579,
+    "asp_ffs": 30416,
+    "asp_power": 733,
     "asp_security": {
       "c2": "zero_trust",
       "c1": "mac",
@@ -726,27 +798,41 @@
       "c2r1": "no_logging",
       "c1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac"
-    },
-    "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging"
-    },
-    "match": true,
-    "luts": 9545,
-    "power": 90
+    "objective_match": true
   },
   {
     "testcase": "testCase7_inst",
     "profile": "A",
-    "asp_time_s": 2.534,
-    "cpsat_time_s": 0.021,
-    "asp_objective": 232,
     "cpsat_objective": 232,
+    "cpsat_time_s": 0.015,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
+    "cpsat_security": {
+      "c1": "zero_trust",
+      "c2": "zero_trust",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
+      "c5": "zero_trust",
+      "c6": "zero_trust",
+      "c7": "zero_trust",
+      "c8": "mac"
+    },
+    "cpsat_logging": {
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
+    },
+    "asp_objective": 232,
+    "asp_time_s": 2.53,
+    "asp_luts": 39559,
+    "asp_ffs": 32672,
+    "asp_power": 754,
     "asp_security": {
       "c2": "zero_trust",
       "c5": "zero_trust",
@@ -783,37 +869,41 @@
       "c2r1": "no_logging",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase7_inst",
+    "profile": "B",
+    "cpsat_objective": 402,
+    "cpsat_time_s": 0.025,
+    "cpsat_luts": 9540,
+    "cpsat_ffs": 8754,
+    "cpsat_power": 109,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
+      "c3": "mac",
+      "c4": "mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
+      "c1": "no_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase7_inst",
-    "profile": "B",
-    "asp_time_s": 3.226,
-    "cpsat_time_s": 0.023,
     "asp_objective": 402,
-    "cpsat_objective": 402,
+    "asp_time_s": 3.176,
+    "asp_luts": 9170,
+    "asp_ffs": 8330,
+    "asp_power": 105,
     "asp_security": {
       "c5": "zero_trust",
       "c6": "zero_trust",
@@ -850,37 +940,41 @@
       "c2r1": "some_logging",
       "c1r1": "some_logging"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase7_inst",
+    "profile": "C",
+    "cpsat_objective": 232,
+    "cpsat_time_s": 0.014,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "no_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging"
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 9540,
-    "power": 109
-  },
-  {
-    "testcase": "testCase7_inst",
-    "profile": "C",
-    "asp_time_s": 2.53,
-    "cpsat_time_s": 0.015,
     "asp_objective": 232,
-    "cpsat_objective": 232,
+    "asp_time_s": 2.551,
+    "asp_luts": 39559,
+    "asp_ffs": 32672,
+    "asp_power": 754,
     "asp_security": {
       "c2": "zero_trust",
       "c5": "zero_trust",
@@ -917,6 +1011,16 @@
       "c2r1": "no_logging",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase8_inst",
+    "profile": "A",
+    "cpsat_objective": 331,
+    "cpsat_time_s": 0.011,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -937,17 +1041,11 @@
       "c7": "zero_trust_logger",
       "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase8_inst",
-    "profile": "A",
-    "asp_time_s": 2.538,
-    "cpsat_time_s": 0.01,
     "asp_objective": 331,
-    "cpsat_objective": 331,
+    "asp_time_s": 2.456,
+    "asp_luts": 39374,
+    "asp_ffs": 32460,
+    "asp_power": 752,
     "asp_security": {
       "c5": "zero_trust",
       "c6": "zero_trust",
@@ -984,37 +1082,41 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase8_inst",
+    "profile": "B",
+    "cpsat_objective": 761,
+    "cpsat_time_s": 0.014,
+    "cpsat_luts": 9540,
+    "cpsat_ffs": 8754,
+    "cpsat_power": 109,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
+      "c3": "mac",
+      "c4": "mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase8_inst",
-    "profile": "B",
-    "asp_time_s": 3.337,
-    "cpsat_time_s": 0.017,
     "asp_objective": 761,
-    "cpsat_objective": 761,
+    "asp_time_s": 3.146,
+    "asp_luts": 9540,
+    "asp_ffs": 8754,
+    "asp_power": 109,
     "asp_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -1051,37 +1153,41 @@
       "c2r1": "some_logging",
       "c1r1": "some_logging"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase8_inst",
+    "profile": "C",
+    "cpsat_objective": 331,
+    "cpsat_time_s": 0.01,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging"
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 9540,
-    "power": 109
-  },
-  {
-    "testcase": "testCase8_inst",
-    "profile": "C",
-    "asp_time_s": 2.537,
-    "cpsat_time_s": 0.01,
     "asp_objective": 331,
-    "cpsat_objective": 331,
+    "asp_time_s": 2.528,
+    "asp_luts": 39374,
+    "asp_ffs": 32460,
+    "asp_power": 752,
     "asp_security": {
       "c5": "zero_trust",
       "c6": "zero_trust",
@@ -1118,6 +1224,16 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase9_inst",
+    "profile": "A",
+    "cpsat_objective": 219,
+    "cpsat_time_s": 0.019,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
@@ -1138,17 +1254,11 @@
       "c7": "zero_trust_logger",
       "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase9_inst",
-    "profile": "A",
-    "asp_time_s": 2.821,
-    "cpsat_time_s": 0.016,
     "asp_objective": 219,
-    "cpsat_objective": 219,
+    "asp_time_s": 2.655,
+    "asp_luts": 39374,
+    "asp_ffs": 32460,
+    "asp_power": 752,
     "asp_security": {
       "c5": "zero_trust",
       "c6": "zero_trust",
@@ -1185,37 +1295,41 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase9_inst",
+    "profile": "B",
+    "cpsat_objective": 364,
+    "cpsat_time_s": 0.021,
+    "cpsat_luts": 9540,
+    "cpsat_ffs": 8754,
+    "cpsat_power": 109,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
+      "c3": "mac",
+      "c4": "mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
+      "c1": "some_logging",
+      "c2": "some_logging",
+      "c3": "some_logging",
+      "c4": "some_logging",
+      "c5": "some_logging",
+      "c6": "some_logging",
+      "c7": "some_logging",
+      "c8": "some_logging"
     },
-    "match": true,
-    "luts": 39744,
-    "power": 756
-  },
-  {
-    "testcase": "testCase9_inst",
-    "profile": "B",
-    "asp_time_s": 3.337,
-    "cpsat_time_s": 0.024,
     "asp_objective": 364,
-    "cpsat_objective": 364,
+    "asp_time_s": 3.136,
+    "asp_luts": 9355,
+    "asp_ffs": 8542,
+    "asp_power": 107,
     "asp_security": {
       "c2": "zero_trust",
       "c5": "zero_trust",
@@ -1252,37 +1366,41 @@
       "c2r1": "no_logging",
       "c1r1": "no_logging"
     },
+    "objective_match": true
+  },
+  {
+    "testcase": "testCase9_inst",
+    "profile": "C",
+    "cpsat_objective": 219,
+    "cpsat_time_s": 0.016,
+    "cpsat_luts": 39744,
+    "cpsat_ffs": 32884,
+    "cpsat_power": 756,
     "cpsat_security": {
       "c1": "zero_trust",
       "c2": "zero_trust",
-      "c3": "mac",
-      "c4": "mac",
+      "c3": "dynamic_mac",
+      "c4": "dynamic_mac",
       "c5": "zero_trust",
       "c6": "zero_trust",
       "c7": "zero_trust",
       "c8": "mac"
     },
     "cpsat_logging": {
-      "c1": "some_logging",
-      "c2": "some_logging",
-      "c3": "some_logging",
-      "c4": "some_logging",
-      "c5": "some_logging",
-      "c6": "some_logging",
-      "c7": "some_logging",
-      "c8": "some_logging"
+      "c1": "zero_trust_logger",
+      "c2": "zero_trust_logger",
+      "c3": "zero_trust_logger",
+      "c4": "zero_trust_logger",
+      "c5": "zero_trust_logger",
+      "c6": "zero_trust_logger",
+      "c7": "zero_trust_logger",
+      "c8": "zero_trust_logger"
     },
-    "match": true,
-    "luts": 9540,
-    "power": 109
-  },
-  {
-    "testcase": "testCase9_inst",
-    "profile": "C",
-    "asp_time_s": 3.098,
-    "cpsat_time_s": 0.018,
     "asp_objective": 219,
-    "cpsat_objective": 219,
+    "asp_time_s": 2.587,
+    "asp_luts": 39374,
+    "asp_ffs": 32460,
+    "asp_power": 752,
     "asp_security": {
       "c5": "zero_trust",
       "c6": "zero_trust",
@@ -1319,81 +1437,16 @@
       "c2r1": "zero_trust_logger",
       "c1r1": "zero_trust_logger"
     },
-    "cpsat_security": {
-      "c1": "zero_trust",
-      "c2": "zero_trust",
-      "c3": "dynamic_mac",
-      "c4": "dynamic_mac",
-      "c5": "zero_trust",
-      "c6": "zero_trust",
-      "c7": "zero_trust",
-      "c8": "mac"
-    },
-    "cpsat_logging": {
-      "c1": "zero_trust_logger",
-      "c2": "zero_trust_logger",
-      "c3": "zero_trust_logger",
-      "c4": "zero_trust_logger",
-      "c5": "zero_trust_logger",
-      "c6": "zero_trust_logger",
-      "c7": "zero_trust_logger",
-      "c8": "zero_trust_logger"
-    },
-    "match": true,
-    "luts": 39744,
-    "power": 756
+    "objective_match": true
   },
   {
     "testcase": "testCaseOT_inst",
     "profile": "OT-A",
-    "asp_time_s": 999,
-    "cpsat_time_s": 0.051,
-    "asp_objective": null,
     "cpsat_objective": 1804,
-    "asp_security": {
-      "cpu": "mac",
-      "dma": "mac",
-      "aes": "dynamic_mac",
-      "hmac": "zero_trust",
-      "kmac": "zero_trust",
-      "otbn": "dynamic_mac",
-      "keymgr": "mac",
-      "otp": "zero_trust",
-      "lc": "zero_trust",
-      "flash": "zero_trust",
-      "sram": "zero_trust",
-      "rom": "zero_trust",
-      "uart0": "zero_trust",
-      "uart1": "zero_trust",
-      "gpio": "zero_trust",
-      "spi": "zero_trust",
-      "i2c": "zero_trust",
-      "timer": "zero_trust",
-      "alert": "zero_trust",
-      "entropy": "zero_trust"
-    },
-    "asp_logging": {
-      "cpu": "zero_trust_logger",
-      "dma": "zero_trust_logger",
-      "aes": "zero_trust_logger",
-      "hmac": "zero_trust_logger",
-      "kmac": "zero_trust_logger",
-      "otbn": "zero_trust_logger",
-      "keymgr": "zero_trust_logger",
-      "otp": "zero_trust_logger",
-      "lc": "zero_trust_logger",
-      "flash": "zero_trust_logger",
-      "sram": "zero_trust_logger",
-      "rom": "zero_trust_logger",
-      "uart0": "zero_trust_logger",
-      "uart1": "zero_trust_logger",
-      "gpio": "zero_trust_logger",
-      "spi": "zero_trust_logger",
-      "i2c": "zero_trust_logger",
-      "timer": "zero_trust_logger",
-      "alert": "zero_trust_logger",
-      "entropy": "zero_trust_logger"
-    },
+    "cpsat_time_s": 0.037,
+    "cpsat_luts": 45014,
+    "cpsat_ffs": 38892,
+    "cpsat_power": 812,
     "cpsat_security": {
       "cpu": "mac",
       "dma": "mac",
@@ -1438,61 +1491,17 @@
       "alert": "zero_trust_logger",
       "entropy": "zero_trust_logger"
     },
-    "match": null,
-    "luts": 45014,
-    "power": 812
+    "asp_skipped": true,
+    "asp_skip_reason": ">10 components"
   },
   {
     "testcase": "testCaseOT_inst",
     "profile": "OT-B",
-    "asp_time_s": 999,
-    "cpsat_time_s": 0.047,
-    "asp_objective": null,
     "cpsat_objective": 3449,
-    "asp_security": {
-      "cpu": "mac",
-      "dma": "mac",
-      "aes": "dynamic_mac",
-      "hmac": "dynamic_mac",
-      "kmac": "zero_trust",
-      "otbn": "dynamic_mac",
-      "keymgr": "mac",
-      "otp": "zero_trust",
-      "lc": "zero_trust",
-      "flash": "zero_trust",
-      "sram": "zero_trust",
-      "rom": "zero_trust",
-      "uart0": "zero_trust",
-      "uart1": "zero_trust",
-      "gpio": "zero_trust",
-      "spi": "zero_trust",
-      "i2c": "zero_trust",
-      "timer": "zero_trust",
-      "alert": "zero_trust",
-      "entropy": "zero_trust"
-    },
-    "asp_logging": {
-      "cpu": "some_logging",
-      "dma": "some_logging",
-      "aes": "some_logging",
-      "hmac": "some_logging",
-      "kmac": "some_logging",
-      "otbn": "some_logging",
-      "keymgr": "some_logging",
-      "otp": "some_logging",
-      "lc": "some_logging",
-      "flash": "some_logging",
-      "sram": "some_logging",
-      "rom": "some_logging",
-      "uart0": "some_logging",
-      "uart1": "some_logging",
-      "gpio": "some_logging",
-      "spi": "some_logging",
-      "i2c": "some_logging",
-      "timer": "some_logging",
-      "alert": "some_logging",
-      "entropy": "some_logging"
-    },
+    "cpsat_time_s": 0.031,
+    "cpsat_luts": 16610,
+    "cpsat_ffs": 16162,
+    "cpsat_power": 165,
     "cpsat_security": {
       "cpu": "mac",
       "dma": "mac",
@@ -1537,61 +1546,17 @@
       "alert": "some_logging",
       "entropy": "some_logging"
     },
-    "match": null,
-    "luts": 16610,
-    "power": 165
+    "asp_skipped": true,
+    "asp_skip_reason": ">10 components"
   },
   {
     "testcase": "testCaseOT_inst",
     "profile": "OT-C",
-    "asp_time_s": 999,
-    "cpsat_time_s": 0.05,
-    "asp_objective": null,
     "cpsat_objective": 1854,
-    "asp_security": {
-      "cpu": "mac",
-      "dma": "mac",
-      "aes": "dynamic_mac",
-      "hmac": "dynamic_mac",
-      "kmac": "dynamic_mac",
-      "otbn": "dynamic_mac",
-      "keymgr": "mac",
-      "otp": "zero_trust",
-      "lc": "zero_trust",
-      "flash": "zero_trust",
-      "sram": "zero_trust",
-      "rom": "zero_trust",
-      "uart0": "dynamic_mac",
-      "uart1": "mac",
-      "gpio": "dynamic_mac",
-      "spi": "zero_trust",
-      "i2c": "zero_trust",
-      "timer": "dynamic_mac",
-      "alert": "zero_trust",
-      "entropy": "zero_trust"
-    },
-    "asp_logging": {
-      "cpu": "zero_trust_logger",
-      "dma": "zero_trust_logger",
-      "aes": "zero_trust_logger",
-      "hmac": "zero_trust_logger",
-      "kmac": "zero_trust_logger",
-      "otbn": "zero_trust_logger",
-      "keymgr": "zero_trust_logger",
-      "otp": "zero_trust_logger",
-      "lc": "zero_trust_logger",
-      "flash": "zero_trust_logger",
-      "sram": "zero_trust_logger",
-      "rom": "zero_trust_logger",
-      "uart0": "zero_trust_logger",
-      "uart1": "zero_trust_logger",
-      "gpio": "zero_trust_logger",
-      "spi": "zero_trust_logger",
-      "i2c": "zero_trust_logger",
-      "timer": "zero_trust_logger",
-      "alert": "zero_trust_logger",
-      "entropy": "zero_trust_logger"
-    },
+    "cpsat_time_s": 0.033,
+    "cpsat_luts": 43904,
+    "cpsat_ffs": 37620,
+    "cpsat_power": 800,
     "cpsat_security": {
       "cpu": "mac",
       "dma": "mac",
@@ -1636,8 +1601,7 @@
       "alert": "zero_trust_logger",
       "entropy": "zero_trust_logger"
     },
-    "match": null,
-    "luts": 43904,
-    "power": 800
+    "asp_skipped": true,
+    "asp_skip_reason": ">10 components"
   }
 ]

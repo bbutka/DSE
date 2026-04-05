@@ -30,6 +30,7 @@
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces OpenTitan Earl Grey component mapping (20 IPs)}}{3}{}\protected@file@percent }
 \newlabel{tab:otmap}{{II}{3}{}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Redundancy Model}{3}{}\protected@file@percent }
+\newlabel{sec:redun}{{\mbox  {III-E}}{3}{}{subsection.3.5}{}}
 \newlabel{eq:norm}{{3}{3}{}{equation.3}{}}
 \newlabel{eq:combine}{{4}{3}{}{equation.4}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Solver Formulations}{3}{}\protected@file@percent }
@@ -37,11 +38,11 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}CP-SAT Formulation}{3}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {V}Experimental Setup}{3}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Benchmark Suite}{3}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Constraint Profiles}{3}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Benchmark suite}}{4}{}\protected@file@percent }
 \newlabel{tab:suite}{{III}{4}{}{table.3}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Constraint profiles}}{4}{}\protected@file@percent }
 \newlabel{tab:profiles}{{IV}{4}{}{table.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Constraint Profiles}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Experimental Environment}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {VI}Results}{4}{}\protected@file@percent }
 \newlabel{sec:results}{{VI}{4}{}{section.6}{}}
@@ -51,16 +52,16 @@
 \newlabel{tab:crossval}{{V}{4}{}{table.5}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Scalability: mean solve time by component count}}{4}{}\protected@file@percent }
 \newlabel{tab:scale}{{VI}{4}{}{table.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}OpenTitan Design Insights}{4}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Mean solve time vs.\ component count (log scale). The gap widens from $1\times $ at 1~component to $>$4{,}500$\times $ at 20~components, where ASP cannot prove optimality.}}{5}{}\protected@file@percent }
 \newlabel{fig:runtime}{{1}{5}{}{figure.1}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces OpenTitan Earl Grey results (20 components, CP-SAT proven optima)}}{5}{}\protected@file@percent }
 \newlabel{tab:ot_results}{{VII}{5}{}{table.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Heuristic Baseline Comparison}{5}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Pareto sweep: optimal risk vs.\ LUT budget cap on the OpenTitan case. Sharp transitions correspond to logging-tier and security-tier thresholds; mixed security assignments appear under tight budgets.}}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}OpenTitan Design Insights}{5}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Pareto sweep: optimal risk vs.\ LUT budget cap on the OpenTitan case. Sharp transitions correspond to security-tier thresholds (all-MAC $\to $ DM mix $\to $ ZT mix); mixed security assignments appear under tight budgets.}}{5}{}\protected@file@percent }
 \newlabel{fig:pareto}{{2}{5}{}{figure.2}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Heuristic vs.\ optimal (CP-SAT) on OpenTitan profiles}}{5}{}\protected@file@percent }
 \newlabel{tab:greedy}{{VIII}{5}{}{table.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Heuristic Baseline Comparison}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-E}}Perturbation Stability}{5}{}\protected@file@percent }
 \citation{gurobi}
 \bibstyle{IEEEtran}
@@ -74,8 +75,6 @@
 \bibcite{linares_design_2021}{7}
 \bibcite{mahfuz_x-dfs_2025}{8}
 \bibcite{gebser_potassco_2011}{9}
-\bibcite{ortools}{10}
-\bibcite{opentitan_repo}{11}
 \@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Why ASP for Security Feature Synthesis}{6}{}\protected@file@percent }
 \newlabel{sec:whyasp}{{\mbox  {VII-A}}{6}{}{subsection.7.1}{}}
@@ -84,6 +83,8 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-D}}Limitations}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {VIII}Conclusion}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{References}{6}{}\protected@file@percent }
+\bibcite{ortools}{10}
+\bibcite{opentitan_repo}{11}
 \bibcite{butka_measuring_2025}{12}
 \bibcite{gurobi}{13}
 \gdef \@abspage@last{7}

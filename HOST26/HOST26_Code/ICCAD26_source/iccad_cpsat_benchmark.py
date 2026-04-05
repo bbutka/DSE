@@ -660,35 +660,41 @@ def main() -> None:
             # CP-SAT
             cpsat_result = solve_cpsat(tc, profile, catalog)
 
-            # Clingo
-            clingo_result = solve_clingo(
-                tc, profile, catalog_path, tc_path, prof_path
-            )
+            # Clingo — skip for large instances (ASP cannot prove
+            # optimality within timeout at 20+ components)
+            ASP_COMPONENT_LIMIT = 10
+            skip_asp = len(tc.components) > ASP_COMPONENT_LIMIT
 
-            match = (
-                cpsat_result.objective == clingo_result.objective
-                and cpsat_result.satisfiable == clingo_result.satisfiable
-            )
-            marker = "OK" if match else "MISMATCH"
-            print(
-                f"CP-SAT={cpsat_result.objective} ({cpsat_result.time_s}s)  "
-                f"clingo={clingo_result.objective} ({clingo_result.time_s}s)  "
-                f"[{marker}]"
-            )
+            if skip_asp:
+                clingo_result = SolveResult(
+                    testcase=tc_name, profile=prof_label, solver="ASP/clingo",
+                    time_s=0, objective=0, satisfiable=False, optimal=False,
+                )
+                print(
+                    f"CP-SAT={cpsat_result.objective} ({cpsat_result.time_s}s)  "
+                    f"clingo=skipped (>{ASP_COMPONENT_LIMIT} components)"
+                )
+            else:
+                clingo_result = solve_clingo(
+                    tc, profile, catalog_path, tc_path, prof_path
+                )
+                match = (
+                    cpsat_result.objective == clingo_result.objective
+                    and cpsat_result.satisfiable == clingo_result.satisfiable
+                )
+                marker = "OK" if match else "MISMATCH"
+                print(
+                    f"CP-SAT={cpsat_result.objective} ({cpsat_result.time_s}s)  "
+                    f"clingo={clingo_result.objective} ({clingo_result.time_s}s)  "
+                    f"[{marker}]"
+                )
 
             results.append((cpsat_result, clingo_result))
 
             # --- Incremental JSON save after each case ---
-            json_data.append({
-                "testcase": clingo_result.testcase,
-                "profile": clingo_result.profile,
-                "asp_objective": clingo_result.objective,
-                "asp_time_s": clingo_result.time_s,
-                "asp_luts": clingo_result.luts,
-                "asp_ffs": clingo_result.ffs,
-                "asp_power": clingo_result.power,
-                "asp_security": clingo_result.security,
-                "asp_logging": clingo_result.logging,
+            entry = {
+                "testcase": tc_name,
+                "profile": prof_label,
                 "cpsat_objective": cpsat_result.objective,
                 "cpsat_time_s": cpsat_result.time_s,
                 "cpsat_luts": cpsat_result.luts,
@@ -696,8 +702,20 @@ def main() -> None:
                 "cpsat_power": cpsat_result.power,
                 "cpsat_security": cpsat_result.security,
                 "cpsat_logging": cpsat_result.logging,
-                "objective_match": cpsat_result.objective == clingo_result.objective,
-            })
+            }
+            if skip_asp:
+                entry["asp_skipped"] = True
+                entry["asp_skip_reason"] = f">{ASP_COMPONENT_LIMIT} components"
+            else:
+                entry["asp_objective"] = clingo_result.objective
+                entry["asp_time_s"] = clingo_result.time_s
+                entry["asp_luts"] = clingo_result.luts
+                entry["asp_ffs"] = clingo_result.ffs
+                entry["asp_power"] = clingo_result.power
+                entry["asp_security"] = clingo_result.security
+                entry["asp_logging"] = clingo_result.logging
+                entry["objective_match"] = cpsat_result.objective == clingo_result.objective
+            json_data.append(entry)
             _save_json(json_data, out_path)
             print(f"    [{len(json_data)} results saved to JSON]", flush=True)
 
