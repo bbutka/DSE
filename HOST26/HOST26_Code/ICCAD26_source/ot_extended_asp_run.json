@@ -1,0 +1,44 @@
+{
+  "description": "Extended ASP (clingo) run for OpenTitan 20-component cases. These runs used a longer timeout than the standard benchmark driver (which skips ASP at >10 components). ASP did not prove optimality on any OT profile; the times shown are wall-clock to best-found suboptimal solution.",
+  "run_date": "2026-04-05",
+  "solver": "clingo 5.8.0",
+  "timeout_s": 600,
+  "platform": "Intel Core i7-12700H, 32GB RAM, Windows 11, single P-core",
+  "latency_enforced": true,
+  "asp_files_loaded": [
+    "init_enc.lp", "security_features_inst.lp", "opt_redundancy_generic_enc.lp",
+    "opt_resource_enc.lp", "opt_power_enc.lp", "opt_latency_enc.lp", "bridge_enc.lp"
+  ],
+  "results": [
+    {
+      "profile": "OT-A",
+      "profile_file": "tgt_system_inst_ot1.lp",
+      "asp_time_s": 165.945,
+      "asp_objective": 0,
+      "asp_optimal": false,
+      "asp_satisfiable": false,
+      "cpsat_proven_optimum": 1804,
+      "note": "ASP returned UNSAT/suboptimal; CP-SAT proves 1804 in 0.05s"
+    },
+    {
+      "profile": "OT-B",
+      "profile_file": "tgt_system_inst_ot2.lp",
+      "asp_time_s": 295.704,
+      "asp_objective": 4288,
+      "asp_optimal": false,
+      "asp_satisfiable": true,
+      "cpsat_proven_optimum": 3449,
+      "note": "ASP found feasible but suboptimal solution (4288 vs 3449)"
+    },
+    {
+      "profile": "OT-C",
+      "profile_file": "tgt_system_inst_ot3.lp",
+      "asp_time_s": 213.142,
+      "asp_objective": 0,
+      "asp_optimal": false,
+      "asp_satisfiable": false,
+      "cpsat_proven_optimum": 1854,
+      "note": "ASP returned UNSAT/suboptimal; CP-SAT proves 1854 in 0.05s"
+    }
+  ]
+}
