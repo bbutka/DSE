@@ -46,7 +46,8 @@ realistic scale: latency constraints alone force three high-impact
 components off zero-trust; tightening LUTs raises risk from 1{,}804
 to 3{,}449 ($1.91\times$); restricting power forces a mixed
 security assignment exploiting redundancy-group structure that
-greedy and local-search heuristics miss by 32\%.
+greedy and local-search heuristics match the optimum
+under two profiles but miss by 5\% under the tightest.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -109,8 +110,9 @@ hybrid workflow with CP-SAT as the production feature-synthesis solver.
 case: latency constraints force three components off zero-trust even
 under full resources; tightening power further forces a mixed
 9~ZT~+~7~DM~+~4~MAC assignment that exploits redundancy-group
-structure, producing a 32\% improvement over greedy and local-search
-heuristics.
+structure; greedy and local-search heuristics using the same
+redundancy-aware objective match the optimum under two profiles
+but miss by 5\% under the tightest multi-constraint case.
 \end{enumerate}
 
 %===================================================================
@@ -319,6 +321,7 @@ Group membership asserts overlapping security coverage: combined residual
 exposure is lower than any single member's.
 
 \subsection{Redundancy Model}
+\label{sec:redun}
 
 For components not in any group, risk follows Eq.~\ref{eq:risk}
 directly. For components in a redundancy group~$G = \{c_1, \ldots,
@@ -432,8 +435,7 @@ OT   & 20 & 20 & yes & OpenTitan Earl Grey \\
 Each synthetic case is evaluated under three profiles
 (Table~\ref{tab:profiles}) targeting a Xilinx
 xc7z020 (PYNQ-Z2). The OpenTitan case uses three profiles targeting a
-Xilinx Kintex-7 410T (the FPGA family used by OpenTitan
-reference implementations). OT-A provides full resources; OT-B restricts LUTs to
+Xilinx Kintex-7 410T. OT-A provides full resources; OT-B restricts LUTs to
 25{,}000 (below the 45{,}014 required by the OT-A optimum); OT-C
 restricts power to 800 (below the 812 required by OT-A), forcing
 the optimizer to substitute cheaper security features on some components.
@@ -617,10 +619,10 @@ Surprisingly, the three crypto accelerators (aes, hmac, kmac) all
 receive dynamic-MAC or MAC despite their high individual impact.
 Their redundancy group membership reduces combined probability enough
 that ZT's risk saving is less valuable than the power saved by a
-weaker feature.  Conventional priority ordering would protect crypto
-engines first, yet the optimizer correctly exploits redundancy coverage.
-This kind of multi-constraint, redundancy-aware assignment requires
-exact optimization.
+weaker feature.  An impact-ordered greedy would assign ZT to crypto
+engines first, yet the optimizer exploits redundancy coverage instead.
+This kind of multi-constraint, redundancy-aware assignment benefits
+from exact optimization.
 
 \begin{figure}[t]
     \centering
@@ -651,26 +653,27 @@ improving neighbour until no single-component swap reduces risk.
 \toprule
 Profile & Optimal & Greedy & Gap$_G$ & Local-S & Gap$_{LS}$ \\
 \midrule
-OT-A & 1{,}804 & 2{,}065 & +14\% & 2{,}065 & +14\% \\
-OT-B & 3{,}449 & 4{,}130 & +20\% & 4{,}130 & +20\% \\
-OT-C & 1{,}854 & 2{,}445 & +32\% & 2{,}445 & +32\% \\
+OT-A & 1{,}804 & 1{,}804 & 0\% & 1{,}804 & 0\% \\
+OT-B & 3{,}449 & 3{,}449 & 0\% & 3{,}449 & 0\% \\
+OT-C & 1{,}854 & 1{,}948 & +5\% & 1{,}948 & +5\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-With latency constraints active, no profile permits a uniform ZT
-assignment, so heuristics must make component-level trade-offs from
-the start.  The greedy heuristic assigns the lowest-risk
-latency-feasible pair to each component in descending impact order,
-checking resource caps incrementally.  Local search (1-opt) then
-swaps one component at a time to the best feasible neighbour.
+Both heuristics use the same redundancy-aware objective as CP-SAT
+(Section~\ref{sec:redun}), so the comparison is apples-to-apples.
+The greedy assigns the lowest-risk latency-feasible pair to each
+component in descending impact order, checking resource caps
+incrementally.  Local search (1-opt) then swaps one component at a
+time to the best feasible neighbour.
 
-Under OT-A, both heuristics find a 2{,}065-risk assignment (14\%
-above optimal) because they cannot exploit redundancy-group coupling.
-Under OT-C, the gap widens to 32\%: power + latency constraints
-together force the optimizer into a redundancy-aware trade (downgrading
-crypto accelerators to exploit group coverage) that single-component
-swaps cannot reproduce.
+Under OT-A and OT-B, both heuristics match the proven optimum:
+the greedy's impact-ordered processing happens to find the same
+assignment the solver proves optimal.  Under OT-C, the gap is 5\%:
+the simultaneous power and latency pressure creates a
+multi-component coordination problem where the greedy's sequential
+decisions cannot find the globally optimal trade between
+crypto-group coverage and power savings.
 
 \subsection{Perturbation Stability}
 

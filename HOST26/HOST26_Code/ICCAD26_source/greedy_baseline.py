@@ -6,8 +6,9 @@ Enforces ALL constraints matching the CP-SAT formulation:
   - Per-asset latency cap (security feature latency <= allowable_latency)
   - Per-asset risk cap (Impact * V * L / 10 <= max_asset_risk)
 
-Uses standalone (non-group) risk as its objective, since the heuristic
-has no mechanism to coordinate redundancy-group assignments.
+Uses the same redundancy-aware risk model as the CP-SAT solver
+(mu=25, omega=1000 normalization) so the comparison is
+apples-to-apples on the same objective function.
 """
 import json, sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -90,13 +91,55 @@ def greedy_solve(tc, profile, catalog):
             tp += _rc(catalog, "power", l, "base")
         return tl, tp
 
-    def standalone_risk(comp, sec, log):
-        vl = V.get(sec, 0) * L.get(log, 0)
-        return sum(tc.impact.get((a, op), 0) * vl // 10
-                   for a, op in comp_assets.get(comp, []))
+    # Redundancy model matching ASP/CP-SAT (mu=25, omega=1000)
+    MU, OMEGA = 25, 1000
+
+    # Build group membership map
+    comp_group = {}  # comp -> group_id
+    for gid, members in tc.redundant_groups.items():
+        for m in members:
+            comp_group[m] = gid
 
     def total_risk(assign):
-        return sum(standalone_risk(c, s, l) for c, (s, l) in assign.items())
+        """Compute total risk using the same redundancy-aware model as CP-SAT."""
+        risk = 0
+        # Non-group components: risk = Impact * V * L / 10
+        for c, (s, l) in assign.items():
+            if c in comp_group:
+                continue
+            vl = V.get(s, 0) * L.get(l, 0)
+            for a, op in comp_assets.get(c, []):
+                risk += tc.impact.get((a, op), 0) * vl // 10
+
+        # Group components: normalize, combine, denormalize
+        for gid, members in tc.redundant_groups.items():
+            # Compute per-member normalized probability
+            norms = []
+            for m in sorted(members):
+                if m not in assign:
+                    continue
+                s, l = assign[m]
+                vl = V.get(s, 0) * L.get(l, 0)
+                norms.append((vl - MU) * 1000 // (OMEGA - MU))
+
+            # Recursive product with /1000 per step
+            if not norms:
+                continue
+            combined = norms[0]
+            for i in range(1, len(norms)):
+                combined = combined * norms[i] // 1000
+
+            # Denormalize
+            denorm = combined * (OMEGA - MU) // 1000 + MU * 10
+
+            # Compute group risk
+            for m in members:
+                if m not in assign:
+                    continue
+                for a, op in comp_assets.get(m, []):
+                    imp = tc.impact.get((a, op), 0)
+                    risk += imp * denorm // 100
+        return risk
 
     # --- Greedy assignment ---
     assign = {}
@@ -113,7 +156,8 @@ def greedy_solve(tc, profile, catalog):
                 tl, tp = total_resources(trial)
                 if tl > lut_cap or tp > pow_cap:
                     continue
-                r = standalone_risk(c, sec, log)
+                trial[c] = (sec, log)
+                r = total_risk(trial)
                 if best_r is None or r < best_r:
                     best_r, best_p = r, (sec, log)
         if best_p is None:

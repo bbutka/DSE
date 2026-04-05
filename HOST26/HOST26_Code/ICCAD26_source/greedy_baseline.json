@@ -2,7 +2,7 @@
   {
     "profile": "OT-A",
     "optimal": 1804,
-    "greedy_objective": 2065,
+    "greedy_objective": 1804,
     "greedy_luts": 45014,
     "greedy_power": 812,
     "greedy_security": {
@@ -49,7 +49,7 @@
       "uart1": "zero_trust_logger",
       "timer": "zero_trust_logger"
     },
-    "local_search_objective": 2065,
+    "local_search_objective": 1804,
     "local_search_luts": 45014,
     "local_search_power": 812,
     "local_search_security": {
@@ -97,13 +97,13 @@
       "timer": "zero_trust_logger"
     },
     "ls_iterations": 1,
-    "greedy_gap_pct": 14,
-    "ls_gap_pct": 14
+    "greedy_gap_pct": 0,
+    "ls_gap_pct": 0
   },
   {
     "profile": "OT-B",
     "optimal": 3449,
-    "greedy_objective": 4130,
+    "greedy_objective": 3449,
     "greedy_luts": 16795,
     "greedy_power": 167,
     "greedy_security": {
@@ -150,7 +150,7 @@
       "uart1": "some_logging",
       "timer": "some_logging"
     },
-    "local_search_objective": 4130,
+    "local_search_objective": 3449,
     "local_search_luts": 16795,
     "local_search_power": 167,
     "local_search_security": {
@@ -198,13 +198,13 @@
       "timer": "some_logging"
     },
     "ls_iterations": 1,
-    "greedy_gap_pct": 20,
-    "ls_gap_pct": 20
+    "greedy_gap_pct": 0,
+    "ls_gap_pct": 0
   },
   {
     "profile": "OT-C",
     "optimal": 1854,
-    "greedy_objective": 2445,
+    "greedy_objective": 1948,
     "greedy_luts": 44459,
     "greedy_power": 806,
     "greedy_security": {
@@ -251,7 +251,7 @@
       "uart1": "no_logging",
       "timer": "no_logging"
     },
-    "local_search_objective": 2445,
+    "local_search_objective": 1948,
     "local_search_luts": 44459,
     "local_search_power": 806,
     "local_search_security": {
@@ -299,7 +299,7 @@
       "timer": "no_logging"
     },
     "ls_iterations": 1,
-    "greedy_gap_pct": 32,
-    "ls_gap_pct": 32
+    "greedy_gap_pct": 5,
+    "ls_gap_pct": 5
   }
 ]

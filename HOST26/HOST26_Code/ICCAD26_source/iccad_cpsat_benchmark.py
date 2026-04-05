@@ -606,7 +606,7 @@ def solve_clingo(
 VALID_TESTCASES = [
     "testCase1_inst", "testCase2_inst", "testCase3_inst", "testCase5_inst",
     "testCase6_inst", "testCase7_inst", "testCase8_inst", "testCase9_inst",
-    "testCaseOT_inst", "testCaseOT40_inst",
+    "testCaseOT_inst",  # testCaseOT40_inst available but not in paper scope
 ]
 
 DEFAULT_PROFILES = [

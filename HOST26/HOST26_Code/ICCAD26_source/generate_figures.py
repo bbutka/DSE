@@ -122,7 +122,7 @@ log_legend = [Patch(facecolor=colors_log[3], label='ZT Logger (3)'),
 ax1.legend(handles=sec_legend, loc='lower right', fontsize=7, framealpha=0.9)
 ax2.legend(handles=log_legend, loc='lower right', fontsize=7, framealpha=0.9)
 
-fig.suptitle('OpenTitan OT-A Feature Assignments (ASP Optimal)', fontsize=11, y=1.01)
+fig.suptitle('OpenTitan OT-A Feature Assignments (CP-SAT Optimal)', fontsize=11, y=1.01)
 fig.tight_layout()
 fig.savefig(os.path.join(IMG_DIR, "ot_feature_heatmap.pdf"), bbox_inches='tight', dpi=300)
 fig.savefig(os.path.join(IMG_DIR, "ot_feature_heatmap.png"), bbox_inches='tight', dpi=300)
