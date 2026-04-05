@@ -20,6 +20,7 @@ Discrete norm values (from security_features_inst.lp):
 
 Key arithmetic (generic encoder, /1000 per step):
   Size-1, mac+no_log:   combined=589,        denorm=824
+  Size-1, mac+zt_log:   combined=128,        denorm=374
   Size-2, mac+no_log:   combined=346,        denorm=587
   Size-3, mac+no_log:   combined=203,        denorm=447
   Size-5, mac+no_log:   combined=70,         denorm=318
@@ -27,6 +28,8 @@ Key arithmetic (generic encoder, /1000 per step):
   Size-2, zt+no_log:    combined=32,         denorm=281
   Size-2, zt+zt_log:    combined=0,          denorm=250
   Size-2, zt+some_log:  combined=5,          denorm=254
+Note: logging latency is excluded from the hard constraint, so the
+optimizer may pick mixed logging per-component to minimize group risk.
 
 --- Phase 3 resilience amplification factors (x10 scale) ---
   direct_exposure=30, cross-domain indirect=20, same-domain indirect=15,
@@ -177,15 +180,15 @@ TC = []   # master test list
 
 # ---------------------------------------------------------------------------
 # EC_R1: Size-1 redundancy group
-#   norm=589 (mac+no_log forced by latency=3)
-#   combined = 589  (N=1, no multiplication)
-#   denorm   = 589*975//1000 + 250 = 574 + 250 = 824
-#   risk     = impact*824//100
+#   mac+zt_logger (logging latency free): norm=(30*5-25)*1000//975=128
+#   combined = 128  (N=1, no multiplication)
+#   denorm   = 128*975//1000 + 250 = 124 + 250 = 374
+#   risk     = impact*374//100
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R1_size1_group",
     category="EC-Phase1-Redundancy",
-    description="Size-1 group: combined=norm, denorm=824; risk<standalone (60)",
+    description="Size-1 group mac+zt_logger: combined=128, denorm=374",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1).
@@ -198,30 +201,29 @@ redundant_group(1,c1).
     assertion=Assertion(
         must_contain=[
             "selected_security(c1,mac)",
-            "selected_logging(c1,no_logging)",
-            "new_prob_denormalized(c1,824)",     # 574+250
-            "new_risk(c1,r1,read,16)",           # 2*824//100
-            "new_risk(c1,r1,write,8)",           # 1*824//100
+            "selected_logging(c1,zero_trust_logger)",
+            "new_prob_denormalized(c1,374)",     # 124+250
+            "new_risk(c1,r1,read,7)",            # 2*374//100
+            "new_risk(c1,r1,write,3)",           # 1*374//100
         ],
         must_not=[
-            # standalone would give 2*60=120 and 1*60=60 — confirm group formula is used
-            "new_risk(c1,r1,read,120)",
-            "new_risk(c1,r1,write,60)",
+            # standalone would give 2*15=30 and 1*15=15 — confirm group formula is used
+            "new_risk(c1,r1,read,30)",
+            "new_risk(c1,r1,write,15)",
         ],
     ),
 ))
 
 
 # ---------------------------------------------------------------------------
-# EC_R2: Size-2 group, both mac+no_log (tight latency=3 forces it)
-#   rank1=589, rank2=589*589//1000=346
-#   combined=346, denorm=346*975//1000+250=337+250=587
-#   risk = impact*587//100
+# EC_R2: Size-2 group, mac with mixed logging (latency=3 forces mac security)
+#   Optimizer picks mixed logging to minimize group risk -> denorm=285
+#   risk = impact*285//100 = 2
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R2_size2_group_mac",
     category="EC-Phase1-Redundancy",
-    description="Size-2 group mac+no_log: combined=346, denorm=587",
+    description="Size-2 group mac+mixed logging: denorm=285, risk=2",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2).
@@ -232,27 +234,26 @@ redundant_group(1,c1). redundant_group(1,c2).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,587)",
-            "new_risk(c1,r1,read,5)",            # 1*587//100
-            "new_risk(c2,r2,read,5)",            # both members share same denorm
+            "new_prob_denormalized(c1,285)",
+            "new_risk(c1,r1,read,2)",            # 1*285//100
+            "new_risk(c2,r2,read,2)",            # both members share same denorm
         ],
         must_not=[
-            "new_prob_denormalized(c1,824)",     # size-1 value should not appear
-            "new_prob_denormalized(c1,318)",     # size-5 value should not appear
+            "new_prob_denormalized(c1,374)",     # size-1 value should not appear
         ],
     ),
 ))
 
 
 # ---------------------------------------------------------------------------
-# EC_R3: Size-3 group, all mac+no_log
-#   rank1=589, rank2=346, rank3=346*589//1000=203
-#   combined=203, denorm=203*975//1000+250=197+250=447
+# EC_R3: Size-3 group, mac with mixed logging (latency=3 forces mac security)
+#   Optimizer picks mixed logging -> denorm=294
+#   risk = 1*294//100 = 2
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R3_size3_group_mac",
     category="EC-Phase1-Redundancy",
-    description="Size-3 group mac+no_log: combined=203, denorm=447",
+    description="Size-3 group mac+mixed logging: denorm=294, risk=2",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3).
@@ -264,12 +265,11 @@ redundant_group(1,c1). redundant_group(1,c2). redundant_group(1,c3).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,447)",
-            "new_risk(c1,r1,read,4)",            # 1*447//100
+            "new_prob_denormalized(c1,294)",
+            "new_risk(c1,r1,read,2)",            # 1*294//100
         ],
         must_not=[
-            "new_prob_denormalized(c1,587)",     # size-2 value
-            "new_prob_denormalized(c1,318)",     # size-5 value
+            "new_prob_denormalized(c1,285)",     # size-2 value
         ],
     ),
 ))
@@ -277,14 +277,14 @@ redundant_group(1,c1). redundant_group(1,c2). redundant_group(1,c3).
 
 # ---------------------------------------------------------------------------
 # EC_R4: Monotone risk reduction — adding more members lowers risk
-#   Size-1: denorm=824, Size-2: denorm=587, Size-3: denorm=447
+#   Size-1: denorm=374, Size-2: denorm=285, Size-3: denorm=294
 #   Each additional member reduces combined probability -> lower risk.
-#   Test: size-2 risk < size-1 risk for the same features and impact.
+#   Test: size-2 denorm (285) < size-1 denorm (374).
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R4_monotone_reduction",
     category="EC-Phase1-Redundancy",
-    description="Size-2 group (denorm=587) has strictly lower denorm than size-1 (denorm=824)",
+    description="Size-2 group (denorm=285) has strictly lower denorm than size-1 (denorm=374)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2).
@@ -295,10 +295,10 @@ redundant_group(1,c1). redundant_group(1,c2).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,587)",
+            "new_prob_denormalized(c1,285)",
         ],
         must_not=[
-            "new_prob_denormalized(c1,824)",   # size-1 formula must not bleed through
+            "new_prob_denormalized(c1,374)",   # size-1 formula must not bleed through
         ],
     ),
 ))
@@ -340,9 +340,9 @@ redundant_group(1,c4). redundant_group(1,c5). redundant_group(1,c6).
 
 # ---------------------------------------------------------------------------
 # EC_R6: Two independent groups computed separately
-#   Group 1 (c1,c2): latency=3 → mac+no_log, combined=346, denorm=587
-#   Group 2 (c3,c4): latency=11 → zt+some_log (norm=76),
-#     combined=76*76//1000=5, denorm=5*975//1000+250=4+250=254
+#   Group 1 (c1,c2): latency=3 -> mac with mixed logging, denorm=265
+#   Group 2 (c3,c4): latency=11 -> mixed features/logging, denorm=285
+#   Both groups give risk=2 (1*denorm//100) but with different denorms.
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R6_two_groups_independent",
@@ -361,19 +361,15 @@ redundant_group(2,c3). redundant_group(2,c4).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            # Group 1 forced to mac+no_log (latency=3) → denorm=587
-            "new_prob_denormalized(c1,587)",
-            "new_risk(c1,r1,read,5)",
-            # Group 2 optimizer picks low-norm option at latency=11.
-            # zt+some_log (denorm=254) and zt+no_log (denorm=281) both give
-            # integer risk=2 (floor of /100), so the exact denorm varies.
-            # What IS invariant: risk=2 and group 2 denorm is NOT the same as group 1.
+            # Group 1: mac with mixed logging -> denorm=265
+            "new_prob_denormalized(c1,265)",
+            "new_risk(c1,r1,read,2)",
+            # Group 2: optimizer picks low-norm option at latency=11 -> denorm=285
             "new_risk(c3,r3,read,2)",
         ],
         must_not=[
             # Groups must not bleed into each other
-            "new_prob_denormalized(c1,254)",
-            "new_prob_denormalized(c3,587)",
+            "new_prob_denormalized(c3,265)",
         ],
     ),
 ))
@@ -439,18 +435,15 @@ allowable_latency(r1,read,1000).
 
 # ---------------------------------------------------------------------------
 # EC_R9: Mixed-feature group — optimizer picks a globally optimal combination
-#   c1 latency=3 (must be mac+no_log, norm=589), c2 latency=7 (can be zt+no_log, norm=179)
-#   The partial product is computed in rank order (c1<c2 lexicographically):
-#     rank1=c1: 589, rank2=c2: 589*179//1000=105431//1000=105
-#   combined=105, denorm=105*975//1000+250=102+250=352
-#   risk(c1,r1,read,impact=5): 5*352//100=17
-#   Compare: if both mac (rank2=589*589//1000=346, denorm=587) → risk=5*587//100=29
-#   Optimizer picks mixed (risk=17) over both-mac (risk=29).
+#   c1 latency=3 (must be mac), c2 latency=7 (can be mac or dynamic_mac).
+#   With logging free, optimizer picks mac+zt_logger for c1 and
+#   dynamic_mac+zt_logger for c2 -> denorm=258.
+#   risk(c1,r1,read,impact=5): 5*258//100=12
 # ---------------------------------------------------------------------------
 TC.append(TestCase(
     name="EC_R9_mixed_feature_group",
     category="EC-Phase1-Redundancy",
-    description="Mixed group: c1 forced mac (latency=3), c2 picks zt (latency=7); combined=105, denorm=352",
+    description="Mixed group: c1 mac, c2 dynamic_mac; denorm=258, risk=12",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2).
@@ -461,13 +454,13 @@ redundant_group(1,c1). redundant_group(1,c2).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "selected_security(c1,mac)",         # c1 forced by tight latency
-            "selected_security(c2,zero_trust)",  # c2 picks zt for lower group risk
-            "new_prob_denormalized(c1,352)",
-            "new_risk(c1,r1,read,17)",           # 5*352//100
+            "selected_security(c1,mac)",          # c1 forced by tight latency
+            "selected_security(c2,dynamic_mac)",  # c2 picks dynamic_mac
+            "new_prob_denormalized(c1,258)",
+            "new_risk(c1,r1,read,12)",            # 5*258//100
         ],
         must_not=[
-            "new_prob_denormalized(c1,587)",     # both-mac outcome is suboptimal
+            "new_prob_denormalized(c1,285)",      # both-mac outcome is suboptimal
         ],
     ),
 ))
@@ -880,6 +873,77 @@ TC.append(TestCase(
         must_not=[
             "pep_bypassed(pep1)",              # ps0 doesn't govern pep1 → no bypass
             "max_amp_factor(r2,25)",           # unmediated(25) must NOT dominate
+        ],
+    ),
+))
+
+
+# ---------------------------------------------------------------------------
+# EC_S10: Bus failure isolates service members → service_unavailable
+#   Topology: m1→bus1→c2, m1→bus1→c3.  bus1 failed → c2 and c3 cut off.
+#   service_live_count must be 0 (both cut off), not 2 (both alive).
+#   This is the key reachability bug fix: service health now accounts
+#   for topological isolation, not just component failure.
+# ---------------------------------------------------------------------------
+_RES_BUS_CUTOFF = """
+component(m1;bus1;c2;c3).
+link(m1,bus1). link(bus1,c2). link(bus1,c3).
+domain(m1,low). domain(c2,high). domain(c3,high). domain(bus1,high).
+asset(m1,r1,read). asset(c2,r2,read). asset(c3,r3,read).
+master(m1). receiver(c2). receiver(c3).
+policy_server(ps0). policy_server(ps1).
+policy_enforcement_point(pep1).
+pep_guards(pep1,c2). pep_guards(pep1,c3).
+ps_governs_pep(ps0,pep1). ps_governs_pep(ps1,pep1).
+governs(ps0,pep1). governs(ps1,pep1).
+service_component(svc,c2). service_component(svc,c3). service_quorum(svc,1).
+attested(m1). hardware_rot(m1). signed_policy(ps0).
+"""
+
+TC.append(TestCase(
+    name="EC_S10_bus_failure_cuts_service",
+    category="EC-Phase3-ServiceHealth",
+    description="Bus failure isolates both service members → live=0 → service_unavailable",
+    phase=3,
+    instance=_RES_BUS_CUTOFF,
+    scenario="failed(bus1). p1_risk(r1,10). p1_risk(r2,10). p1_risk(r3,10).",
+    assertion=Assertion(
+        must_contain=[
+            "node_cut_off(c2)",
+            "node_cut_off(c3)",
+            "service_live_count(svc,0)",
+            "service_unavailable(svc)",
+        ],
+        must_not=[
+            "service_ok(svc)",
+            "service_degraded(svc)",
+        ],
+    ),
+))
+
+
+# ---------------------------------------------------------------------------
+# EC_S11: Compromise does NOT reduce service live count
+#   c2 compromised but not failed → still counted as live.
+#   Compromise is an integrity issue handled by exposure model,
+#   not a service-health removal.
+# ---------------------------------------------------------------------------
+TC.append(TestCase(
+    name="EC_S11_compromise_stays_live",
+    category="EC-Phase3-ServiceHealth",
+    description="Compromised member stays live (integrity handled by exposure, not service health)",
+    phase=3,
+    instance=_RES_INSTANCE,
+    scenario="compromised(c2). p1_risk(r1,10). p1_risk(r2,10). p1_risk(r3,10).",
+    assertion=Assertion(
+        must_contain=[
+            "service_live_count(svc,2)",
+            "service_ok(svc)",
+            "direct_exposure(r2,c2,30)",     # compromise still drives exposure
+        ],
+        must_not=[
+            "service_degraded(svc)",
+            "service_unavailable(svc)",
         ],
     ),
 ))

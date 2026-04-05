@@ -73,6 +73,7 @@ PHASE3_FILES = [TESTCASE, lp("resilience_tc9_enc.lp")]
 AMP_DENOM  = 10
 COMPONENTS = {"c1","c2","c3","c4","c5","c6","c7","c8"}
 
+
 # ---------------------------------------------------------------------------
 # Scenarios
 # ---------------------------------------------------------------------------
@@ -164,6 +165,14 @@ class Phase2Result:
     trust_levels:            dict = field(default_factory=dict)
     unexplained_exceptions:  list = field(default_factory=list)
     critical_exceptions:     list = field(default_factory=list)
+    avg_policy_tightness:    int  = 0
+    excess_privilege_total:  int  = 0
+    missing_privilege_total: int  = 0
+    role_excess_total:       int  = 0
+    operational_excess_total:int  = 0
+    trust_gap_total:         int  = 0
+    policy_penalty:          int  = 0
+    policy_score:            int  = 0
     total_cost:              int  = 0
     satisfiable:             bool = False
     optimal:                 bool = False
@@ -186,6 +195,7 @@ class ScenarioResult:
     failed:            list
     scenario_risks:    dict = field(default_factory=dict)
     total_risk_scaled: int  = 0
+    resilience_score_scaled: int = 0
     blast_radii:       dict = field(default_factory=dict)
     unavailable:       list = field(default_factory=list)
     cut_off:           list = field(default_factory=list)
@@ -209,6 +219,10 @@ class ScenarioResult:
     def total_risk(self) -> float:
         return self.total_risk_scaled / AMP_DENOM
 
+    @property
+    def resilience_score(self) -> float:
+        return self.resilience_score_scaled / AMP_DENOM
+
 
 # ---------------------------------------------------------------------------
 # Phase 1
@@ -216,7 +230,7 @@ class ScenarioResult:
 
 def phase1_optimise() -> Phase1Result:
     print("[Phase 1] Grounding and optimising...")
-    ctl = clingo.Control(["-n", "0", "--opt-mode=optN", "--warn=none"])
+    ctl = clingo.Control(["-n", "1", "--opt-mode=optN", "--warn=none"])
     for f in PHASE1_FILES:
         ctl.load(f)
     ctl.ground([("base", [])])
@@ -260,7 +274,7 @@ def phase1_optimise() -> Phase1Result:
 
 def phase2_zta(p1: Phase1Result) -> Phase2Result:
     print("[Phase 2] ZTA policy synthesis...")
-    ctl = clingo.Control(["-n", "0", "--opt-mode=optN", "--warn=none"])
+    ctl = clingo.Control(["-n", "1", "--opt-mode=optN", "--warn=none"])
     for f in PHASE2_FILES:
         ctl.load(f)
     ctl.add("p1", [], p1.as_p1_facts())
@@ -296,6 +310,14 @@ def phase2_zta(p1: Phase1Result) -> Phase2Result:
         elif n == "excess_privilege"   and len(a)==3: result.excess_privileges.append((str(a[0]),str(a[1]),str(a[2])))
         elif n == "missing_privilege"  and len(a)==3: result.missing_privileges.append((str(a[0]),str(a[1]),str(a[2])))
         elif n == "policy_tightness"   and len(a)==2: result.policy_tightness[str(a[0])] = a[1].number
+        elif n == "phase2_avg_policy_tightness" and len(a)==1: result.avg_policy_tightness = a[0].number
+        elif n == "phase2_excess_privilege_total" and len(a)==1: result.excess_privilege_total = a[0].number
+        elif n == "phase2_missing_privilege_total" and len(a)==1: result.missing_privilege_total = a[0].number
+        elif n == "phase2_role_excess_total" and len(a)==1: result.role_excess_total = a[0].number
+        elif n == "phase2_operational_excess_total" and len(a)==1: result.operational_excess_total = a[0].number
+        elif n == "phase2_trust_gap_total" and len(a)==1: result.trust_gap_total = a[0].number
+        elif n == "phase2_policy_penalty" and len(a)==1: result.policy_penalty = a[0].number
+        elif n == "phase2_policy_score" and len(a)==1: result.policy_score = a[0].number
         elif n == "over_privileged"    and len(a)==1: result.over_privileged.append(str(a[0]))
         elif n == "role_excess"        and len(a)==3: result.role_excess.append((str(a[0]),str(a[1]),str(a[2])))
         elif n == "operational_excess" and len(a)==3: result.operational_excess.append((str(a[0]),str(a[1]),str(a[2])))
@@ -312,6 +334,7 @@ def phase2_zta(p1: Phase1Result) -> Phase2Result:
 
     print(f"[Phase 2] Done. Optimal={result.optimal}  FWs={result.placed_fws}  "
           f"PS={result.placed_ps}  cost={result.total_cost}  "
+          f"policy_score={result.policy_score}  "
           f"excess_privileges={len(result.excess_privileges)}")
     return result
 
@@ -349,6 +372,7 @@ def phase3_scenario(sc: dict, p1: Phase1Result, p2: Phase2Result) -> ScenarioRes
         n, a = sym.name, sym.arguments
         if   n == "scenario_asset_risk"  and len(a)==2: res.scenario_risks[str(a[0])] = a[1].number
         elif n == "scenario_total_risk"  and len(a)==1: res.total_risk_scaled = a[0].number
+        elif n == "scenario_resilience_score" and len(a)==1: res.resilience_score_scaled = a[0].number
         elif n == "blast_radius"         and len(a)==2: res.blast_radii[str(a[0])] = a[1].number
         elif n == "asset_unavailable"    and len(a)==1: res.unavailable.append(str(a[0]))
         elif n == "node_cut_off"         and len(a)==1: res.cut_off.append(str(a[0]))
@@ -371,6 +395,8 @@ def phase3_scenario(sc: dict, p1: Phase1Result, p2: Phase2Result) -> ScenarioRes
     for sym in found:
         if sym.name == "scenario_total_risk" and len(sym.arguments) == 1:
             res.total_risk_scaled = sym.arguments[0].number
+        elif sym.name == "scenario_resilience_score" and len(sym.arguments) == 1:
+            res.resilience_score_scaled = sym.arguments[0].number
 
     return res
 
@@ -381,7 +407,7 @@ def phase3_all(p1: Phase1Result, p2: Phase2Result) -> list:
     for sc in SCENARIOS:
         r = phase3_scenario(sc, p1, p2)
         cp_tag = " [CP-COMP]" if r.cp_compromised else (" [CP-DEG]" if r.cp_degraded else "")
-        tag = f"risk={r.total_risk:.1f}{cp_tag}" if r.satisfiable else "UNSAT"
+        tag = f"risk={r.total_risk:.1f} resilience={r.resilience_score:.1f}{cp_tag}" if r.satisfiable else "UNSAT"
         print(f"  {sc['name']:<35} {tag}")
         results.append(r)
     print("[Phase 3] Done.")
@@ -654,6 +680,9 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     if not p2.satisfiable:
         L.append("  WARNING: ZTA policy synthesis UNSATISFIABLE.")
     else:
+        L.append(f"  Policy score       : {p2.policy_score}")
+        L.append(f"  Policy penalty     : {p2.policy_penalty}")
+        L.append(f"  Avg tightness      : {p2.avg_policy_tightness}")
         L.append(f"  Total ZTA hardware cost: {p2.total_cost}")
         L.append(f"  Firewalls placed   : {', '.join(sorted(p2.placed_fws))}")
         L.append(f"  Policy servers     : {', '.join(sorted(p2.placed_ps))}")
@@ -695,17 +724,17 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     L.append(_sec("E. RESILIENCE UNDER FAULT/COMPROMISE"))
     L.append(f"  Baseline total risk: {base_risk:.1f}  (ZTA active, no scenario)")
     L.append("")
-    L.append(f"  {'Scenario':<35} {'Risk':>8} {'vs Base':>8} {'CP':>4} {'Svcs OK/Deg/Unavail'}")
-    L.append(f"  {'-'*35} {'-'*8} {'-'*8} {'-'*4} {'-'*20}")
+    L.append(f"  {'Scenario':<35} {'Risk':>8} {'Resilience':>11} {'vs Base':>8} {'CP':>4} {'Svcs OK/Deg/Unavail'}")
+    L.append(f"  {'-'*35} {'-'*8} {'-'*11} {'-'*8} {'-'*4} {'-'*20}")
 
     for r in scenarios:
         if not r.satisfiable:
             L.append(f"  {r.name:<35} UNSAT")
             continue
-        ratio    = r.total_risk / base_risk if base_risk > 0 else 0
+        ratio    = r.total_risk / base_risk if base_risk > 0 else 1.0
         cp_flag  = "COMP" if r.cp_compromised else ("DEG" if r.cp_degraded else ("STALE" if r.cp_stale else "ok"))
         svc_str  = f"{len(r.services_ok)}/{len(r.services_degraded)}/{len(r.services_unavail)}"
-        L.append(f"  {r.name:<35} {r.total_risk:>8.1f} {ratio:>7.2f}x {cp_flag:>4}  {svc_str}")
+        L.append(f"  {r.name:<35} {r.total_risk:>8.1f} {r.resilience_score:>11.1f} {ratio:>7.2f}x {cp_flag:>4}  {svc_str}")
 
     L.append("")
     L.append(_sub("E1. Architecture Scenarios"))
@@ -715,8 +744,9 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
                   and r.name != "baseline"]
     if arch_scens:
         worst_arch = max(arch_scens, key=lambda r: r.total_risk)
+        worst_ratio = worst_arch.total_risk / base_risk if base_risk > 0 else 1.0
         L.append(f"  Worst architecture scenario: {worst_arch.name}  "
-                 f"({worst_arch.total_risk/base_risk:.2f}x)")
+                 f"({worst_ratio:.2f}x)")
         L.append(f"  Direct exposures  : {worst_arch.direct_exp}")
         L.append(f"  Cross-domain exp  : {worst_arch.cross_exp}")
         L.append(f"  Assets unavailable: {sorted(worst_arch.unavailable)}")
@@ -735,7 +765,7 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     L.append("")
     L.append(_sub("E2. Control-Plane Scenarios"))
     for r in cp_scens:
-        ratio = r.total_risk / base_risk if base_risk > 0 else 0
+        ratio = r.total_risk / base_risk if base_risk > 0 else 1.0
         L.append(f"  {r.name:<35} {r.total_risk:>8.1f}  ({ratio:.2f}x)")
         if r.peps_bypassed:
             L.append(f"    PEPs bypassed    : {r.peps_bypassed}")
@@ -771,8 +801,8 @@ def generate_report(p1: Phase1Result, p2: Phase2Result,
     grp_r = next((r for r in scenarios if r.name == "full_group_compromise"),  None)
     noc0_r = next((r for r in scenarios if r.name == "noc0_failure"),          None)
     if c1_r and c1_r.satisfiable and grp_r and grp_r.satisfiable:
-        single_ratio = c1_r.total_risk  / base_risk
-        full_ratio   = grp_r.total_risk / base_risk
+        single_ratio = c1_r.total_risk  / base_risk if base_risk > 0 else 1.0
+        full_ratio   = grp_r.total_risk / base_risk if base_risk > 0 else 1.0
         L.append(f"  Single member compromise : {single_ratio:.2f}x baseline")
         L.append(f"  Full group compromise    : {full_ratio:.2f}x baseline")
         L.append(f"  Marginal gain (5th vs 1st member): {full_ratio/single_ratio:.2f}x")

@@ -20,7 +20,12 @@ from .solution_parser import SolutionResult
 MAX_LUTS          = 53_200
 MAX_FFS           = 106_400
 MAX_POWER_MW      = 15_000
-MAX_RISK_POSSIBLE = 500      # max_asset_risk cap
+# Normalisation ceiling for risk score.
+# TC9 worst-case (mac+no_logging everywhere):
+#   Redundant group (c1-c5): risk 9-15 per asset ≈ 63 total
+#   Non-redundant (c6-c8):   additive model max 3-8 per asset ≈ 14 total
+# → worst observed = 70 for min_resources strategy; use 100 for headroom.
+MAX_RISK_POSSIBLE = 100
 TOTAL_NODES       = 12       # sys_cpu, dma, c1-c8, ps0, ps1
 
 

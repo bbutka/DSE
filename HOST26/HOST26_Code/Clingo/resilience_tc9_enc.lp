@@ -181,9 +181,12 @@ scenario_asset_risk(A, ScenRisk) :-
 scenario_total_risk(Total) :-
     Total = #sum { R, A : scenario_asset_risk(A, R) }.
 
+blast_radius_penalty(Penalty) :-
+    Penalty = #max { Value, N : compromised(N), blast_radius(N, B), Value = B * 10 ; 0 }.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 8. AVAILABILITY
+%% 8. SERVICE HEALTH
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 asset_available(A)   :- asset(Owner, A, _), not failed(Owner).
@@ -194,10 +197,12 @@ node_cut_off(C) :-
     receiver(C), not failed(C),
     not active_reachable(_, C).
 
-% Service availability: count live members and compare to quorum
+% Service health: count live members and compare to quorum
 service_live_count(S, N) :-
     service_quorum(S, _),
-    N = #count { C : service_component(S, C), not failed(C) }.
+    N = #count { C : service_component(S, C),
+                     not failed(C),
+                     not node_cut_off(C) }.
 
 service_ok(S) :-
     service_quorum(S, Q),
@@ -216,6 +221,16 @@ service_unavailable(S) :-
 component_bus_cut(C) :-
     receiver(C), not failed(C),
     node_cut_off(C).
+
+availability_penalty(Penalty) :-
+    Cut = #count { C : node_cut_off(C) },
+    Unavailable = #count { A : asset_unavailable(A) },
+    Penalty = Cut * 20 + Unavailable * 10.
+
+service_penalty(Penalty) :-
+    Degraded = #count { S : service_degraded(S) },
+    Unavailable = #count { S : service_unavailable(S) },
+    Penalty = Degraded * 50 + Unavailable * 100.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -252,6 +267,22 @@ control_plane_degraded :-
 control_plane_compromised :-
     ps_compromised(_).
 
+control_plane_penalty(Penalty) :-
+    Bypassed = #count { FWL : pep_bypassed(FWL) },
+    CompromisedPS = #count { PS : ps_compromised(PS) },
+    Degraded = #count { X : control_plane_degraded, X = 1 },
+    Stale = #count { X : stale_policy_active, X = 1 },
+    Compromised = #count { X : control_plane_compromised, X = 1 },
+    Penalty = Bypassed * 30 + CompromisedPS * 40 + Degraded * 50 + Stale * 20 + Compromised * 100.
+
+scenario_resilience_score(Score) :-
+    scenario_total_risk(Total),
+    blast_radius_penalty(Blast),
+    availability_penalty(Avail),
+    service_penalty(Service),
+    control_plane_penalty(ControlPlane),
+    Score = Total + Blast + Avail + Service + ControlPlane.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 10. OUTPUT
@@ -269,11 +300,16 @@ control_plane_compromised :-
 #show service_unavailable/1.
 #show service_live_count/2.
 #show component_bus_cut/1.
+#show blast_radius_penalty/1.
+#show availability_penalty/1.
+#show service_penalty/1.
 #show active_ps_count/1.
 #show ungovernerd_pep/1.
 #show stale_policy_active/0.
 #show control_plane_degraded/0.
 #show control_plane_compromised/0.
+#show control_plane_penalty/1.
+#show scenario_resilience_score/1.
 #show pep_bypassed/1.
 #show ps_compromised/1.
 #show direct_exposure/3.

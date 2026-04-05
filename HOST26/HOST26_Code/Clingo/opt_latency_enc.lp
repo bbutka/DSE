@@ -9,14 +9,20 @@
 
 % Calculate Latency Costs ----------------------------------
 
-% Calculate combined latency for each asset's read or write operation
+% Calculate hard latency for each asset's read or write operation.
+%
+% The active HOST26 timing constraint is component-security driven:
+% each asset inherits the selected security feature of its owning component
+% via bridge_enc.lp, and the hard budget is checked against that security
+% feature's latency only.
+%
+% Logging overhead is intentionally excluded from this hard constraint.
+% The logging path is not modeled here as a constant per-access delay.
 asset_latency(A, Action, TotalLatency) :-
     asset(_, A, Action), % Ensure each asset-action pair is selected
     selected_security(A, Security),
-    selected_logging(A, Logging),
     latency_cost(Security, SecurityLatency),
-    latency_cost(Logging, LoggingLatency),
-    TotalLatency = SecurityLatency + LoggingLatency.
+    TotalLatency = SecurityLatency.
 
 #show asset_latency/3.
 

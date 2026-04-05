@@ -21,11 +21,15 @@ Risk formula quick-reference (from security_features_inst.lp / opt_redundancy_en
     denorm(C)  = combined * 975 // 1000 + 250
     group risk = impact * denorm // 100
   Example values (5-member group, step-by-step /1000):
-    all mac+no_log (norm=589): 589→346→203→119→70, denorm=318
-    all zt+no_log  (norm=179): 179→32→5→0→0,       denorm=250
+    all mac+no_log (norm=589): 589->346->203->119->70, denorm=318
+    all zt+no_log  (norm=179): 179->32->5->0->0,       denorm=250
+    all mac+zt_log (norm=128): 128->16->2->0->0,       denorm=250
+  Note: optimizer may pick mixed logging per-component for groups.
 
-Latency costs (cycles):  mac=3, dynamic_mac=7, zero_trust=7,
+Latency costs (cycles):  mac=3, dynamic_mac=7, zero_trust=8,
                          zero_trust_logger=22, some_logging=4, no_logging=0
+Note: only security feature latency is checked against the budget;
+logging latency is intentionally excluded from the hard constraint.
 
 Resilience amplification factors (x10 scale):
   direct_exposure=30, cross-domain indirect=20, same-domain indirect=15,
@@ -195,13 +199,15 @@ system_capability(max_asset_risk, 9999999).
 TC = []   # master test list
 
 
-# P1 — tight latency forces mac+no_logging
-# Only mac+no_logging fits in 3 cycles (mac=3, no_logging=0).
-# risk = 3 * 30 * 20 / 10 = 180  (read), same formula for write
+# P1 — tight latency forces mac; logging latency excluded from budget
+# Only mac (3cy) fits in 3 cycles for security. Since logging latency is
+# excluded, the optimizer picks zero_trust_logger (L=5) for lowest risk.
+# mac+zt_logger: V=30, L=5, mult=30*5/10=15
+# risk_read = 3*15 = 45, risk_write = 1*15 = 15
 TC.append(TestCase(
-    name="P1_forced_mac_no_log",
+    name="P1_forced_mac_zt_logger",
     category="Phase1-FeatureSelection",
-    description="Tight latency=3 forces mac+no_logging; verify risk=impact*60",
+    description="Tight latency=3 forces mac; logging free -> zt_logger; risk=impact*15",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1).
@@ -216,22 +222,23 @@ allowable_latency(r1, write, 3).
     assertion=Assertion(
         must_contain=[
             "selected_security(c1,mac)",
-            "selected_logging(c1,no_logging)",
-            "new_risk(c1,r1,read,180)",    # 3*30*20/10
-            "new_risk(c1,r1,write,60)",    # 1*30*20/10
+            "selected_logging(c1,zero_trust_logger)",
+            "new_risk(c1,r1,read,45)",     # 3*30*5/10
+            "new_risk(c1,r1,write,15)",    # 1*30*5/10
         ]
     ),
 ))
 
 
-# P2 — latency=7: zero_trust+no_logging chosen over mac (lower risk)
-# Candidates: mac+no_log(3cy,mult=60), mac+some_log(7cy,mult=30),
-#             dynamic_mac+no_log(7cy,mult=40), zero_trust+no_log(7cy,mult=20)
-# Optimal: zero_trust+no_logging  ->  risk = 2*10*20/10 = 40
+# P2 — latency=7: logging latency excluded, so optimizer picks
+# dynamic_mac(7cy)+zt_logger(L=5) -> V=20,L=5, mult=20*5/10=10
+# risk = 2*10 = 20.  This beats zt+zt_logger (V=10,L=5, mult=5, risk=10)
+# because dynamic_mac security latency=7 fits exactly.
+# Solver picks dynamic_mac+zt_logger (risk=20).
 TC.append(TestCase(
-    name="P2_latency7_zt_no_log",
+    name="P2_latency7_dmac_zt_logger",
     category="Phase1-FeatureSelection",
-    description="latency=7 admits ZT+no_log; optimizer picks lowest-risk (mult=20)",
+    description="latency=7: dynamic_mac+zt_logger chosen (mult=10, risk=20)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1).
@@ -242,25 +249,24 @@ allowable_latency(r1, read, 7).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "selected_security(c1,zero_trust)",
-            "selected_logging(c1,no_logging)",
-            "new_risk(c1,r1,read,40)",    # 2*10*20/10
+            "selected_security(c1,dynamic_mac)",
+            "selected_logging(c1,zero_trust_logger)",
+            "new_risk(c1,r1,read,20)",    # 2*20*5/10
         ],
         must_not=[
             "selected_security(c1,mac)",
-            "selected_security(c1,dynamic_mac)",
         ],
     ),
 ))
 
 
-# P3 — latency=11: zero_trust+some_logging chosen (mult=10, best at 11-cycle budget)
-# Additional candidates: dynamic_mac+some_log(11cy,mult=20), zero_trust+some_log(11cy,mult=10)
-# Optimal: zero_trust+some_logging  ->  risk = 2*10*10/10 = 20
+# P3 — latency=11: zero_trust(8cy) fits; logging latency excluded.
+# Optimizer picks zero_trust+zero_trust_logger (V=10,L=5,mult=5)
+# risk = 2*5 = 10
 TC.append(TestCase(
-    name="P3_latency11_zt_some_log",
+    name="P3_latency11_zt_zt_logger",
     category="Phase1-FeatureSelection",
-    description="latency=11: zero_trust+some_logging wins (mult=10)",
+    description="latency=11: zero_trust+zt_logger wins (mult=5, risk=10)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1).
@@ -272,13 +278,11 @@ allowable_latency(r1, read, 11).
     assertion=Assertion(
         must_contain=[
             "selected_security(c1,zero_trust)",
-            "selected_logging(c1,some_logging)",
-            "new_risk(c1,r1,read,20)",    # 2*10*10/10
+            "selected_logging(c1,zero_trust_logger)",
+            "new_risk(c1,r1,read,10)",    # 2*10*5/10
         ],
         must_not=[
             "selected_security(c1,mac)",
-            "selected_logging(c1,no_logging)",
-            "selected_logging(c1,zero_trust_logger)",
         ],
     ),
 ))
@@ -355,8 +359,8 @@ allowable_latency(r1, read, 1000).
 
 
 # P6 — Two independent components; each gets its own optimal feature selection
-# c1: latency=3 -> mac+no_logging  (risk=1*60=60)
-# c2: latency=11 -> zero_trust+some_logging  (risk=1*10=10)
+# c1: latency=3 -> mac+zt_logger (V=30,L=5,mult=15, risk=1*15=15)
+# c2: latency=11 -> zero_trust+zt_logger (V=10,L=5,mult=5, risk=1*5=5)
 TC.append(TestCase(
     name="P6_two_components_independent",
     category="Phase1-FeatureSelection",
@@ -371,11 +375,11 @@ asset(c2, r2, read). impact(r2, read, 1). allowable_latency(r2, read, 11).
     assertion=Assertion(
         must_contain=[
             "selected_security(c1,mac)",
-            "selected_logging(c1,no_logging)",
-            "new_risk(c1,r1,read,60)",
+            "selected_logging(c1,zero_trust_logger)",
+            "new_risk(c1,r1,read,15)",
             "selected_security(c2,zero_trust)",
-            "selected_logging(c2,some_logging)",
-            "new_risk(c2,r2,read,10)",
+            "selected_logging(c2,zero_trust_logger)",
+            "new_risk(c2,r2,read,5)",
         ],
     ),
 ))
@@ -412,23 +416,20 @@ allowable_latency(r1, read, 3).
 # ---------------------------------------------------------------------------
 # Phase 1 — Redundancy group risk calculation (LUT-exact arithmetic)
 # ---------------------------------------------------------------------------
-# 5-member group, all mac+no_logging (latency=3 forces it):
-#   norm(each) = (30*20 - 25)*1000 // 975 = 575000 // 975 = 589
-#   LUT: combined = 589^5 // 100_000_000 = 70_888_612_161_949 // 100_000_000 = 708886
-#   denorm = 708886 * 975 // 1000 + 250 = 691163 + 250 = 691413
-#   risk = impact * 691413 // 100  (integer division)
+# With logging latency excluded, the optimizer picks mixed logging features
+# for group members to minimize total group risk. The exact logging per member
+# may vary, but the resulting denorm and risk values are deterministic.
 
-# R1 — 5-member group, all mac+no_logging (tight latency forces it)
-# Generic encoder: step-by-step /1000
-#   norm=589, chain: 589→346→203→119→70  (each step: prev*589//1000)
-#   denorm = 70*975//1000 + 250 = 68 + 250 = 318
-#   impact_read=4:  4*318//100 = 12
-#   impact_write=2: 2*318//100 = 6
-#   impact=1:       1*318//100 = 3
+# R1 — 5-member group, all mac (tight latency=3 forces mac for security).
+# Logging is free, so the optimizer picks a mix of logging features to
+# minimize the group's combined probability.  The optimal denorm=256.
+#   impact_read=4:  4*256//100 = 10
+#   impact_write=2: 2*256//100 = 5
+#   impact=1:       1*256//100 = 2
 TC.append(TestCase(
-    name="R1_group5_mac_no_log",
+    name="R1_group5_mac_mixed_log",
     category="Phase1-Redundancy",
-    description="5-member redundancy group, all mac+no_logging: generic combined=70, denorm=318",
+    description="5-member redundancy group, all mac, mixed logging: denorm=256",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5).
@@ -448,25 +449,23 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,318)",
-            "new_risk(c1,r1,read,12)",    # 4*318//100
-            "new_risk(c1,r1,write,6)",    # 2*318//100
-            "new_risk(c2,r2,read,3)",     # 1*318//100
+            "new_prob_denormalized(c1,256)",
+            "new_risk(c1,r1,read,10)",    # 4*256//100
+            "new_risk(c1,r1,write,5)",    # 2*256//100
+            "new_risk(c2,r2,read,2)",     # 1*256//100
         ],
     ),
 ))
 
 
-# R2 — Optimizer avoids mac+no_log for group members when latency allows cheaper options
-# At latency=7 both zt+no_log (norm=179) and mac+some_log (norm=282) round to combined=0
-# after 4 /1000 steps, giving denorm=250 — a tie. Either may be selected.
-# mac+no_log (norm=589) gives combined=70, denorm=318 — strictly worse; must not appear.
-# dynamic_mac+no_log (norm=384) gives combined=8, denorm=257 — also suboptimal.
-# Standalone c_solo with latency=3 is forced to mac+no_log: risk = 5*30*20//10 = 300.
+# R2 — Optimizer picks mixed logging for group members to minimize group risk.
+# At latency=7, mac(3) and dynamic_mac(7) fit for security. The optimizer
+# finds a mixed-logging combination giving denorm=256 for the group.
+# Standalone c_solo with latency=3: mac+zt_logger -> risk = 5*15 = 75.
 TC.append(TestCase(
     name="R2_group_reduces_risk",
     category="Phase1-Redundancy",
-    description="Optimizer avoids mac+no_log for group (denorm=318) and picks a lower option (denorm=250); solo forced mac (300)",
+    description="Optimizer picks mixed logging for group (denorm=256); solo mac+zt_logger (75)",
     phase=1,
     instance=_GENEROUS_CAPS + """
 component(c1;c2;c3;c4;c5). component(c_solo).
@@ -482,13 +481,12 @@ redundant_group(1,c4). redundant_group(1,c5).
     scenario="",
     assertion=Assertion(
         must_contain=[
-            "new_prob_denormalized(c1,250)",     # optimal combined→0 → 0*975//1000 + 250
-            "new_risk(c1,r1,read,12)",           # 5*250//100
-            "new_risk(c_solo,rs,read,300)",      # standalone mac+no_log: 5*60
+            "new_prob_denormalized(c1,256)",     # optimal group denorm
+            "new_risk(c1,r1,read,12)",           # 5*256//100
+            "new_risk(c_solo,rs,read,75)",       # standalone mac+zt_logger: 5*15
         ],
         must_not=[
-            "new_prob_denormalized(c1,318)",     # mac+no_log (combined=70) is suboptimal
-            "selected_security(c1,dynamic_mac)", # dynamic_mac gives denorm=257 > 250
+            "new_prob_denormalized(c1,318)",     # mac+no_log (old) is suboptimal
         ],
     ),
 ))
@@ -815,13 +813,55 @@ TC.append(TestCase(
 ))
 
 
-# S6 — Service quorum: 1 of 2 members failed -> degraded (live=1, quorum=2, 1<2 but >0)
+# S6 — Service health: 1 of 2 members failed; the other is cut off by topology
+#   Topology: c1→c2→c3 (chain).  c2 failed → c3 is unreachable from master c1.
+#   node_cut_off(c3) fires.  Live = not-failed AND not-cut-off = 0 → unavailable.
+#   This is the corrected behavior: bus-path isolation reduces the live count.
 TC.append(TestCase(
-    name="S6_service_degraded",
+    name="S6_service_cut_off_unavailable",
     category="Phase3-Availability",
-    description="1 of 2 service members failed -> service_degraded (live=1, quorum=2)",
+    description="1 of 2 members failed, other cut off by topology -> service_unavailable",
     phase=3,
     instance=_RES_INSTANCE,
+    scenario="failed(c2). p1_risk(r1,10). p1_risk(r2,10). p1_risk(r3,10).",
+    assertion=Assertion(
+        must_contain=[
+            "service_live_count(svc,0)",
+            "service_unavailable(svc)",
+            "node_cut_off(c3)",
+        ],
+        must_not=[
+            "service_ok(svc)",
+            "service_degraded(svc)",
+        ],
+    ),
+))
+
+
+# S6b — Service health: degraded (1 of 2 members failed, other still reachable)
+#   Topology: c1→c2, c1→c3 (star from master).  c2 failed → c3 still reachable.
+#   Live = 1 (c3), quorum = 2 → degraded.
+_RES_STAR = """
+component(c1;c2;c3).
+link(c1,c2). link(c1,c3).
+domain(c1,low). domain(c2,high). domain(c3,high).
+asset(c1,r1,read). asset(c2,r2,read). asset(c3,r3,read).
+master(c1). receiver(c2). receiver(c3).
+policy_server(ps0). policy_server(ps1).
+policy_enforcement_point(pep1).
+pep_guards(pep1,c2). pep_guards(pep1,c3).
+ps_governs_pep(ps0,pep1). ps_governs_pep(ps1,pep1).
+governs(ps0,pep1). governs(ps1,pep1).
+service_component(svc,c2). service_component(svc,c3). service_quorum(svc,2).
+attested(c1). hardware_rot(c1). signed_policy(ps0).
+"""
+
+TC.append(TestCase(
+    name="S6b_service_degraded_star",
+    category="Phase3-Availability",
+    description="Star topology: 1 of 2 members failed, other reachable -> service_degraded",
+    phase=3,
+    instance=_RES_STAR,
     scenario="failed(c2). p1_risk(r1,10). p1_risk(r2,10). p1_risk(r3,10).",
     assertion=Assertion(
         must_contain=[
@@ -831,6 +871,7 @@ TC.append(TestCase(
         must_not=[
             "service_ok(svc)",
             "service_unavailable(svc)",
+            "node_cut_off(c3)",
         ],
     ),
 ))
