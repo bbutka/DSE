@@ -517,11 +517,11 @@ TC9 &  8 & A    &  219 & 2.821 & 0.016 & \checkmark \\
 TC9 &  8 & B    &  364 & 3.337 & 0.024 & \checkmark \\
 TC9 &  8 & C    &  219 & 3.098 & 0.018 & \checkmark \\
 \midrule
-OT  & 20 & OT-A &1{,}804 & $>$165$^\dagger$ & 0.05 & --- \\
-OT  & 20 & OT-B &3{,}449 & $>$296$^\dagger$ & 0.05 & --- \\
-OT  & 20 & OT-C &1{,}854 & $>$213$^\dagger$ & 0.05 & --- \\
+OT  & 20 & OT-A &1{,}804 & ---$^\dagger$ & 0.05 & --- \\
+OT  & 20 & OT-B &3{,}449 & ---$^\dagger$ & 0.05 & --- \\
+OT  & 20 & OT-C &1{,}854 & ---$^\dagger$ & 0.05 & --- \\
 \bottomrule
-\multicolumn{7}{l}{\scriptsize $^\dagger$ASP suboptimal; objectives are CP-SAT proven optima.}
+\multicolumn{7}{l}{\scriptsize $^\dagger$ASP skipped (cannot prove optimality at 20 components within 120\,s).}
 \end{tabular}}
 \end{table}
 
@@ -532,10 +532,10 @@ At 1~component, both solvers finish in under 2\,ms. At
 3~components, ASP takes 0.12\,s (dominated by grounding), while
 CP-SAT stays under 12\,ms. At 8~components, ASP averages 2.85\,s
 while CP-SAT remains under 25\,ms, a
-$220\times$ speedup. At 20~components (OpenTitan), ASP does not
-converge to the proven optimum within its timeout, while CP-SAT proves
-optimality in under 0.1\,s. The scalability boundary between 8 and
-20~components marks where CP-SAT becomes essential for practical use.
+$220\times$ speedup. At 20~components (OpenTitan), ASP cannot prove
+optimality within a 120\,s timeout; CP-SAT proves optimality in
+under 0.1\,s.  This scalability boundary marks where CP-SAT becomes
+essential for practical use.
 
 \begin{table}[t]
 \caption{Scalability: mean solve time by component count}
@@ -549,16 +549,16 @@ Components & ASP mean\,(s) & CP-SAT mean\,(s) & Ratio \\
  1 &  0.001 & 0.001 & 1$\times$ \\
  3 &  0.12  & 0.012 & 10$\times$ \\
  8 &  2.85  & 0.013 & 220$\times$ \\
-20 & $>$225$^\dagger$ & 0.05 & $>$4{,}500$\times$ \\
+20 & ---$^\dagger$ & 0.05 & --- \\
 \bottomrule
-\multicolumn{4}{l}{\scriptsize $^\dagger$ASP did not prove optimality; best-found was suboptimal.}
+\multicolumn{4}{l}{\scriptsize $^\dagger$ASP skipped; cannot prove optimality at 20 components.}
 \end{tabular}
 \end{table}
 
 Figure~\ref{fig:runtime} plots the scaling trend on a log scale. The gap
 between solvers widens steadily: $1\times$ at 1~component,
-$10\times$ at~3, $220\times$ at~8, and $>$4{,}500$\times$ at~20
-where ASP fails to prove optimality entirely. For rapid parameter
+$10\times$ at~3, and $220\times$ at~8; at 20~components
+ASP cannot prove optimality within its timeout. For rapid parameter
 sweeps or larger designs, we recommend CP-SAT as the
 feature-synthesis solver; ASP's value lies in the declarative
 extensibility needed by downstream reasoning stages
@@ -567,9 +567,8 @@ extensibility needed by downstream reasoning stages
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.95\columnwidth]{Images/runtime_scaling.pdf}
-    \caption{Mean solve time vs.\ component count (log scale). The gap
-    widens from $1\times$ at 1~component to $>$4{,}500$\times$ at
-    20~components, where ASP cannot prove optimality.}
+    \caption{Mean solve time vs.\ component count (log scale, 1--8
+    components). ASP cannot prove optimality at 20~components.}
     \label{fig:runtime}
 \end{figure}
 

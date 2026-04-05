@@ -64,7 +64,7 @@ fig.savefig(os.path.join(IMG_DIR, "runtime_scaling.png"), bbox_inches='tight', d
 print("Saved runtime_scaling.pdf/png")
 
 # ── Figure 2: OpenTitan Feature Assignment Heatmap ─────────────────
-# Build the heatmap from OT-A ASP data (the primary profile)
+# Build the heatmap from OT-A CP-SAT data (the primary profile)
 ot_a_list = [e for e in data if e["testcase"] == "testCaseOT_inst" and ("ot1" in e.get("profile","") or "OT-A" in e.get("profile",""))]
 if not ot_a_list or ("cpsat_security" not in ot_a_list[0] and "asp_security" not in ot_a_list[0]):
     print("Skipping heatmap: OT-A data with feature assignments not available.")
