@@ -1,0 +1,7 @@
+# ICCAD 2026 benchmark dependencies
+# Python >= 3.12 required
+
+clingo>=5.8.0          # ASP solver (potassco)
+ortools>=9.8           # Google OR-Tools CP-SAT solver
+matplotlib>=3.8        # Figure generation (generate_figures.py)
+numpy>=1.26            # Figure generation support

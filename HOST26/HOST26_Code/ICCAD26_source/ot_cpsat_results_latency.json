@@ -1,0 +1,119 @@
+[
+  {
+    "profile": "OT-A",
+    "objective": 1804,
+    "satisfiable": true,
+    "optimal": true,
+    "time_s": 0.04,
+    "luts": 45014,
+    "power": 812,
+    "security_mix": "15 ZT + 2 DM + 3 MAC",
+    "logging_mix": {
+      "zero_trust_logger": 20
+    },
+    "mac_components": [
+      "cpu",
+      "dma",
+      "keymgr"
+    ],
+    "dm_components": [
+      "aes",
+      "otbn"
+    ],
+    "zt_components": [
+      "hmac",
+      "kmac",
+      "otp",
+      "lc",
+      "flash",
+      "sram",
+      "rom",
+      "uart0",
+      "uart1",
+      "gpio",
+      "spi",
+      "i2c",
+      "timer",
+      "alert",
+      "entropy"
+    ]
+  },
+  {
+    "profile": "OT-B",
+    "objective": 3449,
+    "satisfiable": true,
+    "optimal": true,
+    "time_s": 0.033,
+    "luts": 16610,
+    "power": 165,
+    "security_mix": "14 ZT + 3 DM + 3 MAC",
+    "logging_mix": {
+      "some_logging": 20
+    },
+    "mac_components": [
+      "cpu",
+      "dma",
+      "keymgr"
+    ],
+    "dm_components": [
+      "aes",
+      "hmac",
+      "otbn"
+    ],
+    "zt_components": [
+      "kmac",
+      "otp",
+      "lc",
+      "flash",
+      "sram",
+      "rom",
+      "uart0",
+      "uart1",
+      "gpio",
+      "spi",
+      "i2c",
+      "timer",
+      "alert",
+      "entropy"
+    ]
+  },
+  {
+    "profile": "OT-C",
+    "objective": 1854,
+    "satisfiable": true,
+    "optimal": true,
+    "time_s": 0.038,
+    "luts": 43904,
+    "power": 800,
+    "security_mix": "9 ZT + 7 DM + 4 MAC",
+    "logging_mix": {
+      "zero_trust_logger": 20
+    },
+    "mac_components": [
+      "cpu",
+      "dma",
+      "keymgr",
+      "uart1"
+    ],
+    "dm_components": [
+      "aes",
+      "hmac",
+      "kmac",
+      "otbn",
+      "uart0",
+      "gpio",
+      "timer"
+    ],
+    "zt_components": [
+      "otp",
+      "lc",
+      "flash",
+      "sram",
+      "rom",
+      "spi",
+      "i2c",
+      "alert",
+      "entropy"
+    ]
+  }
+]

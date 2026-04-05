@@ -1,0 +1,46 @@
+\section{Related Work} 
+\label{sec:relatedWorks}
+
+This section will discuss the existing research on Design-Space Exploration for security as well as some of the metrics used to guide these explorations.
+
+\subsection{Design-Space Exploration}
+
+
+First Stierand et al. \cite{stierand_integrating_2014} presented one of the first papers on integrating security into DSE. Their work defined security requirements by identifying attacks to be prevented across a particular task flow. However, the concrete security solutions implemented were not defined, and their results admitted that they ran into feasibility challenges in task allocation.
+Next, Liu and Li \cite{liu_hardware_2015} presented a DSE methodology with IP protection as an optimization objective using a secure datapath, an almost IP Firewall. The DSE methodology optimized parameters such as the secure datapath’s key length, latency, power utilization, area, and IP protection robustness. 
+Rajmohan et al. \cite{rajmohan_hybrid_2020} presented a DSE methodology to prevent distributed trojans from activating each other. 
+
+Gressl et al. \cite{gressl_security_2019,gressl_design_2021} performed DSE of secure IoT devices by creating security constraints based on known attack scenarios. Their method automatically considered mitigation techniques and selected security solutions based on the probability of an attack. Their method then suggested an optimal hardware component selection.
+Linare\'s et al. \cite{linares_design_2021} present a DSE of security for memory-related exploits. The DSE explores the use of 24 different protections against memory-based attacks, and its constraints are runtime, memory, and process cost. The tool then considers dozens of attacks, and $2^{24}$ versions of the user’s system are explored for security against the attacks.
+Most recently, Mahfuz et al. \cite{mahfuz_x-dfs_2025} presented an explainable AI-guided design-for-security space exploration methodology that trained an XAI model to apply security rules to a target design and generate a design secured against reverse engineering.
+
+
+\subsection{Security Metrics}
+To consider security as an optimization objective, a means to quantify it is necessary. Works focusing on security metrics for the DSE of SoCs are even more sparse.
+Pimentel \cite{pimentel_case_2020} presented a position paper arguing for “security-aware, system-level design-space exploration methods and techniques for embedded systems.” They presented an unimplemented idea for a scoring methodology to guide exploration based on the success of a particular solution in defending against an attack. 
+Busch and Koziolek \cite{busch_considering_2016} proposed a security metric for DSE of security where quality-based attributes, like security, could be quantified by using enumerated values like [low, middle, high] to guide exploration. 
+
+Additionally, many other DSE of security papers evaluated were application-specific, where security was treated as a secondary concern rather than a primary optimization objective. For example, Rajmohan et al. \cite{rajmohan_hybrid_2020} presented a DSE methodology to prevent distributed trojans from activating each other using particle swarm optimization to determine how many different third-party vendors were needed to prevent trojan collusion. Liu and Li \cite{liu_hardware_2015} presented a DSE methodology with IP protection as an optimization objective by optimizing a custom secure datapath's key length, latency, power utilization, area, and IP protection robustness. Adding to this lack of application-agnostic DSE exploration of security, most of these approaches do not integrate quantifiable security metrics, due to appropriate, formal, metrics not existing.
+
+Today, there are still very few works focused on quantifying system-level security in FPGA and SoC-based systems. Most commonly, security metrics in this area are based on quantifying coverage during verification like Rajendran et al. \cite{rajendran_hunter_2023, rajendran_exploring_2024} which created hardware/software examples to exploit hardware vulnerabilities in the SoC's processor. However, two works were identified that quantify security at the system-level, Butka and Bobda \cite{butka_measuring_2025} and Saha et al. \cite{saha_metrics_2022}. Butka and Bobda's metric was already discussed in detail in Section \ref{sec:problem}a above, where their equations were presented and can be seen again, below.
+
+\begin{equation}
+\label{eq:ZTARiskWrite}
+R_{Write} = I_{Write} * V_{Write}*L_{Write} 
+\end{equation}
+\begin{equation}
+\label{eq:ZTARiskRead}
+R_{Read} = I_{Read} * V_{Read}*L_{Read}
+\end{equation}
+
+Although these equations may be considered ambiguous due to the system designer selecting the impact of each asset, the security designer defining the vulnerability of each asset, and logging being an arbitrary value based on the reactiveness of the system, the authors view this as the most applicable and useful metric currently available. In practice, vulnerability values can be estimated using the Common Weakness Scoring System \cite{mitre_cwe_2014} or the Common Vulnerability Scoring System \cite{first_cvss_2023} which both quantify the severity of vulnerabilities. Although these are not SoC or FPGA-specific, they are the closest estimations we currently have.
+
+What makes Butka and Bobda's metric formulation unique is that they take into account the impact, vulnerability, and a third variable called "logging," which quantifies the real-time anomaly detection capabilities of the system. This "logging" quality is not seen in any other security metrics and is necessary in designing a reactive security architecture. 
+
+\subsection{Takeaways}
+
+Of the related works, security was treated as the cause for an optimization, not a primary objective. The design automation was a method of identifying the optimal implementation of a specific solution to a specific vulnerability. These methods are unable to protect the system against novel bus-based trojans or anomalies. SoCs need reactive security solutions that monitor the actions being taken across the system bus and prevent malicious or unexpected activities. 
+%Additionally, in any proposed design automation solution, there must be an emphasis on trade-offs between security, power utilization, resource utilization, and latency, which none of the solutions above have. Additionally, there was only one SoC security metric, by Butka and Bobda \cite{butka_measuring_2025}, that fulfills the requirements of determining an SoC's bus security.
+While the presented concepts, such as not exceeding the number of LUTs available within an FPGA, appear to be simple, the problem formulation of the proposed design automation of security for SoCs is completely novel. No related works on the concept of design-space exploration of security have performed a similar identification of optimal anomaly detection and security solutions.
+
+Finally, to our knowledge, there exist no works that, for each component on the system bus, identify the optimal anomaly detection and security features to protect that component's integrity and confidentiality functions. This paper's proposed design automation for security tool intends to fill this gap by creating a novel DSE of security that identifies optimal and near-optimal solutions to protect the system bus, presents them visually in a way that is useful for system designers, and finally, is a novel DSE of security method that utilizes a system risk metric.

@@ -1,0 +1,563 @@
+[
+  {
+    "testcase": "testCase1_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "full_resources",
+    "time_s": 0.2,
+    "objective": "0",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 1
+  },
+  {
+    "testcase": "testCase1_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "restricted_luts",
+    "time_s": 0.187,
+    "objective": "0",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 1
+  },
+  {
+    "testcase": "testCase1_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "restricted_power",
+    "time_s": 0.195,
+    "objective": "0",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 1
+  },
+  {
+    "testcase": "testCase2_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 4.414,
+    "objective": "0",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase2_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 4.278,
+    "objective": "0",
+    "luts": "8850",
+    "ffs": "6290",
+    "power": "174",
+    "bram": "0",
+    "lutram": "320",
+    "security_counts": {
+      "zero_trust": 5,
+      "dynamic_mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 0
+  },
+  {
+    "testcase": "testCase2_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 4.444,
+    "objective": "0",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase3_inst",
+    "components": 1,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 0.072,
+    "objective": "0",
+    "luts": "650",
+    "ffs": "420",
+    "power": "12",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase3_inst",
+    "components": 1,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 0.067,
+    "objective": "0",
+    "luts": "650",
+    "ffs": "420",
+    "power": "12",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase3_inst",
+    "components": 1,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 0.077,
+    "objective": "0",
+    "luts": "650",
+    "ffs": "420",
+    "power": "12",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase4_inst",
+    "components": 2,
+    "assets": 16,
+    "profile": "full_resources",
+    "time_s": 0.062,
+    "objective": null,
+    "luts": "0",
+    "ffs": "0",
+    "power": "0",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "zero_trust": 1,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "some_logging": 1,
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 0
+  },
+  {
+    "testcase": "testCase4_inst",
+    "components": 2,
+    "assets": 16,
+    "profile": "restricted_luts",
+    "time_s": 0.059,
+    "objective": null,
+    "luts": "0",
+    "ffs": "0",
+    "power": "0",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "zero_trust": 1,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "some_logging": 1,
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 0
+  },
+  {
+    "testcase": "testCase4_inst",
+    "components": 2,
+    "assets": 16,
+    "profile": "restricted_power",
+    "time_s": 0.063,
+    "objective": null,
+    "luts": "0",
+    "ffs": "0",
+    "power": "0",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "zero_trust": 1,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "some_logging": 1,
+      "no_logging": 1
+    },
+    "risk_total_from_atoms": 0
+  },
+  {
+    "testcase": "testCase5_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 4.428,
+    "objective": "0",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase5_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 4.369,
+    "objective": "0",
+    "luts": "8850",
+    "ffs": "6290",
+    "power": "174",
+    "bram": "0",
+    "lutram": "320",
+    "security_counts": {
+      "zero_trust": 5,
+      "dynamic_mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 0
+  },
+  {
+    "testcase": "testCase5_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 4.491,
+    "objective": "0",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 3
+  },
+  {
+    "testcase": "testCase6_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "full_resources",
+    "time_s": 0.205,
+    "objective": "45",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 82
+  },
+  {
+    "testcase": "testCase6_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "restricted_luts",
+    "time_s": 0.201,
+    "objective": "45",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 82
+  },
+  {
+    "testcase": "testCase6_inst",
+    "components": 3,
+    "assets": 3,
+    "profile": "restricted_power",
+    "time_s": 0.214,
+    "objective": "45",
+    "luts": "1950",
+    "ffs": "1260",
+    "power": "36",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 3
+    },
+    "risk_total_from_atoms": 82
+  },
+  {
+    "testcase": "testCase7_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 5.419,
+    "objective": "62",
+    "luts": "5800",
+    "ffs": "3880",
+    "power": "108",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 6,
+      "dynamic_mac": 2
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 82
+  },
+  {
+    "testcase": "testCase7_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 5.099,
+    "objective": "62",
+    "luts": "8850",
+    "ffs": "6290",
+    "power": "174",
+    "bram": "0",
+    "lutram": "320",
+    "security_counts": {
+      "zero_trust": 5,
+      "dynamic_mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 62
+  },
+  {
+    "testcase": "testCase7_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 5.577,
+    "objective": "62",
+    "luts": "5800",
+    "ffs": "3880",
+    "power": "108",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 6,
+      "dynamic_mac": 2
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 82
+  },
+  {
+    "testcase": "testCase8_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 4.7,
+    "objective": "31",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 75
+  },
+  {
+    "testcase": "testCase8_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 4.614,
+    "objective": "31",
+    "luts": "8850",
+    "ffs": "6290",
+    "power": "174",
+    "bram": "0",
+    "lutram": "320",
+    "security_counts": {
+      "zero_trust": 5,
+      "dynamic_mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 39
+  },
+  {
+    "testcase": "testCase8_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 4.665,
+    "objective": "31",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 75
+  },
+  {
+    "testcase": "testCase9_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "full_resources",
+    "time_s": 6.731,
+    "objective": "74",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 103
+  },
+  {
+    "testcase": "testCase9_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_luts",
+    "time_s": 5.968,
+    "objective": "74",
+    "luts": "8850",
+    "ffs": "6290",
+    "power": "174",
+    "bram": "0",
+    "lutram": "320",
+    "security_counts": {
+      "zero_trust": 5,
+      "dynamic_mac": 3
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 76
+  },
+  {
+    "testcase": "testCase9_inst",
+    "components": 8,
+    "assets": 8,
+    "profile": "restricted_power",
+    "time_s": 6.583,
+    "objective": "74",
+    "luts": "5500",
+    "ffs": "3620",
+    "power": "102",
+    "bram": "0",
+    "lutram": "0",
+    "security_counts": {
+      "mac": 7,
+      "dynamic_mac": 1
+    },
+    "logging_counts": {
+      "no_logging": 8
+    },
+    "risk_total_from_atoms": 103
+  }
+]

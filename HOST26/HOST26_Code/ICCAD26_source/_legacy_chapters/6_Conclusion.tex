@@ -1,0 +1,20 @@
+\section{Conclusion} 
+\label{sec:conclusion}
+
+This paper provides a novel formulation of secure SoC synthesis as a multi-objective optimization problem within the ASP framework. This novel formulation natively prioritizes security as a key objective alongside traditional metrics such as resource utilization, power utilization, and latency. By integrating security metrics directly into the design process, security becomes a fundamental aspect of the design phase. The security metrics and synthesis problem were formulated as an ASP problem, then solved using the Potassco solver to determine optimal configurations for three bus-level anomaly detection and security features. The resulting solutions are formatted into interpretable graphs that system designers can utilize to determine their system's optimal configuration. 
+
+The proposed DSE of security provides a programmatic and modular method of discovering security solutions. Given the system architecture, requirements, and target FPGA constraints as inputs, the DSE automatically identifies all optimal and near-optimal solutions. Then outputs these solutions as plots, showing total system security Vs. useful information like selected anomaly detection and security features, LUT utilization, and power utilization. System designers can then spend their time utilizing these plots to make otherwise difficult decisions, such as using a solution that is less secure, but lowers the LUT utilization. 
+Our design was validated through a synthetic benchmark, demonstrating the viability of our approach and the interpretability of the produced plots. 
+
+Finally, the proposed formulation of secure SoC synthesis allows designers to address system security at the system bus using risk metrics created specifically for SoCs and co-optimizating for security, resource and power utilization, and latency. By presenting this method, we enable system designers to incorporate security into their design process, ensuring robust and secure SoCs for critical applications.
+
+%While the presented concepts, such as not exceeding the number of LUTs available within an FPGA, appear to be simple, the problem formulation of the proposed design automation of security for SoCs is novel. such as using a solution that is less secure, but lowers the LUT utilization. While the presented concepts, such as not exceeding the number of LUTs available within an FPGA, appear to be simple, the problem formulation of the proposed design automation of security for SoCs is novel. 
+
+%outputs plots that system designers can utilize to make otherwise difficult decisons
+%When run on the test case architecture, the results shown in Figure \ref{fig:testCaseResults} showcase the capability of the proposed DSE tool to produce optimal and near-optimal solutions presented in a manner useful to a system designer. With these plots, a system designer will be able to make otherwise difficult decisions, 
+
+
+
+%\textcolor{red}{The tool proposed in this paper intends to provide system designers with a programmatic and modular method of discovering security solutions.}
+
+

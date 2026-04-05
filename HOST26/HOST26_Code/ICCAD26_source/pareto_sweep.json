@@ -1,0 +1,1244 @@
+[
+  {
+    "lut_cap": 37500,
+    "objective": 3129,
+    "luts_used": 37054,
+    "power": 777,
+    "security_mix": {
+      "mac": 20
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 40000,
+    "objective": 2419,
+    "luts_used": 39039,
+    "power": 779,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 17
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 42500,
+    "objective": 1899,
+    "luts_used": 42289,
+    "power": 802,
+    "security_mix": {
+      "mac": 9,
+      "zero_trust": 11
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 45000,
+    "objective": 1804,
+    "luts_used": 44829,
+    "power": 810,
+    "security_mix": {
+      "mac": 4,
+      "dynamic_mac": 2,
+      "zero_trust": 14
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 47500,
+    "objective": 1804,
+    "luts_used": 44829,
+    "power": 810,
+    "security_mix": {
+      "mac": 4,
+      "dynamic_mac": 2,
+      "zero_trust": 14
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 50000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 52500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 55000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 57500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 60000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 62500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 65000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 67500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 70000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 72500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 75000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 77500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 80000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 82500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 85000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 87500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 90000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 92500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 95000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 97500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 100000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 102500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 105000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 107500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 110000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 112500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 115000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 117500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 120000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 122500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 125000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 127500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 130000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 132500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 135000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 137500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 140000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 142500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 145000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 147500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 150000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 152500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 155000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 157500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 160000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 162500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 165000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 167500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 170000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 172500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 175000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 177500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 180000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 182500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 185000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 187500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 190000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 192500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 195000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 197500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 200000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 202500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 205000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 207500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 210000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 212500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 215000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 217500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 220000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 222500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 225000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 227500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 230000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 232500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 235000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 237500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 240000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 242500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 245000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 247500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 250000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 252500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 255000,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  },
+  {
+    "lut_cap": 257500,
+    "objective": 1804,
+    "luts_used": 45014,
+    "power": 812,
+    "security_mix": {
+      "mac": 3,
+      "dynamic_mac": 2,
+      "zero_trust": 15
+    },
+    "logging_mix": {
+      "zero_trust_logger": 20
+    }
+  }
+]

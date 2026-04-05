@@ -1,0 +1,298 @@
+\section{Proposed Methodology for Design-Space Exploration}
+\label{sec:completedwork:ASP}
+This section describes the methodology and implementation of the proposed design automation of security for SoCs. 
+%The example system architecture, like that seen in \fig{fig:exampleArch} is converted into 
+%Design space exploration (DSE) is applied to identify the most suitable security configurations for embedded systems, taking into account objectives such as system cost, power consumption, and performance, alongside security considerations.
+The framework uses Potassco tools to model and solve the optimization problem. 
+%The framework is structured to evaluate potential security solutions and identify the optimal solutions to meet security objective and system constraints. This section details the methodology and implementation code employed to achieve this goal using a combination of answer set programming (ASP) and the Potsdam Answer Set Solving Collection (Potassco). 
+%\subsection{Proposed Framework}
+In this paper, Answer Set Programming (ASP) is employed to solve the multi-objective optimization problem of SoC design, with security treated as a primary objective alongside traditional metrics such as resource utilization, power utilization, and latency.
+The multi-objective optimization problem is captured and defined as an ASP program, whose solution describes the optimal SoC architecture that fulfills the specification's constraints. 
+
+
+
+\subsection{Design Automation for Security}
+This Section discusses the formulation of the proposed DSE of security tool. 
+First, the system to be optimized is captured as a set of components, assets, and each asset's maximum allowed bus latency. These are formally represented as ASP statements:
+
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+component(p1; c1; c2).
+asset(c1, c1r1).
+impact(c1r1, read, 1).
+allowable_latency(c1r1, read, 10).
+\end{minted}
+
+Second, the user's constraints are captured and represented, such as the maximum allowed risk per asset. 
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+system_capability(max_asset_risk, 25).
+\end{minted}
+
+Third, the target FPGA's system capabilities are captured as a set detailing the device's maximum capabilities: power, LUTs, Flip-Flops, Digital Signal Processing units, and LUTRAM. 
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+system_capability(max_power, 15000). % In mW       
+system_capability(max_luts, 53200).          
+system_capability(max_ffs, 106400).           
+system_capability(max_dsps, 220).          
+system_capability(max_lutram, 17400).      
+system_capability(max_bufgs, 32).        
+system_capability(max_bram, 140).
+\end{minted}
+Finally, all anomaly detection and security solutions are detailed. Each entry includes the base, by component, and by asset cost in power, LUTS, FFs, DSPs, LUTRAM, and latency. Each security solution has its vulnerability score detailed, and each anomaly detection solution has its "logging" score detailed.
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+power_cost(mac, byAsset, 1). % In mW    
+power_cost(mac, byComponent, 2).
+vulnerability(mac, 3).
+luts(mac, byAsset, 51).           
+luts(mac, byComponent, 234).  
+...
+latency_cost(mac, 3).
+\end{minted}
+
+Tables \ref{table:securityFeatures} and \ref{table:loggingFeatures} showcase each security and anomaly detection feature's utilizations. Each utilization was extracted from the citations beside each feature. The base utilization describes the resources used for one-time cost components, such as a policy server to facilitate real-time updates, or a machine learning algorithm to identify anomalies. The by asset utilization describes the resources used to protect each asset, this value will be multiplied by the total number of assets included in the system. The by component utilization describes the resources used to protect each component, this value will be multiplied by the total number of components included in the system
+
+\begin{table*}
+\centering
+\caption{Security Features}
+\label{table:securityFeatures}
+\begin{tblr}{
+  width = \linewidth,
+  colspec = {Q[125]Q[121]Q[129]Q[129]Q[46]Q[121]Q[115]Q[87]Q[52]},
+  hlines,
+  vlines,
+}
+Security Feature                                          & Power (mW)                         & LUTs                                     & FFs                                      & DSPs & LUTRAM                               & BRAM                               & Latency (Clock Cycles) & Vulnera- bility \\
+MAC \cite{kumar_saha_fpga_2020}       & Base:0 By\_Asset:1 By\_Cmpnt:2 & Base:0 By\_Asset:51 By\_Cmpnt:234    & Base:0 By\_Asset:32 By\_Cmpnt:292    & N/A  & N/A                                  & N/A                                & 3                      & 3             \\
+Dynamic MAC \cite{saha_opentitan_2023} & Base:2 By\_Asset:1 By\_Cmpnt:2 & Base:1985 By\_Asset:51 By\_Cmpnt:234 & Base:1612 By\_Asset:32 By\_Cmpnt:292 & N/A  & Base:0 By\_Asset:0 By\_Cmpnt:201 & Base:0 By\_Asset:0 By\_Cmpnt:8 & 7                      & 2             \\
+Zero-Trust \cite{butka_anomaly_2025}   & Base:2 By\_Asset:1 By\_Cmpnt:2 & Base:1985 By\_Asset:51 By\_Cmpnt:234 & Base:1612 By\_Asset:32 By\_Cmpnt:292 & N/A  & Base:0 By\_Asset:1 By\_Cmpnt:201 & Base:0 By\_Asset:0 By\_Cmpnt:8 & 7                      & 1             
+\end{tblr}
+\end{table*}
+    
+
+Table \ref{table:loggingFeatures} represents the utilization of the Logging features in the same format. These values are an estimate based on a custom AXI peripheral that gathered all AXI data and stored it into a FIFO that could be read out once full. Please note that real logging feature resource utilization data was not available at the time of writing this paper. Therefore, the by-asset utilization of the security features was used as a temporary substitute.
+
+% \usepackage{tabularray}
+\begin{table*}
+\centering
+\caption{Logging Features}
+\label{table:loggingFeatures}
+\begin{tblr}{
+  width = \linewidth,
+  colspec = {Q[198]Q[87]Q[83]Q[81]Q[77]Q[71]Q[71]Q[127]Q[133]},
+  hlines,
+  vlines,
+}
+Security Feature                                          & Power (mW) & LUTs        & FFs        & DSPs        & LUTRAM    & BRAM       & Latency (Clock Cycles) & Logging (Risk Multiplier) \\
+No Logging                                                & N/A        & N/A         & N/A        & N/A         & N/A       & N/A        & N/A                    & 2                         \\
+Some Logging (Partial utilization of \cite{butka_anomaly_2025})                                              & Base:72    & Base:3135~  & Base:2502~ & Base:22~ ~  & Base:2~   & Base:2~ ~  & 4                      & 1                         \\
+Full Logging \cite{butka_anomaly_2025} & Base:717   & Base:31354~ & Base:25020 & Base:220~ ~ & Base:154~ & Base:18~ ~ & 22                     & 0.5                       
+\end{tblr}
+\end{table*}
+
+With the multi-objective problem inputs defined, the problem must be formulated into the equations and then into the code guiding the exploration. This section will evaluate the full Potassco code, showing the code, equivalent formal equations, and a written explanation. Please note that the full code can be accessed at our GitHub and it is not recommended to directly copy the code from this paper due to shortened variable names. The DSE's framework employs ASP rules to co-optimize the utilization of power, LUTs, FFs, DSPs, LUTRAM, latency, and most importantly, security. When the exploration is completed, each component will be assigned an anomaly detection and security method that minimizes each asset's risk. To provide an example of the power and resource utilization process, this will be explained for LUTs. 
+
+To begin, the ASP rules ensure that only one selected security and logging feature can be selected for each component. The following lines of code enforce this constraint:
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+1 { sel_security(C,F) : security_ftr(F)} 1 :- component(C).
+\end{minted}
+
+The equivalent formal equations are:
+\begin{equation}
+\label{eq:selectedsecurity}
+\sum_{F \in \text{security\_feature}} \text{sel\_security}(C, F) = 1 \quad \text{if} \quad C \in \text{component}
+\end{equation}
+
+
+Where Equation \ref{eq:selectedsecurity} ensures that the sum of the \(sel\_security\) features for any component \(C\) across all security features \(F\) is equal to one. Next, the risk for each asset, or register, is calculated using the security metric defined above from Butka and Bobda \cite{butka_measuring_2025} where the code and equations can be seen in Section\ref{sec:problem}A.
+
+Where Equation \ref{eq:Risk} calculates the \(Risk\) of each asset by taking the product of that asset's known \(Impact\) and \(Vulnerability\) value based on the chosen security feature, and \(LogFactor\) value based on the chosen logging feature. This is one of the key equations in formulating this ASP problem as it performs the calculations to allow security objectives to be integrated at the same level as resource utilization and power. Next, the following code ensures that the calculated risk for each asset does not exceed the defined maximum allowable risk.
+
+Where Equation \ref{eq:EnsureLessThanMaxRisk} states that an asset's \(register\_risk\) must be less than the \(max\_asset\_risk\). This ensures that the user's strict risk requirements are followed and incorporated directly into the optimization.
+
+
+And where Equation \ref{eq:minimizeRisk} sets the optimization goal of ensuring security and reducing the system risk by summing all \(Asset Risks\) and minimizing the total \(Risk\) of the system. 
+
+Next, it must be ensured that the power utilization, and the resource utilization for Flip-Flops (FFs), Look-Up Tables (LUTs), LUTRAM, etc, does not exceed the resources available by the target system. The code for power, FFs and LUTs is identical across all security features except MAC, only the variable names change, so the power calculation for Dynamic-MAC will be shown here. First, the power cost of each security feature is calculated for each asset.
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+security_power_used(A, Power) :- sel_security(A, dmac), power_cost(dmac_byAsset, Power).
+\end{minted}
+The equivalent formal equation is:
+
+\begin{equation}
+\label{eq:SecurityPowerDmac}
+\text{SecPwrUsed}(A) = 
+\begin{cases} 
+\text{Pwr}_{\text{dmac\_byAsset}}, & \text{if} \ \exists \ \text{sel\_sec}(A, \text{dmac}) \\\
+0, & \text{otherwise}
+\end{cases}
+\end{equation}
+
+Where the \(SecPowerUsed\) by each asset \(A\) is assigned the power cost of \(Power_{dmac\_byAsset}\) if that asset uses \(dmac\). Otherwise, \(Power(A)\) is assigned 0.
+Once each asset has been assigned a power utilization for its corresponding security feature, the total security power by asset is calculated by summing all asset's power utilization.
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+ttl_sec_asset_power(TtlSecAssetPower) :- TtlSecAssetPower = #sum { Power, A : security_power_used(A, Power) }.
+\end{minted}
+The equivalent formal equation is:
+\begin{equation}
+\label{eq:TotalSecurityPower}
+\text{TotalSecPower}_{assets} = \sum_{A} \text{security\_power\_used}(A, \text{Power})
+\end{equation}
+Where the TotalSecPower\(_{assets}\) of the system is the sum of all register's \(security\_power\_used\).
+Next, both the DMAC and Zero-Trust solutions utilize an additional soft processor and policy servers to perform real-time policy updates. These lines of code first check if a DMAC security feature is utilized. If an asset uses DMAC, the value of the base resource utilization is set to the utilization shown in Table \ref{table:securityFeatures}.
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+base_security_dmac(Count) :- Count = #count { A : sel_security(A, dmac) }, Count > 0.
+base_security_ttl_dmac(Power) :- base_security_dmac(Count), Count > 0, power_cost(dmac_base, Power).
+\end{minted}
+
+The equivalent formal equation is:
+\begin{equation}
+\label{eq:CountDmac}
+\text{Count}_{\text{dmac}} = 
+\begin{cases} 
+1, & \text{if} \ \exists \ \text{sel\_security}(A, \text{dmac}) \\
+0, & \text{otherwise}
+\end{cases}
+\end{equation}
+
+Where Equation \ref{eq:CountDmac} creates a variable \(Count_{dmac}\) that equals 1 if an asset \(A\) selected the security \(dmac\). Otherwise, \(Count_{dmac}\) equals 0. This value of \(Count_{dmac}\) essentially states if DMAC is utilized or not. This is used as the input to Equation \ref{eq:BasePowerDmac}.
+
+\begin{equation}
+\label{eq:BasePowerDmac}
+\text{Pwr}_{\text{dmac base}} = 
+\begin{cases} 
+\text{pwr\_cost}(\text{dmac\_base}), & \text{if} \ \text{Count}_{\text{dmac}} > 0 \\
+0, & \text{otherwise}
+\end{cases}
+\end{equation}
+
+Where Equation \ref{eq:SecurityPowerDmac} sets the \(Power_{dmac\_base}\) to the base cost of DMAC from Table \ref{table:securityFeatures} if \(Count_{dmac}\) equals 1. Otherwise the \(Power_{dmac\_base}\) is set to 0.
+The process outlined in Equations \ref{eq:SecurityPowerDmac} to \ref{eq:BasePowerDmac} is repeated for all security and logging features to determine both the total power cost and the base power cost of the system. Once this is completed, the total power spent on security in the system is calculated by summing the base security power and the security power of all assets where it is ensured that the total power consumed by the selected features does not exceed the system's power capacity. 
+
+\begin{minted}[mathescape,
+               linenos,
+               breaklines,
+               breakanywhere,
+               numbersep=5pt,
+               fontsize=\small,
+               frame=lines,
+               framesep=2mm,
+               style=trac]{prolog}
+:- ttl_power(TtlPower), system_capability(max_power, MaxPower), TtlPower > MaxPower.
+\end{minted}
+The equivalent formal equation is:
+\begin{equation}
+\label{eq:powerRequirement}
+requirement: \text{TotalPower} > \text{SystemPower}
+\end{equation}
+
+Where this can be one of two equations. First, Equation \ref{eq:powerRequirement} ensures that the \(TotalPower\) consumption of all selected features remains within the maximum \(SystemPower\) capacity by placing a requirement.
+
+\begin{equation}
+\label{eq:powerViolation}
+Violation \enspace  if : \text{TotalPower} > \text{SystemPower}
+\end{equation}
+
+Or, alternatively, this can be expressed as seen in Equation \ref{eq:powerViolation}, as a violation if the \(TotalPower\) consumed exceeds the allowable \(SystemPower\) capacity.
+
+The process of Equations \ref{eq:SecurityPowerDmac} to \ref{eq:powerViolation} is repeated for all constrained utilizations, power, FFs, and LUTs to ensure proper optimization of these objectives. 
+
+%To ensure the selected anomaly detection and security features do not exceed the user's maximum LUT allowance, the tool first calculates the LUT utilization for each component for the base, by component, and by asset values. These values are calculated for both the anomaly detection and security features, then summed. Finally, the total LUTs used are compared against the target FPGA's LUT capability. If the current solution exceeds the maximum, it is discarded. 
+
+For security optimization, the metric from \cite{butka_measuring_2025} is formatted into ASP, as seen in \ref{sec:problem}A. For integrity and confidentiality, each asset's \(I\), the currently selected security solution's \(V\), and the currently selected logging solution's \(L\) are multiplied. If the calculated integrity or confidentiality risk exceeds the user's constraint, the solution is discarded. Additionally, the optimizer is told to minimize asset risk as much as possible. 
+
+
+After running the DSE of security, the system designer is provided with a set of optimal and near-optimal solutions, presented so that they can determine the best solution for their specific system. The tool provides plots comparing the total system risk, all integrity risks summed and all confidentiality risks summed, versus the selected anomaly detection, selected security, LUT utilization, and power utilization.
+This enables designers to automatically identify optimal solutions, then visually interpret those solutions, 
+%as seen in Figure \ref{fig:testCaseResults} of the Section \ref{sec:results} results section,
+%by comparing total system risk versus LUT utilization, power utilization, etc. 
+by manually selecting the solution that best balances security, resource and power utilization, and latency for their system. Enabling designers to optimize their systems and make informed decisions while simplifying the design process.
+
+\subsection{Anomaly Detection and Security Features}
+
+This section will briefly describe what each anomaly detection and security feature the DSE of security optimizes for. 
+
+For anomaly detection, there is a wide array of potential implementations. This paper chose to represent only three. First, no anomaly detection, where there is no resource or power utilization. Second, \cite{butka_anomaly_2025}'s custom-built autoencoder, specifically intended for IPFW-based security designs, is considered "full" anomaly detection as it is more complex and accurate. Third, an in-between anomaly detection that is 10\% the size of \cite{butka_anomaly_2025}. These features were selected for ease of defining resource and power utilization.
+
+For security features, there is again a wide array of potential implementations. However, due to the system-level security that this DSE of security needs to provide, specifically, firewall-based solutions were considered. 
+First, the simplest solution, Mandatory Access Control (MAC), is implemented. Standard MAC solutions block transactions to specific assets based on defined security policies, but these policies cannot be updated. Second, a Dynamic MAC solution, from \cite{saha_opentitan_2023}, where policies can be updated by utilizing a "policy server" which implements simple algorithms to determine policy updates. Finally, a zero-trust-based solution from \cite{butka_anomaly_2025}, which implements a more complex Dynamic MAC solution, and more complex algorithms to determine policy updates.
+
+
+
+%The process begins by ensuring that only one solution is selected for each component's integrity and confidentiality. 
+
+%he optimization of everything except security is performed by first calculating the
+
+%created a framework for the user of rules that allow optimizations for LUT, RSS, power, latency, and security. talk about how it constrains everything. 
+
+%The user utilizes this by setting up the constraints y todo
+
+%Another thing(?) is that we can use any anomaly detection or security solution in these formats as long as the resource and power utilization as well as the other are provided. Users can create a customization file defining their own IPFW-based solution

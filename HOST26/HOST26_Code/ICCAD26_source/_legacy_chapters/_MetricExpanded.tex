@@ -1,0 +1,202 @@
+\label{ch:metricexpanded}\chapter{Expansion and Formalization of Security Metric for Measuring the Security of Zero-Trust Architecture-Based Systems-on-Chip} 
+\section{Introduction}
+This Chapter is from an unpublished work that expands the rubric and metric from Chapter \ref{ch:metric}, \cite{butka_measuring_2025}, as well as the DSE from Chapter \ref{ch:DSE}, \cite{butka_system-level_2026}. Specifically, the metric is modified into a probability, allowing for the calculation of security risk for inter-component communication. 
+
+\textbf{Thus, the contribution of this paper is a novel risk assessment and rubric to evaluate an SoC's adherence to the core tenets of ZTA across the component layer.}
+%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%% BELOW IS FROM UNPUBLISHED DSE FOR LIFETIME SECURITY PAPER AND IS BACKGROUND MATH FOR BOTH THE DSE AND THE METRIC. 
+%%%%%%%%%%%%%%%%%
+
+\section{Proposed Methodology for Design-Space Exploration}
+\label{sec:completedwork:ASP}
+
+To perform our directed graph search, the source architecture must first be represented mathematically. Let C represent the set of components, B represent the set of buses, and the graph vertices contain both components and buses such that $V = C \cup B$.
+
+The user will specify the basic directed links between components and buses; component to bus, bus to component, and component to component, such that the start and end of the link are not the same. This is represented in Equation \ref{eq:graphEdges}.
+
+\begin{equation}
+    \label{eq:graphEdges}
+    \begin{aligned}
+        E &\subseteq {}
+          \{(c,b) \mid c \in C,\; b \in B\} \\
+        & \cup \{(b,c) \mid b \in B,\; c \in C\} \\
+        & \cup \{(c_1,c_2) \mid c_1,c_2 \in C,\; c_1 \neq c_2\}.
+    \end{aligned}
+\end{equation}
+
+Therefore the directed graph is represented in Equation \ref{eq:graphDef}.
+\begin{equation}
+    \label{eq:graphDef}
+    G = (V,E).
+\end{equation}
+
+Given the directed graph, the reachability relation $R \subseteq V \times V$ is defined in Equation \ref{eq:reachability}. Where $(u,v) \in R$ means that there exists a directed path from $u$ to $v$ in the graph. Or, if there is no direct connection, that $u$ can still reach $v$ if there is a vertex $w$ such that there is an edge from $u$ to $w$ \textbf{and} there is an edge from $w$ to $v$. This recursively captures paths of arbitrary length ($u \rightarrow w \rightarrow x \rightarrow ... \rightarrow v$)
+\begin{equation}
+    \label{eq:reachability}
+        \begin{aligned}
+        (u,v) \in R & \iff (u,v) \in E \\
+        & \text{or } \exists w \in V:\; (u,w) \in E \;\wedge\; (w,v) \in R.
+    \end{aligned}
+\end{equation}
+
+
+
+
+%\begin{equation}
+%    \label{eq:reachability_w}
+%    \exists w \in V:\; (u,w) \in E_{\text{basic}} \;\wedge\; (w,v) \in R.
+%\end{equation}
+
+
+\subsection{System Risk}
+
+Expanding upon the risk metric seen in Equation \ref{eq:risk}, Equation \ref{eq:expanded_risk} formalizes the existing metric, interprets Logging as Responsiveness of the system to attacks, and Read/Write as confidentiality and integrity. 
+
+%Each component $c \in C$ is assigned a set of \textbf{asset} risk scores and an overall \textbf{component} risk score. The asset risk score refers to the impact on the system if that asset is maliciously utilized. For example, that asset may contain the encryption key, which is highly impactful to system performance and confidentiality if leaked or maliciously accessed. 
+
+
+\begin{equation}
+    \label{eq:expanded_risk}
+    R(c,a) = I(c,a) \times V(c,a) \times Resp(c,a)
+\end{equation}
+
+Here $I(c,a)$ represents the system-level impact for component $ c$'s asset $a$. $V(c,a)$ represents the vulnerability of that asset based on the component $c$'s implemented access controls. Both impact and vulnerability are measured on a scale from [1,5]. $Resp(c,a)$represents the responsiveness of the system, whether asset $a$ is being monitored. Responsiveness is measured on a scale of [0.25-2], acting as a multiplier to either raise or lower the risk. This defines our risk score as ranging between 0.25 and 50.
+
+\begin{equation}
+    \label{eq:riskRange}
+    R(c) \in [0.25,50]
+\end{equation}
+
+To calculate the component's confidentiality and integrity risk, it adopts the maximum risk value from $R$ as seen in Equation \ref{eq:componentRisk}.
+
+\begin{equation}
+    \label{eq:componentRisk}
+    R(c) = \max_{a \in \mathrm{Assets}(c)} R(c,a)
+\end{equation}
+
+
+\subsection{Redundancy}
+
+Traditional system risk and safety analysis assumes that $Risk = Impact \times Probability$. Where $Probability$ refers to the probability of a component breaking or an attack occurring, in these cases, it is simple to calculate the effect of redundant components by multiplying the original and redundant components' $Probability$ together to achieve a lower overall probability.
+
+However, in the case of SoC security, it is not simple to estimate \textit{when} an attack will occur, and because of the prevalence of custom components, it is rare to know the probability of a component breaking due to aging. Thus, this paper assumes that probability refers to the probability of an attack succeeding. To do this, we redefine Equation \ref{eq:risk}, representing $Vulnerability$ instead as $Responsiveness$ of the system to attacks and failures. 
+
+Let:
+\begin{equation}
+    \label{eq:probability}
+    P(c,a) = V(c,a) \times Resp(c,a)
+\end{equation}
+
+And:
+
+\begin{equation}
+    \label{eq:riskWithProbability}
+    R(c,a) = I(c,a) \times P(c,a)
+\end{equation}
+
+Equations \ref{eq:probability} and \ref{eq:riskWithProbability} reframe risk to its more commonplace definition.
+With this reframing of Vulnerability and Responsiveness as the probability of an attack succeeding, the calculation of redundancy becomes possible.
+
+Next, let $\mathcal{R}$ represent the sets of redundant components, where each $S \in \mathcal{R}$ is a subset of $ C$'s elements that are redundant to each other.
+
+\begin{equation}
+    \label{eq:componentRisk}
+    R(S) = I(S) \times \widehat{P}(S)
+\end{equation}
+
+\begin{equation}
+    \label{eq:normProbability}
+    \widehat{P}(S) = \mathrm{Norm}\bigl(P(c,a)\bigr), \qquad \widehat{P}(c,a) \in [0,1]
+\end{equation}
+
+
+\begin{equation}
+    \label{eq:probabilityRedundantSet}
+    P_{\text{red}}(f) = \prod_{c \in S_f} ||\widehat{P}(c)||
+\end{equation}
+
+Where we can expand the normalization,
+
+
+\begin{equation}
+    \label{eq:probabilityRedundantSet}
+    ||\widehat{P}(c)|| = \frac{V(S) \times Resp(S) \times \mu}{\omega - \mu}
+\end{equation}
+
+Where $\mu$ represents the maximum possible value and $\omega$ represents the minimum. The ranges of vulnerability [1-5] and Responsiveness [0.25-2] lead to $\mu=0.25$ and $\omega=10$. 
+
+Taking these equations, $||\widehat{P}(c)||$, the redundant probability of each redundant component can now be calculated. For example, imagine we have a system with two components, $c1$ and $c2$, where $c2$ is the redundant component of $c1$. Both components have an $Impact$ of 3, a $Vulnerability$ of 3, and a $Responsiveness$ of 1.5. As seen in Equation \ref{eq:risk13.5}, the risk posed to each component, separately, is 13.5/50.
+
+\begin{equation}
+    \label{eq:risk13.5}
+    R = I*V*R \rightarrow 3*3*1.5 = 13.5
+\end{equation}
+
+Now, using the newly defined risk equations seen in Equations \ref{} and \ref{}, the following is calculated.
+
+\[
+\text{Prob}_{\!P1}
+   =\text{Prob}_{\!RedundantP1}
+   = I(c,a)*P(c,a)\]
+\[   
+   ||P_{c1}(c,a)||=\operatorname{Norm}(Prob_{c1})=\operatorname{Norm}(V*R)\]
+
+\[
+   ||P_{c1}(c,a)||=\frac{\text{Vuln}\times\text{Reactivity}-\mu}{\omega-\mu}\]
+   \[
+   ||P_{c1}(c,a)||=\frac{3\times1.5-0.5}{10-0.5}
+   =\frac{4}{9.5}
+   =0.421
+\]
+
+From the math seen above, the probability of each component is 0.435. With these probabilities, the new redundant risk can be calculated. To calculate redundancy, the probability of each component is multiplied together.
+
+By setting the minimum value equal to the lowest possible value of probability (0.5) allows for probabilities to equal $0.5-\mu=0.5-0.5=0$. A probability of attack equaling zero is an inherently incorrect assumption to make, and as such, $\mu$ has been set to 0.25 to ensure this does not happen.
+
+\[
+\text{Combined\_Prob}
+   =\text{Prob}_{\!P1}*\text{Prob}_{\!RedundantP1}
+   =0.421*0.421
+   =0.177
+\]
+
+Next, this value is denormalized.
+
+\[
+\text{Denormalized\_Prob}
+   =||P_{c1}(c,a)||*(\omega-\mu)+\mu
+   =0.177*(10-0.5)+0.5
+   =2.184
+\]
+
+Finally, this value can be used to calculate each component's new risk.
+
+\[
+\text{Redundant\_Risk}
+   =I\times\widehat{P}
+   =3\times*2.184
+   =6.553
+\]
+
+%\newpage
+
+%\[
+%\text{P\_path}
+%   = \Pi \text{(P\_edge)}
+%\]
+
+
+%\[
+%\text{R\_path}
+%   = \text{Impact} \times \text{P\_path}
+%\]
+%—————————————————————————————————————————%
+
+
+
+
+
+
+
+
+
