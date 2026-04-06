@@ -417,7 +417,7 @@ independent optimality certificate from a mature commercial solver.
 Our suite contains nine instance families: eight synthetic cases (TC1--TC9,
 excluding TC4, which uses a hierarchical component model with a different
 arity than the flat \texttt{component/1} encoding shared by the remaining
-cases and both solvers) and the OpenTitan-derived case (OT).
+cases and all three solvers) and the OpenTitan-derived case (OT).
 Table~\ref{tab:suite} summarizes the benchmark.
 
 \begin{table}[t]
@@ -476,8 +476,9 @@ OT-C & XC7K410T & 254,200 &    800 & 200 \\
 \subsection{Experimental Environment}
 
 Experiments ran on one P-core of an Intel Core i7-12700H (2.3\,GHz)
-with 32\,GB RAM, Windows~11, Python~3.12, clingo~5.8.0, and
-OR-Tools~9.x. Both solvers were run single-threaded for fair comparison.
+with 32\,GB RAM, Windows~11, Python~3.12, clingo~5.8.0,
+OR-Tools~9.x, and Gurobi~13.0. All solvers were run single-threaded
+for fair comparison.
 
 %===================================================================
 \section{Results}
@@ -535,7 +536,7 @@ OT  & 20 & OT-B &3{,}449 & $>$296$^\dagger$ & 0.05 & --- \\
 OT  & 20 & OT-C &1{,}854 & $>$213$^\dagger$ & 0.05 & --- \\
 \bottomrule
 \multicolumn{7}{l}{\scriptsize $^\dagger$Separate extended run; ASP suboptimal at timeout. Objectives are CP-SAT proven optima.} \\
-\multicolumn{7}{l}{\scriptsize An ILP formulation (Gurobi) confirms the same objectives on all instances ($<$0.003\,s).}
+\multicolumn{7}{l}{\scriptsize ILP (Gurobi) confirms the same objectives on all OT and most synthetic instances ($<$0.003\,s).}
 \end{tabular}}
 \end{table}
 
@@ -635,11 +636,9 @@ Surprisingly, the three crypto accelerators (aes, hmac, kmac) all
 receive dynamic-MAC or MAC despite their high individual impact.
 Their redundancy group membership reduces combined probability enough
 that ZT's risk saving is less valuable than the power saved by a
-weaker feature.  Under OT-C's power pressure, the optimizer
-downgrades crypto engines to exploit redundancy coverage rather than
-spending the power budget on ZT for components whose group membership
-already reduces combined risk.  This multi-constraint coordination
-is where exact optimization adds the most value.
+weaker feature.  This multi-constraint coordination, where latency,
+power, and redundancy structure interact simultaneously, is where
+exact optimization adds the most value.
 
 \begin{figure}[t]
     \centering
@@ -774,7 +773,7 @@ work.
 We set out to answer a straightforward question: can security
 feature synthesis for SoCs be solved exactly, and does exactness
 actually matter compared to reasonable heuristics? The answer to both
-is yes, but the path taught us more than the destination.
+is yes.
 
 Cross-validating ASP against CP-SAT on 24 synthetic runs gave us
 confidence that the formulation is correct, not just that one solver
@@ -793,8 +792,8 @@ The greedy heuristic matches on OT-A and OT-B but misses by 5\%
 on OT-C, where the power-latency interaction requires multi-component
 coordination that sequential assignment cannot achieve.
 
-A third solver, Gurobi ILP, confirms every reported optimum in under
-0.003\,s, providing independent validation from a commercial MIP solver.
+Gurobi ILP confirms the OT optima in under 0.003\,s, providing
+independent validation from a commercial MIP solver.
 Looking ahead, we plan to co-optimize firewall and policy placement
 with feature selection and evaluate resilience under component-compromise
 scenarios on the OpenTitan topology.
