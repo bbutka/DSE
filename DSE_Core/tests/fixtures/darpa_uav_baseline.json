@@ -1,0 +1,48 @@
+{
+  "description": "DARPA UAV non-runtime golden baselines captured from the current integrated DSE_Core solver path.",
+  "max_security": {
+    "satisfiable": true,
+    "total_risk": 260,
+    "total_luts": 18920,
+    "total_power": 385,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_mc"
+    ],
+    "placed_ps": [
+      "ps_uart"
+    ],
+    "phase3_scenario_count": 1,
+    "phase3_worst_case_risk_scaled": 2815
+  },
+  "min_resources": {
+    "satisfiable": true,
+    "total_risk": 535,
+    "total_luts": 14970,
+    "total_power": 303,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_mc"
+    ],
+    "placed_ps": [
+      "ps_uart"
+    ],
+    "phase3_scenario_count": 1,
+    "phase3_worst_case_risk_scaled": 5795
+  },
+  "balanced": {
+    "satisfiable": true,
+    "total_risk": 260,
+    "total_luts": 18920,
+    "total_power": 385,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_mc"
+    ],
+    "placed_ps": [
+      "ps_uart"
+    ],
+    "phase3_scenario_count": 1,
+    "phase3_worst_case_risk_scaled": 2815
+  }
+}

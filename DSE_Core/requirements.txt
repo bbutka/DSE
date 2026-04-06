@@ -1,0 +1,6 @@
+# DSE Tool dependencies
+# Install with: C:\Users\bbutk\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt
+#
+# Python 3.12 required — clingo 5.x is not available for Python 3.13+
+
+clingo==5.8.0
