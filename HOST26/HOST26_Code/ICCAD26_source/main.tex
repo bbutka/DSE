@@ -43,9 +43,8 @@ strong evidence of formulation correctness. An integer linear programming
 0.003\,s, confirming the optima from a third solver.
 At 20~components, ASP does not converge to
 the proven optimum within a 120\,s timeout, while CP-SAT proves optimality in
-under 0.1\,s, revealing a qualitative scalability boundary that motivates a
-hybrid workflow. The benchmark demonstrates constraint sensitivity at
-realistic scale: latency constraints alone force three high-impact
+under 0.1\,s, revealing a scalability gap that motivates a hybrid workflow. The benchmark demonstrates constraint sensitivity at
+the 20-component scale: latency constraints alone force three high-impact
 components off zero-trust; tightening LUTs raises risk from 1{,}804
 to 3{,}449 ($1.91\times$); restricting power forces a mixed
 security assignment exploiting redundancy-group structure.
@@ -82,7 +81,7 @@ gressl_design_2021, linares_design_2021, mahfuz_x-dfs_2025}. What is
 still missing is (i)~a clean, implementation-aware formulation for
 \emph{system-level} feature synthesis solved to proven optimality,
 (ii)~cross-solver validation establishing that the reported optima are
-correct, and (iii)~evaluation on an architecture-realistic benchmark
+correct, and (iii)~evaluation on an architecture-derived benchmark
 derived from an open-source SoC at a scale that reveals design
 insights invisible in small synthetic cases.
 
@@ -140,7 +139,7 @@ than exact implementation-aware synthesis.
 
 None of these works (i)~solve the system-level feature selection problem
 to proven optimality under FPGA resource constraints, (ii)~provide
-cross-solver validation of the reported optima, or (iii)~evaluate on an architecture-realistic benchmark derived
+cross-solver validation of the reported optima, or (iii)~evaluate on an architecture-derived benchmark derived
 from an open-source SoC.
 
 On the solver side, ASP has been used for hardware
@@ -174,7 +173,7 @@ security IP cores (a MAC checker, a dynamic-MAC engine with nonce
 management, a zero-trust firewall, and three monitoring/logging
 engines) targeting a Xilinx xc7z020 (PYNQ-Z2 class) at 125\,MHz.
 Zero-trust resource estimates are based on possible implementations
-explored in Butka and Bobda~\cite{butka_measuring_2025}. LUT and FF counts
+explored in prior work~\cite{butka_measuring_2025}. LUT and FF counts
 are architecture-independent 7-series primitive counts and transfer
 directly to XC7K410T without correction. Power values are Vivado
 static-power estimates normalised to $10^{-2}$\,W integers; they are
@@ -229,8 +228,7 @@ questions automatically.
 \subsection{Risk Objective}
 
 For each component $c$, asset $a$, and operation $op$, residual risk
-follows the multiplicative model of Butka and
-Bobda~\cite{butka_measuring_2025}:
+follows the multiplicative model of~\cite{butka_measuring_2025}:
 \begin{equation}
 r(c,a,op)=\left\lfloor \frac{I(a,op)\cdot V(s_c)\cdot L(\ell_c)}{10}\right\rfloor
 \label{eq:risk}
@@ -493,7 +491,7 @@ objectives between ASP and CP-SAT, confirming that both formulations
 encode the same optimization problem. At 20~components (OpenTitan),
 CP-SAT proves optimality in under 0.1\,s, but ASP does not converge
 to the proven optimum within its 120\,s timeout, confirming a
-qualitative scalability boundary between 8 and 20~components.
+clear scalability gap between 8 and 20~components.
 
 \begin{table}[t]
 \caption{Benchmark results: 24 cross-validated synthetic + 3 OpenTitan}
@@ -761,14 +759,19 @@ multi-constraint pressure.
 \subsection{Limitations}
 
 We assigned impact scores based on architectural criticality, not
-measured vulnerability data. Our feature catalog comes from Vivado
-synthesis of standalone security IP cores (MAC checker, dynamic-MAC
-engine, zero-trust firewall, and three logging monitors), not the
-actual OpenTitan blocks. The formulation
-covers the feature-synthesis stage; the policy and resilience
-stages are implemented in the maintained repository.
-Scaling beyond 20~components to 50--100 component SoCs remains future
-work.
+measured vulnerability data, so the reported optima are optimal
+under the chosen scoring heuristic, not under a calibrated security
+metric.  Our feature catalog comes from Vivado synthesis of
+standalone security IP cores on xc7z020; costs are transferred to
+XC7K410T by primitive count, which is reasonable for LUT/FF totals
+but does not account for placement, routing, or interconnect
+effects that a post-implementation flow would capture.  Power values
+are pre-route static estimates, not post-place-and-route
+measurements.  The formulation covers the feature-synthesis stage;
+the policy and resilience stages are implemented in the maintained
+repository but not evaluated here.
+Scaling beyond 20~components to 50--100 component SoCs remains
+future work.
 
 %===================================================================
 \section{Conclusion}

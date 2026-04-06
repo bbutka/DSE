@@ -17,37 +17,37 @@ Database file #1: iccad_refs.bib
 Done.
 You've used 13 entries,
             4087 wiz_defined-function locations,
-            896 strings with 10037 characters,
-and the built_in function-call counts, 9400 in all, are:
-= -- 773
-> -- 204
+            896 strings with 10004 characters,
+and the built_in function-call counts, 9353 in all, are:
+= -- 770
+> -- 199
 < -- 73
-+ -- 109
-- -- 35
-* -- 444
-:= -- 1447
++ -- 107
+- -- 34
+* -- 440
+:= -- 1444
 add.period$ -- 26
 call.type$ -- 13
 change.case$ -- 17
 chr.to.int$ -- 165
 cite$ -- 13
-duplicate$ -- 680
-empty$ -- 760
-format.name$ -- 44
-if$ -- 2177
+duplicate$ -- 677
+empty$ -- 758
+format.name$ -- 42
+if$ -- 2166
 int.to.chr$ -- 0
 int.to.str$ -- 13
-missing$ -- 123
+missing$ -- 122
 newline$ -- 62
 num.names$ -- 13
-pop$ -- 281
+pop$ -- 277
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 2
-skip$ -- 733
+skip$ -- 730
 stack$ -- 0
 substring$ -- 409
-swap$ -- 538
+swap$ -- 535
 text.length$ -- 18
 text.prefix$ -- 0
 top$ -- 5
