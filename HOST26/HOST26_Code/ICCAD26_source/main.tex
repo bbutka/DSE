@@ -40,7 +40,7 @@ cross-validated: all 24 synthetic runs (1--8~components) produce
 identical proven-optimal objectives across both solvers, providing
 strong evidence of formulation correctness. An integer linear programming
 (ILP) formulation solved by Gurobi confirms the same optima in under
-0.003\,s, giving a third independent solver validation.
+0.003\,s, confirming the optima from a third solver.
 At 20~components, ASP does not converge to
 the proven optimum within a 120\,s timeout, while CP-SAT proves optimality in
 under 0.1\,s, revealing a qualitative scalability boundary that motivates a
@@ -103,8 +103,8 @@ synthesis under explicit LUT, FF, power, and per-asset latency
 constraints, expressed in ASP and solved with clingo.
 \item Cross-solver validation: equivalent CP-SAT and ILP models produce
 identical proven-optimal objectives on all tested instances, providing
-strong evidence of formulation correctness across three independent
-solver paradigms.
+strong evidence of formulation correctness across three solver
+paradigms (ASP, CP-SAT, ILP).
 \item A scalability comparison from 1 to 20 components showing that
 ASP proves optimality up to 8~components (2.85\,s mean) but fails at
 20, while CP-SAT solves every case in under 0.1\,s, motivating a
@@ -405,8 +405,8 @@ integer linear program and solve it with Gurobi~\cite{gurobi}.
 Binary indicator variables select one feature pair per component;
 resource constraints are linear sums; redundancy-group risk is
 precomputed via a lookup table over feasible member combinations.
-This formulation is less extensible than ASP but provides an
-independent optimality certificate from a mature commercial solver.
+This formulation is less extensible than ASP but yields
+an optimality certificate from a mature commercial solver.
 
 %===================================================================
 \section{Experimental Setup}
@@ -737,8 +737,7 @@ profiles in under 0.003\,s, roughly $15\times$ faster than CP-SAT.
 We retain CP-SAT as the primary production solver because it is
 open-source and its element constraints require less formulation
 effort than the ILP lookup tables needed for redundancy groups.
-The ILP comparison validates that the CP-SAT optima are correct
-from a third independent solver paradigm.
+The ILP comparison confirms that the CP-SAT optima are correct.
 
 \subsection{Constraint Sensitivity as a Design Tool}
 
@@ -751,7 +750,7 @@ and tightens the security mix further, pushing risk to~3{,}449.
 Power at 800~units (OT-C) forces a different trade: the optimizer
 keeps ZTL but downgrades security on 11~components to a
 9~ZT~+~7~DM~+~4~MAC mix at risk~1{,}854.  The Pareto sweep
-(Figure~\ref{fig:pareto}) provides a complete risk--resource tradeoff
+(Figure~\ref{fig:pareto}) gives a complete risk--resource tradeoff
 map.  Quantitative what-if analysis at this level is most reliable with an
 exact solver that reports provably optimal solutions under each
 constraint set; the greedy's 0\% gap on OT-A/OT-B shows that simpler
@@ -797,8 +796,7 @@ The greedy heuristic matches on OT-A and OT-B but misses by 5\%
 on OT-C, where the power-latency interaction requires multi-component
 coordination that sequential assignment cannot achieve.
 
-Gurobi ILP confirms the OT optima in under 0.003\,s, providing
-independent validation from a commercial MIP solver.
+Gurobi ILP confirms the OT optima in under 0.003\,s.
 Looking ahead, we plan to co-optimize firewall and policy placement
 with feature selection and evaluate resilience under component-compromise
 scenarios on the OpenTitan topology.
