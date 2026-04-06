@@ -522,6 +522,241 @@ def solve_cpsat(
 
 
 # ---------------------------------------------------------------------------
+# Gurobi ILP solver
+# ---------------------------------------------------------------------------
+
+def solve_gurobi(
+    tc: TestCase, profile: Profile, catalog: FeatureCatalog
+) -> SolveResult:
+    import gurobipy as gp
+    from gurobipy import GRB
+
+    n_sec = len(catalog.security_features)
+    n_log = len(catalog.logging_features)
+
+    def _cost(res: str, feature: str, tier: str) -> int:
+        return catalog.resource_costs.get(res, {}).get(feature, {}).get(tier, 0)
+
+    caps = profile.capabilities
+    risk_caps = [v for k, v in caps.items() if k == "max_asset_risk"]
+    effective_risk_cap = max(risk_caps) if risk_caps else 999999
+
+    # Component assets
+    comp_assets: dict[str, list[tuple[str, str]]] = {}
+    for c, a, op in tc.assets:
+        comp_assets.setdefault(c, []).append((a, op))
+    n_assets = {c: len({a for a, _ in comp_assets.get(c, [])}) for c in tc.components}
+
+    # Precompute feature pair properties
+    MU, OMEGA = 25, 1000
+    pairs = []  # list of (sec, log, V, L, VL, latency)
+    for si, sec in enumerate(catalog.security_features):
+        for li, log in enumerate(catalog.logging_features):
+            v = catalog.vulnerability.get(sec, 0)
+            l = catalog.logging_score.get(log, 0)
+            lat = catalog.latency_cost.get(sec, 0)
+            pairs.append((sec, log, v, l, v * l, lat))
+
+    model = gp.Model("iccad_ilp")
+    model.setParam("OutputFlag", 0)
+    model.setParam("TimeLimit", 120)
+    model.setParam("Threads", 1)
+
+    # Determine feasible pairs per component (latency + risk cap)
+    feasible: dict[str, list[int]] = {}
+    for c in tc.components:
+        feasible[c] = []
+        for p, (sec, log, v, l, vl, lat) in enumerate(pairs):
+            ok = True
+            for a, op in comp_assets.get(c, []):
+                cap = tc.allowable_latency.get((a, op))
+                if cap is not None and lat > cap:
+                    ok = False; break
+                imp = tc.impact.get((a, op), 0)
+                if imp * vl // 10 > effective_risk_cap:
+                    ok = False; break
+            if ok:
+                feasible[c].append(p)
+
+    # Decision variables: x[c,p] = 1 if component c uses pair p (feasible only)
+    x = {}
+    for c in tc.components:
+        for p in feasible[c]:
+            x[c, p] = model.addVar(vtype=GRB.BINARY, name=f"x_{c}_{p}")
+
+    # Exactly one pair per component
+    for c in tc.components:
+        model.addConstr(sum(x[c, p] for p in feasible[c]) == 1)
+
+    # Feature-used indicators for base costs
+    sec_used = {}
+    for si, sec in enumerate(catalog.security_features):
+        sec_used[si] = model.addVar(vtype=GRB.BINARY, name=f"su_{si}")
+        for c in tc.components:
+            for p in feasible[c]:
+                if p // n_log == si:
+                    model.addConstr(sec_used[si] >= x[c, p])
+
+    log_used = {}
+    for li, log in enumerate(catalog.logging_features):
+        log_used[li] = model.addVar(vtype=GRB.BINARY, name=f"lu_{li}")
+        for c in tc.components:
+            for p in feasible[c]:
+                if p % n_log == li:
+                    model.addConstr(log_used[li] >= x[c, p])
+
+    # Resource constraints
+    ALL_RES = ("luts", "ffs", "dsps", "lutram", "bram", "bufg", "power")
+    for res in ALL_RES:
+        res_key = "power" if res == "power" else res
+        cap_key = f"max_{res}" if res != "power" else "max_power"
+        if cap_key not in caps and (res == "bufg" and "max_bufgs" in caps):
+            cap_key = "max_bufgs"
+        if cap_key not in caps:
+            continue
+
+        # Per-component costs
+        comp_sum = gp.LinExpr()
+        for c in tc.components:
+            na = n_assets.get(c, 1)
+            for p in feasible[c]:
+                sec = pairs[p][0]
+                comp_cost = _cost(res_key, sec, "byComponent") + _cost(res_key, sec, "byAsset") * na
+                if comp_cost != 0:
+                    comp_sum += comp_cost * x[c, p]
+
+        # Base costs
+        base_sum = gp.LinExpr()
+        for si, sec in enumerate(catalog.security_features):
+            bv = _cost(res_key, sec, "base")
+            if bv != 0:
+                base_sum += bv * sec_used[si]
+        for li, log in enumerate(catalog.logging_features):
+            bv = _cost(res_key, log, "base")
+            if bv != 0:
+                base_sum += bv * log_used[li]
+
+        model.addConstr(comp_sum + base_sum <= caps[cap_key])
+
+    # Objective: minimize total risk (non-group: I*V*L/10, group: redundancy-aware)
+    # For ILP, precompute group risk via lookup tables
+    in_group = set()
+    for members in tc.redundant_groups.values():
+        for m in members:
+            in_group.add(m)
+
+    # Precompute group denorm lookup: for each group, enumerate all possible
+    # member pair assignments and compute denormalized risk
+    from itertools import product as iterproduct
+
+    # Precompute group denorm for feasible combos only
+    group_denorm_table: dict[str, dict[tuple, int]] = {}
+    for gid, members in tc.redundant_groups.items():
+        ranked = sorted(members)
+        member_feasible = [feasible[m] for m in ranked]
+        table = {}
+        for combo in iterproduct(*member_feasible):
+            norms = []
+            for p in combo:
+                vl = pairs[p][4]
+                norms.append((vl - MU) * 1000 // (OMEGA - MU))
+            combined = norms[0]
+            for i in range(1, len(norms)):
+                combined = combined * norms[i] // 1000
+            denorm = combined * (OMEGA - MU) // 1000 + MU * 10
+            table[combo] = denorm
+        group_denorm_table[gid] = table
+
+    obj = gp.LinExpr()
+
+    # Non-group risk
+    for c in tc.components:
+        if c in in_group:
+            continue
+        for p in feasible[c]:
+            vl = pairs[p][4]
+            for a, op in comp_assets.get(c, []):
+                imp = tc.impact.get((a, op), 0)
+                risk = imp * vl // 10
+                if risk != 0:
+                    obj += risk * x[c, p]
+
+    # Group risk via feasible combo variables
+    for gid, members in tc.redundant_groups.items():
+        ranked = sorted(members)
+        table = group_denorm_table[gid]
+        member_feasible = [feasible[m] for m in ranked]
+
+        combo_vars = {}
+        for combo in iterproduct(*member_feasible):
+            denorm = table[combo]
+            group_risk = 0
+            for i, m in enumerate(ranked):
+                for a, op in comp_assets.get(m, []):
+                    imp = tc.impact.get((a, op), 0)
+                    group_risk += imp * denorm // 100
+            if group_risk == 0:
+                continue
+            cname = f"gc_{gid}_{'_'.join(str(c) for c in combo)}"
+            y = model.addVar(vtype=GRB.BINARY, name=cname)
+            for i, m in enumerate(ranked):
+                model.addConstr(y <= x[m, combo[i]])
+            combo_vars[combo] = (y, group_risk)
+
+        # Exactly one combo must be active
+        model.addConstr(
+            sum(y for y, _ in combo_vars.values()) == 1,
+            name=f"one_combo_{gid}")
+
+        for combo, (y, gr) in combo_vars.items():
+            obj += gr * y
+
+    model.setObjective(obj, GRB.MINIMIZE)
+
+    t0 = time.perf_counter()
+    model.optimize()
+    t1 = time.perf_counter()
+
+    result = SolveResult(
+        testcase=tc.name, profile=profile.name, solver="ILP/Gurobi",
+        time_s=round(t1 - t0, 3), objective=0, satisfiable=False, optimal=False,
+    )
+
+    if model.status in (GRB.OPTIMAL, GRB.SUBOPTIMAL):
+        result.satisfiable = True
+        result.optimal = (model.status == GRB.OPTIMAL)
+        result.objective = int(round(model.objVal))
+
+        for c in tc.components:
+            for p in feasible[c]:
+                if x[c, p].X > 0.5:
+                    result.security[c] = pairs[p][0]
+                    result.logging[c] = pairs[p][1]
+                    break
+
+        # Resource totals
+        for res_name, attr in [("luts", "luts"), ("ffs", "ffs"),
+                               ("power", "power"), ("bram", "bram")]:
+            res_key = "power" if res_name == "power" else res_name
+            total = 0
+            for c in tc.components:
+                na = n_assets.get(c, 1)
+                for p in feasible[c]:
+                    if x[c, p].X > 0.5:
+                        total += _cost(res_key, pairs[p][0], "byComponent") + \
+                                 _cost(res_key, pairs[p][0], "byAsset") * na
+            for si, sec in enumerate(catalog.security_features):
+                if sec_used[si].X > 0.5:
+                    total += _cost(res_key, sec, "base")
+            for li, log in enumerate(catalog.logging_features):
+                if log_used[li].X > 0.5:
+                    total += _cost(res_key, log, "base")
+            setattr(result, attr, total)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Clingo solver (Python API for fair timing)
 # ---------------------------------------------------------------------------
 
