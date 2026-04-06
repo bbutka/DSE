@@ -716,12 +716,17 @@ Feature synthesis is the first of three stages; the maintained
 repository also implements \emph{access-control policy synthesis}
 (firewall placement, least-privilege gap analysis via
 negation-as-failure) and \emph{resilience analysis}
-(parallel transitive closures over degraded topologies,
+(transitive closures over degraded topologies,
 bounded-depth attack-path enumeration). Both stages rely on
-recursive reachability, negation-as-failure, and multi-level
-implication chains, patterns natural in ASP but costly in CP-SAT
-or ILP. A hybrid workflow makes sense: CP-SAT for
-feature-synthesis optimization, ASP for the downstream stages.
+recursive reachability, default negation, and set/count
+aggregation---patterns natural in ASP but requiring substantial
+reformulation for CP-SAT or ILP.  We originally chose ASP for Phase~1
+because it shares the solver with Phases~2 and~3; the cross-solver
+validation reported here showed that Phase~1's constrained-assignment
+structure is better served by CP-SAT or ILP, motivating a hybrid
+architecture: CP-SAT or ILP for feature synthesis, ASP for the
+downstream stages whose logic-programming structure resists
+linearisation.
 
 \subsection{Relation to ILP/MIP Solvers}
 
