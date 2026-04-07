@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import os
 import queue
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
-from ..core.clingo_runner import ClingoRunner
 from ..core.solution_parser import Phase1Result, SolutionParser
 from ip_catalog.xilinx_ip_catalog import export_security_features_to_lp
+
+if TYPE_CHECKING:
+    from ..core.clingo_runner import ClingoRunner
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +211,9 @@ class Phase1Agent:
             except queue.Full:
                 pass
 
-    def _make_runner(self, timeout: int) -> ClingoRunner:
+    def _make_runner(self, timeout: int) -> "ClingoRunner":
+        from ..core.clingo_runner import ClingoRunner
+
         return ClingoRunner(
             timeout=timeout,
             threads=self.solver_config.get("clingo_threads"),

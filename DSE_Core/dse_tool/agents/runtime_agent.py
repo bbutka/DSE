@@ -23,9 +23,8 @@ from __future__ import annotations
 
 import os
 import queue
-from typing import Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
-from ..core.clingo_runner import ClingoRunner
 from ..core.solution_parser import (
     Phase1Result,
     Phase2Result,
@@ -34,6 +33,9 @@ from ..core.solution_parser import (
     JointPhase2RuntimeResult,
     SolutionParser,
 )
+
+if TYPE_CHECKING:
+    from ..core.clingo_runner import ClingoRunner
 
 
 # ---------------------------------------------------------------------------
@@ -537,7 +539,9 @@ coverage_gap(pep, PEP) :- policy_enforcement_point(PEP), not covered(PEP).
             except queue.Full:
                 pass
 
-    def _make_runner(self, timeout: int) -> ClingoRunner:
+    def _make_runner(self, timeout: int) -> "ClingoRunner":
+        from ..core.clingo_runner import ClingoRunner
+
         return ClingoRunner(
             timeout=timeout,
             threads=self.solver_config.get("clingo_threads"),

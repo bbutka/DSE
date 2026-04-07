@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import os
 import queue
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from ..core.clingo_runner import ClingoRunner
 from ..core.solution_parser import Phase1Result, Phase2Result, SolutionParser
+
+if TYPE_CHECKING:
+    from ..core.clingo_runner import ClingoRunner
 
 
 class Phase2Agent:
@@ -231,7 +233,9 @@ class Phase2Agent:
             except queue.Full:
                 pass
 
-    def _make_runner(self, timeout: int) -> ClingoRunner:
+    def _make_runner(self, timeout: int) -> "ClingoRunner":
+        from ..core.clingo_runner import ClingoRunner
+
         return ClingoRunner(
             timeout=timeout,
             threads=self.solver_config.get("clingo_threads"),

@@ -20,6 +20,7 @@ import queue
 import sys
 import unittest
 from dataclasses import asdict
+from importlib.util import find_spec
 from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
@@ -29,6 +30,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLINGO_DIR   = os.path.join(PROJECT_ROOT, "Clingo")
 TESTCASE_LP  = os.path.join(CLINGO_DIR, "tgt_system_tc9_inst.lp")
 FIXTURES_DIR = os.path.join(PROJECT_ROOT, "tests", "fixtures")
+HAS_CLINGO = find_spec("clingo") is not None
 
 sys.path.insert(0, PROJECT_ROOT)
 
@@ -291,6 +293,7 @@ def _run_runtime_joint_adaptive() -> list[RuntimeAdaptiveResult]:
     return _CACHED_RT_JOINT_ADAPTIVE
 
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime integration tests.")
 class TestRuntimeAdaptiveIntegration(unittest.TestCase):
     """Integration tests for solve_adaptive (require clingo)."""
 
@@ -322,6 +325,7 @@ class TestRuntimeAdaptiveIntegration(unittest.TestCase):
         self.assertIn("baseline", report)
 
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime integration tests.")
 class TestRuntimeJointIntegration(unittest.TestCase):
     """Integration tests for solve_joint (require clingo)."""
 
@@ -483,6 +487,7 @@ class TestGuiCompatibility(unittest.TestCase):
 # 5. Golden Baseline Comparison
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime golden baselines.")
 class TestRuntimeGoldenBaselines(unittest.TestCase):
     """
     Compare runtime outputs against HOST26 baselines, with explicit
@@ -556,6 +561,7 @@ class TestRuntimeGoldenBaselines(unittest.TestCase):
 # 6. Orchestrator Path Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime orchestrator path tests.")
 class TestOrchestratorRuntimePaths(unittest.TestCase):
     """Test orchestrator with runtime flags enabled."""
 
@@ -630,6 +636,7 @@ class TestOrchestratorRuntimePaths(unittest.TestCase):
 # 7. Failure-Path Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime failure-path tests.")
 class TestSolveAdaptiveFailurePaths(unittest.TestCase):
     """Verify solve_adaptive() raises RuntimeError on impossible inputs."""
 
@@ -679,6 +686,7 @@ class TestAttackDepthFacts(unittest.TestCase):
         self.assertIn("system_capability(max_attack_depth, 8).", facts)
 
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime joint tests.")
 class TestSolveJointNeverRaises(unittest.TestCase):
     """Verify solve_joint() never raises — returns satisfiable=False."""
 
@@ -715,6 +723,7 @@ class TestSolveJointNeverRaises(unittest.TestCase):
 # 8. Phase 2 Parity Test
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for Phase 2 parity tests.")
 class TestPhase2Parity(unittest.TestCase):
     """Compare standalone Phase 2 vs joint.to_phase2_result() structural fields."""
 
@@ -765,6 +774,7 @@ class TestPhase2Parity(unittest.TestCase):
 # 9. Additional Orchestrator Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime orchestrator path tests.")
 class TestOrchestratorBothFlags(unittest.TestCase):
     """Orchestrator with both joint and adaptive runtime flags."""
 
@@ -812,6 +822,7 @@ class TestOrchestratorBothFlags(unittest.TestCase):
 # 10. CLI Runner Smoke Test
 # ═══════════════════════════════════════════════════════════════════════════
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for runtime CLI tests.")
 class TestCLIRunner(unittest.TestCase):
     """Smoke test for run_runtime.py functions (not subprocess)."""
 

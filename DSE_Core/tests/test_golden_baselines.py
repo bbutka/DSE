@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLINGO_DIR = os.path.join(PROJECT_ROOT, "Clingo")
@@ -36,6 +37,8 @@ DETERMINISTIC_MATHOPT = {
     "ilp_solver": "cpsat",
     "cpsat_threads": 1,
 }
+HAS_CLINGO = find_spec("clingo") is not None
+HAS_ORTOOLS = find_spec("ortools") is not None
 
 sys.path.insert(0, PROJECT_ROOT)
 
@@ -182,6 +185,7 @@ class _GoldenAssertions:
         self.assertEqual(_worst_case_risk_scaled(p3), expected["phase3_worst_case_risk_scaled"])
 
 
+@unittest.skipUnless(HAS_CLINGO, "clingo is required for TC9 golden baselines.")
 class TestTC9GoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
     @classmethod
     def setUpClass(cls):
@@ -202,7 +206,7 @@ class TestTC9GoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
 
 
 @unittest.skipUnless(
-    RUN_SLOW_GOLDEN,
+    RUN_SLOW_GOLDEN and HAS_CLINGO,
     "Set DSE_RUN_SLOW_GOLDEN=1 to run balanced/min_resources golden baselines.",
 )
 class TestTC9GoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):
@@ -225,7 +229,7 @@ class TestTC9GoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):
 
 
 @unittest.skipUnless(
-    os.path.isfile(DARPA_LP),
+    os.path.isfile(DARPA_LP) and HAS_CLINGO,
     "DARPA UAV instance file not present",
 )
 class TestDarpaUAVGoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
@@ -247,6 +251,7 @@ class TestDarpaUAVGoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
                 )
 
 
+@unittest.skipUnless(HAS_ORTOOLS, "OR-Tools is required for OpenTitan golden baselines.")
 class TestOpenTitanPhase1GoldenBaselines(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -268,7 +273,7 @@ class TestOpenTitanPhase1GoldenBaselines(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    os.path.isfile(DARPA_LP) and RUN_SLOW_GOLDEN,
+    os.path.isfile(DARPA_LP) and RUN_SLOW_GOLDEN and HAS_CLINGO,
     "Set DSE_RUN_SLOW_GOLDEN=1 to run balanced/min_resources DARPA golden baselines.",
 )
 class TestDarpaUAVGoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):
