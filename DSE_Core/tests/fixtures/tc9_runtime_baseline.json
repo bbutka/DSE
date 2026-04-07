@@ -1,0 +1,159 @@
+{
+  "description": "TC9 runtime migration baselines sourced from HOST26, with explicit DSE_Core expected divergences where the DSE_ADD base architecture intentionally changes scalar outcomes.",
+  "source": {
+    "adaptive": "HOST26 tc9_runtime_adaptive.py",
+    "joint": "HOST26 tc9_runtime_joint.py"
+  },
+  "adaptive": {
+    "scenario_count": 5,
+    "scenarios": {
+      "baseline": {
+        "current_mode": "normal",
+        "placed_monitors": [
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 320
+      },
+      "dma_rate_spike": {
+        "current_mode": "attack_suspected",
+        "placed_monitors": [
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 320
+      },
+      "dma_privilege_creep": {
+        "current_mode": "attack_suspected",
+        "placed_monitors": [
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 320
+      },
+      "c8_sequence_anomaly": {
+        "current_mode": "attack_confirmed",
+        "placed_monitors": [
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 320
+      },
+      "ps0_policy_tamper": {
+        "current_mode": "attack_confirmed",
+        "placed_monitors": [
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 320
+      }
+    }
+  },
+  "joint": {
+    "satisfiable": true,
+    "optimal": true,
+    "placed_fws": [
+      "pep_group",
+      "pep_standalone"
+    ],
+    "placed_ps": [
+      "ps0",
+      "ps1"
+    ],
+    "placed_monitors": [
+      "mon_c8",
+      "mon_ctrl",
+      "mon_noc0",
+      "mon_noc1"
+    ],
+    "total_zta_cost": 630,
+    "monitor_total_cost": 380,
+    "total_joint_runtime_cost": 1010,
+    "response_readiness_score": 300,
+    "detection_strength_score": 5930,
+    "weighted_detection_latency": 905,
+    "false_positive_cost": 52
+  },
+  "joint_adaptive": {
+    "scenario_count": 5,
+    "scenarios": {
+      "baseline": {
+        "current_mode": "normal",
+        "placed_monitors": [
+          "mon_c8",
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 380,
+        "effective_allows_count": 0
+      },
+      "dma_rate_spike": {
+        "current_mode": "attack_suspected",
+        "placed_monitors": [
+          "mon_c8",
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 380,
+        "effective_allows_count": 0
+      },
+      "dma_privilege_creep": {
+        "current_mode": "attack_suspected",
+        "placed_monitors": [
+          "mon_c8",
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 380,
+        "effective_allows_count": 0
+      },
+      "c8_sequence_anomaly": {
+        "current_mode": "attack_confirmed",
+        "placed_monitors": [
+          "mon_c8",
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 380,
+        "effective_allows_count": 0
+      },
+      "ps0_policy_tamper": {
+        "current_mode": "attack_confirmed",
+        "placed_monitors": [
+          "mon_c8",
+          "mon_ctrl",
+          "mon_noc0",
+          "mon_noc1"
+        ],
+        "monitor_total_cost": 380,
+        "effective_allows_count": 0
+      }
+    }
+  },
+  "expected_dse_core_divergences": {
+    "joint.detection_strength_score": {
+      "host26": 5930,
+      "dse_core_expected": 6470,
+      "reason": "DSE_Core now runs tc9 joint runtime against the current integrated multiplicative Phase 1 baseline. That baseline produces different upstream p1_security and p1_logging facts than the HOST26 oracle, so the observability-weighted joint detection-strength score diverges even when the shared placement and cost fields still match."
+    },
+    "joint_adaptive.effective_allows_count": {
+      "reason": "DSE_Core intentionally injects p2_allow/3 from joint.to_phase2_result() into adaptive runtime. HOST26 omitted policy-context facts in the joint-to-adaptive handoff, so HOST26 reported zero effective_allows for every scenario.",
+      "dse_core_expected": {
+        "baseline": 13,
+        "dma_rate_spike": 6,
+        "dma_privilege_creep": 6,
+        "c8_sequence_anomaly": 0,
+        "ps0_policy_tamper": 0
+      }
+    }
+  }
+}

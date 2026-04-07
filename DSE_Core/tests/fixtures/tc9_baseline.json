@@ -1,0 +1,51 @@
+{
+  "description": "TC9 non-runtime golden baselines captured from the current integrated DSE_Core solver path.",
+  "max_security": {
+    "satisfiable": true,
+    "total_risk": 106,
+    "total_luts": 12280,
+    "total_power": 248,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_group",
+      "pep_standalone"
+    ],
+    "placed_ps": [
+      "ps0"
+    ],
+    "phase3_scenario_count": 29,
+    "phase3_worst_case_risk_scaled": 2650
+  },
+  "min_resources": {
+    "satisfiable": true,
+    "total_risk": 193,
+    "total_luts": 7140,
+    "total_power": 138,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_group",
+      "pep_standalone"
+    ],
+    "placed_ps": [
+      "ps0"
+    ],
+    "phase3_scenario_count": 29,
+    "phase3_worst_case_risk_scaled": 4825
+  },
+  "balanced": {
+    "satisfiable": true,
+    "total_risk": 106,
+    "total_luts": 8950,
+    "total_power": 177,
+    "phase2_satisfiable": true,
+    "placed_fws": [
+      "pep_group",
+      "pep_standalone"
+    ],
+    "placed_ps": [
+      "ps0"
+    ],
+    "phase3_scenario_count": 29,
+    "phase3_worst_case_risk_scaled": 2650
+  }
+}
