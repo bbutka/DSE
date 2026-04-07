@@ -203,6 +203,7 @@ class Phase3Agent:
         full_scenarios: bool = False,
         timeout: int = 30,
         extra_instance_facts: str = "",
+        solver_config: Optional[dict] = None,
     ) -> None:
         self.clingo_dir           = clingo_dir
         self.testcase_lp          = testcase_lp
@@ -213,6 +214,7 @@ class Phase3Agent:
         self.progress_queue = progress_queue
         self.full_scenarios = full_scenarios
         self.timeout        = timeout
+        self.solver_config  = solver_config or {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -252,7 +254,12 @@ class Phase3Agent:
 
         results: List[ScenarioResult] = []
         from ..core.clingo_runner import ClingoRunner
-        runner = ClingoRunner(timeout=self.timeout)
+        runner = ClingoRunner(
+            timeout=self.timeout,
+            threads=self.solver_config.get("clingo_threads"),
+            parallel_mode=self.solver_config.get("clingo_parallel_mode"),
+            configuration=self.solver_config.get("clingo_configuration"),
+        )
 
         for i, sc in enumerate(scenarios, 1):
             self._post(

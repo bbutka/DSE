@@ -91,6 +91,7 @@ class Phase1Agent:
         extra_instance_facts: str = "",
         timeout: int = 60,
         strategy_overrides: Optional[dict] = None,
+        solver_config: Optional[dict] = None,
     ) -> None:
         self.clingo_dir           = clingo_dir
         self.testcase_lp          = testcase_lp
@@ -99,6 +100,7 @@ class Phase1Agent:
         self.extra_instance_facts = extra_instance_facts
         self.timeout              = timeout
         self.strategy_overrides   = strategy_overrides  # optional override dict
+        self.solver_config        = solver_config or {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -123,7 +125,7 @@ class Phase1Agent:
         if strategy_extra:
             extra = (extra + "\n" if extra else "") + strategy_extra
 
-        runner = ClingoRunner(timeout=self.timeout)
+        runner = self._make_runner(timeout=self.timeout)
         result_raw = runner.solve(
             lp_files=lp_files,
             extra_facts=extra,
@@ -191,7 +193,7 @@ class Phase1Agent:
             "system_capability(max_security_risk, 500).\n"
             "system_capability(max_avail_risk, 500).\n"
         )
-        runner = ClingoRunner(timeout=self.timeout)
+        runner = self._make_runner(timeout=self.timeout)
         return runner.solve(
             lp_files=lp_files,
             extra_facts=relaxed_extra,
@@ -206,4 +208,12 @@ class Phase1Agent:
                 self.progress_queue.put_nowait(("INFO", msg))
             except queue.Full:
                 pass
+
+    def _make_runner(self, timeout: int) -> ClingoRunner:
+        return ClingoRunner(
+            timeout=timeout,
+            threads=self.solver_config.get("clingo_threads"),
+            parallel_mode=self.solver_config.get("clingo_parallel_mode"),
+            configuration=self.solver_config.get("clingo_configuration"),
+        )
 

@@ -34,7 +34,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..core.asp_generator import (
     NetworkModel, Component, Asset, RedundancyGroup, Service,
-    AccessNeed, ASPGenerator, make_tc9_network, make_reference_soc
+    AccessNeed, ASPGenerator, make_opentitan_network, make_tc9_network, make_reference_soc
 )
 
 
@@ -574,6 +574,38 @@ class NetworkEditor(ttk.Frame):
             },
             "default_pos": (400, 400),
         }
+
+        ot_positions = {
+            "cpu": (80, 180),
+            "dma": (80, 320),
+            "ps_ot": (280, 80),
+            "ot_bus": (280, 250),
+            "pep_ot": (450, 250),
+            "aes": (650, 60),
+            "hmac": (650, 130),
+            "kmac": (650, 200),
+            "otbn": (650, 270),
+            "keymgr": (650, 340),
+            "otp": (650, 410),
+            "lc": (650, 480),
+            "flash": (650, 550),
+            "sram": (650, 620),
+            "rom": (650, 690),
+            "uart0": (860, 130),
+            "uart1": (860, 200),
+            "gpio": (860, 270),
+            "spi": (860, 340),
+            "i2c": (860, 410),
+            "timer": (860, 480),
+            "alert": (860, 550),
+            "entropy": (860, 620),
+        }
+        for profile in ("OT-A", "OT-B", "OT-C"):
+            cls.EXAMPLE_TOPOLOGIES[f"OpenTitan ({profile})"] = {
+                "factory": (lambda p=profile: make_opentitan_network(profile=p)),
+                "positions": ot_positions,
+                "default_pos": (420, 280),
+            }
 
     @classmethod
     def available_examples(cls) -> List[str]:

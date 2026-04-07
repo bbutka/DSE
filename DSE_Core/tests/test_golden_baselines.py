@@ -3,6 +3,7 @@ Golden baseline comparison tests.
 
 Fast path:
   - always checks the max_security strategy for tc9 and DARPA UAV
+  - checks OpenTitan OT-A/OT-B/OT-C Phase 1 baselines
 
 Slow path:
   - checks balanced and min_resources against the checked-in fixtures
@@ -27,13 +28,22 @@ FAST_TIMEOUT = int(os.environ.get("DSE_GOLDEN_TIMEOUT", "60"))
 SLOW_TIMEOUT = int(os.environ.get("DSE_SLOW_GOLDEN_TIMEOUT", "4800"))
 FAST_STRATEGIES = ("max_security",)
 SLOW_STRATEGIES = ("balanced", "min_resources")
+DETERMINISTIC_CLINGO = {
+    "clingo_threads": 1,
+}
+DETERMINISTIC_MATHOPT = {
+    "phase1_backend": "cpsat",
+    "ilp_solver": "cpsat",
+    "cpsat_threads": 1,
+}
 
 sys.path.insert(0, PROJECT_ROOT)
 
+from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
 from dse_tool.agents.phase1_agent import Phase1Agent
 from dse_tool.agents.phase2_agent import Phase2Agent
 from dse_tool.agents.phase3_agent import Phase3Agent, generate_scenarios
-from dse_tool.core.asp_generator import ASPGenerator, make_tc9_network
+from dse_tool.core.asp_generator import ASPGenerator, make_opentitan_network, make_tc9_network
 
 _TC9_MODEL = make_tc9_network()
 _TC9_FACTS = ASPGenerator(_TC9_MODEL).generate()
@@ -52,6 +62,7 @@ def _run_tc9_pipeline(strategy: str, timeout: int):
         strategy=strategy,
         extra_instance_facts=_TC9_FACTS,
         timeout=timeout,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     p2 = Phase2Agent(
@@ -61,6 +72,7 @@ def _run_tc9_pipeline(strategy: str, timeout: int):
         strategy=strategy,
         extra_instance_facts=_TC9_FACTS,
         timeout=timeout,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     p3 = Phase3Agent(
@@ -72,6 +84,7 @@ def _run_tc9_pipeline(strategy: str, timeout: int):
         timeout=timeout,
         full_scenarios=True,
         extra_instance_facts=_TC9_FACTS,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run(model_scenarios=_TC9_SCENARIOS)
 
     return p1, p2, p3
@@ -83,6 +96,7 @@ def _run_darpa_pipeline(strategy: str, timeout: int):
         testcase_lp=DARPA_LP,
         strategy=strategy,
         timeout=timeout,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     p2 = Phase2Agent(
@@ -91,6 +105,7 @@ def _run_darpa_pipeline(strategy: str, timeout: int):
         phase1_result=p1,
         strategy=strategy,
         timeout=timeout,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     p3 = Phase3Agent(
@@ -100,9 +115,21 @@ def _run_darpa_pipeline(strategy: str, timeout: int):
         phase2_result=p2,
         strategy=strategy,
         timeout=timeout,
+        solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     return p1, p2, p3
+
+
+def _run_opentitan_phase1(profile: str, timeout: int):
+    model = make_opentitan_network(profile)
+    p1 = Phase1MathOptAgent(
+        network_model=model,
+        strategy="max_security",
+        timeout=timeout,
+        solver_config=DETERMINISTIC_MATHOPT,
+    ).run()
+    return p1
 
 
 def _worst_case_risk_scaled(results) -> int:
@@ -123,6 +150,10 @@ class TestGoldenFixtureShape(unittest.TestCase):
             {"max_security", "min_resources", "balanced"},
             {key for key in fixture.keys() if key != "description"},
         )
+
+    def test_opentitan_fixture_has_all_three_profiles(self):
+        fixture = _load_fixture("opentitan_phase1_baseline.json")
+        self.assertEqual({"OT-A", "OT-B", "OT-C"}, {key for key in fixture.keys() if key != "description"})
 
 
 class _GoldenAssertions:
@@ -214,6 +245,26 @@ class TestDarpaUAVGoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
                     self.expected[strategy],
                     self.actual[strategy],
                 )
+
+
+class TestOpenTitanPhase1GoldenBaselines(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.expected = _load_fixture("opentitan_phase1_baseline.json")
+        cls.actual = {
+            profile: _run_opentitan_phase1(profile, FAST_TIMEOUT)
+            for profile in ("OT-A", "OT-B", "OT-C")
+        }
+
+    def test_profiles_match(self):
+        for profile in ("OT-A", "OT-B", "OT-C"):
+            with self.subTest(profile=profile):
+                expected = self.expected[profile]
+                p1 = self.actual[profile]
+                self.assertEqual(p1.satisfiable, expected["satisfiable"])
+                self.assertEqual(p1.total_risk(), expected["total_risk"])
+                self.assertEqual(p1.total_luts, expected["total_luts"])
+                self.assertEqual(p1.total_power, expected["total_power"])
 
 
 @unittest.skipUnless(

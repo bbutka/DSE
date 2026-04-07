@@ -14,7 +14,7 @@ CLINGO_DIR = os.path.join(PROJECT_ROOT, "Clingo")
 
 from dse_tool.core.asp_generator import ASPGenerator, make_reference_soc, make_tc9_network
 from dse_tool.core.solution_parser import Phase1Result, Phase2Result, ScenarioResult
-from dse_tool.agents.ilp_phase1_agent import ILPPhase1Agent
+from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
 from dse_tool.agents.phase1_agent import Phase1Agent
 from dse_tool.agents.orchestrator import DSEOrchestrator
 
@@ -58,41 +58,52 @@ class TestOrchestratorPhase1BackendSelection(unittest.TestCase):
             **kwargs,
         )
 
-    def test_default_backend_is_ilp(self):
+    def test_default_backend_is_cpsat_mathopt(self):
         orch = self._make_orchestrator()
         facts = ASPGenerator(orch.network_model).generate()
-        with patch("dse_tool.agents.orchestrator.ILPPhase1Agent.run", return_value=_sat_phase1()) as ilp_run, \
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", return_value=_sat_phase1()) as mathopt_run, \
              patch("dse_tool.agents.orchestrator.Phase1Agent.run", side_effect=AssertionError("ASP fallback should not run")), \
              patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=_sat_phase2()), \
              patch("dse_tool.agents.orchestrator.Phase3Agent.run", return_value=_sat_phase3()):
             sol = orch._run_strategy("max_security", facts)
-        self.assertTrue(ilp_run.called)
+        self.assertTrue(mathopt_run.called)
         self.assertTrue(sol.phase1.satisfiable)
         self.assertEqual(sol.phase1.security["c1"], "zero_trust")
 
-    def test_ilp_unsat_falls_back_to_asp(self):
+    def test_cpsat_unsat_falls_back_to_asp(self):
         orch = self._make_orchestrator()
         facts = ASPGenerator(orch.network_model).generate()
         asp_phase1 = _sat_phase1()
         asp_phase1.security = {"c1": "dynamic_mac"}
-        with patch("dse_tool.agents.orchestrator.ILPPhase1Agent.run", return_value=_unsat_phase1()) as ilp_run, \
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", return_value=_unsat_phase1()) as mathopt_run, \
              patch("dse_tool.agents.orchestrator.Phase1Agent.run", return_value=asp_phase1) as asp_run, \
              patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=_sat_phase2()), \
              patch("dse_tool.agents.orchestrator.Phase3Agent.run", return_value=_sat_phase3()):
             sol = orch._run_strategy("max_security", facts)
-        self.assertTrue(ilp_run.called)
+        self.assertTrue(mathopt_run.called)
         self.assertTrue(asp_run.called)
         self.assertEqual(sol.phase1.security["c1"], "dynamic_mac")
 
     def test_explicit_asp_backend_skips_ilp(self):
         orch = self._make_orchestrator(solver_config={"phase1_backend": "asp"})
         facts = ASPGenerator(orch.network_model).generate()
-        with patch("dse_tool.agents.orchestrator.ILPPhase1Agent.run", side_effect=AssertionError("ILP should not run")), \
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", side_effect=AssertionError("MathOpt should not run")), \
              patch("dse_tool.agents.orchestrator.Phase1Agent.run", return_value=_sat_phase1()) as asp_run, \
              patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=_sat_phase2()), \
              patch("dse_tool.agents.orchestrator.Phase3Agent.run", return_value=_sat_phase3()):
             sol = orch._run_strategy("max_security", facts)
         self.assertTrue(asp_run.called)
+        self.assertTrue(sol.phase1.satisfiable)
+
+    def test_explicit_cbc_backend_runs_mathopt(self):
+        orch = self._make_orchestrator(solver_config={"phase1_backend": "cbc"})
+        facts = ASPGenerator(orch.network_model).generate()
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", return_value=_sat_phase1()) as mathopt_run, \
+             patch("dse_tool.agents.orchestrator.Phase1Agent.run", side_effect=AssertionError("ASP should not run")), \
+             patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=_sat_phase2()), \
+             patch("dse_tool.agents.orchestrator.Phase3Agent.run", return_value=_sat_phase3()):
+            sol = orch._run_strategy("max_security", facts)
+        self.assertTrue(mathopt_run.called)
         self.assertTrue(sol.phase1.satisfiable)
 
 
@@ -105,6 +116,11 @@ class TestPhase1BackendIntegration(unittest.TestCase):
         except ImportError:
             cls.has_clingo = False
         try:
+            import ortools  # noqa: F401
+            cls.has_ortools = True
+        except ImportError:
+            cls.has_ortools = False
+        try:
             import pulp  # noqa: F401
             cls.has_pulp = True
         except ImportError:
@@ -112,13 +128,13 @@ class TestPhase1BackendIntegration(unittest.TestCase):
         cls.has_lp = os.path.isfile(os.path.join(CLINGO_DIR, "init_enc.lp"))
 
     def setUp(self):
-        if not self.has_clingo or not self.has_lp or not self.has_pulp:
-            self.skipTest("clingo, PuLP, or LP files not available")
+        if not self.has_clingo or not self.has_lp or not self.has_pulp or not self.has_ortools:
+            self.skipTest("clingo, OR-Tools, PuLP, or LP files not available")
 
     def test_tc9_max_security_asset_risk_matches_asp(self):
         model = make_tc9_network()
         facts = ASPGenerator(model).generate()
-        ilp = ILPPhase1Agent(model, strategy="max_security", timeout=60).run()
+        ilp = Phase1MathOptAgent(model, strategy="max_security", timeout=60).run()
         asp = Phase1Agent(
             clingo_dir=CLINGO_DIR,
             testcase_lp="",
@@ -134,7 +150,7 @@ class TestPhase1BackendIntegration(unittest.TestCase):
     def test_tc9_min_resources_asset_risk_matches_asp(self):
         model = make_tc9_network()
         facts = ASPGenerator(model).generate()
-        ilp = ILPPhase1Agent(model, strategy="min_resources", timeout=60).run()
+        ilp = Phase1MathOptAgent(model, strategy="min_resources", timeout=60).run()
         asp = Phase1Agent(
             clingo_dir=CLINGO_DIR,
             testcase_lp="",
@@ -150,7 +166,7 @@ class TestPhase1BackendIntegration(unittest.TestCase):
     def test_tc9_balanced_asset_risk_matches_asp(self):
         model = make_tc9_network()
         facts = ASPGenerator(model).generate()
-        ilp = ILPPhase1Agent(model, strategy="balanced", timeout=60).run()
+        ilp = Phase1MathOptAgent(model, strategy="balanced", timeout=60).run()
         asp = Phase1Agent(
             clingo_dir=CLINGO_DIR,
             testcase_lp="",
@@ -166,7 +182,7 @@ class TestPhase1BackendIntegration(unittest.TestCase):
     def test_reference_soc_max_security_asset_risk_matches_asp(self):
         model = make_reference_soc()
         facts = ASPGenerator(model).generate()
-        ilp = ILPPhase1Agent(model, strategy="max_security", timeout=60).run()
+        ilp = Phase1MathOptAgent(model, strategy="max_security", timeout=60).run()
         asp = Phase1Agent(
             clingo_dir=CLINGO_DIR,
             testcase_lp="",
@@ -179,7 +195,7 @@ class TestPhase1BackendIntegration(unittest.TestCase):
         self.assertEqual(ilp.risk_per_asset_action(), asp.risk_per_asset_action())
         self.assertEqual(ilp.max_risk_per_asset(), asp.max_risk_per_asset())
 
-    def test_tc9_full_pipeline_defaults_to_ilp(self):
+    def test_tc9_full_pipeline_defaults_to_mathopt(self):
         model = make_tc9_network()
         q = queue.Queue()
         orch = DSEOrchestrator(
@@ -199,6 +215,6 @@ class TestPhase1BackendIntegration(unittest.TestCase):
             _level, msg = q.get_nowait()
             messages.append(msg)
         self.assertTrue(
-            any("/ILP]" in msg for msg in messages),
+            any("/MATHOPT]" in msg for msg in messages),
             f"Expected ILP backend progress messages, got: {messages[:20]}",
         )
