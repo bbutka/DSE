@@ -54,6 +54,7 @@ class Phase2Agent:
         progress_queue: Optional[queue.Queue] = None,
         timeout: int = 60,
         extra_instance_facts: str = "",
+        solver_config: Optional[dict] = None,
     ) -> None:
         self.clingo_dir           = clingo_dir
         self.testcase_lp          = testcase_lp
@@ -62,6 +63,7 @@ class Phase2Agent:
         self.progress_queue       = progress_queue
         self.timeout              = timeout
         self.extra_instance_facts = extra_instance_facts
+        self.solver_config        = solver_config or {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -94,7 +96,7 @@ class Phase2Agent:
         elif p1_facts:
             all_extra = p1_facts
 
-        runner = ClingoRunner(timeout=self.timeout)
+        runner = self._make_runner(timeout=self.timeout)
         result_raw = runner.solve(
             lp_files=lp_files,
             extra_facts=all_extra,
@@ -157,7 +159,7 @@ class Phase2Agent:
 
         Returns a human-readable diagnosis string.
         """
-        runner = ClingoRunner(timeout=20)
+        runner = self._make_runner(timeout=20)
         issues: list = []
 
         # Test 1: Relax the critical-IP firewall constraint
@@ -228,3 +230,11 @@ class Phase2Agent:
                 self.progress_queue.put_nowait(("INFO", msg))
             except queue.Full:
                 pass
+
+    def _make_runner(self, timeout: int) -> ClingoRunner:
+        return ClingoRunner(
+            timeout=timeout,
+            threads=self.solver_config.get("clingo_threads"),
+            parallel_mode=self.solver_config.get("clingo_parallel_mode"),
+            configuration=self.solver_config.get("clingo_configuration"),
+        )

@@ -9,6 +9,7 @@ solves, and returns the atoms from the best (optimal) model found.
 
 from __future__ import annotations
 
+import os
 import threading
 from typing import List, Optional, Dict, Any
 
@@ -25,8 +26,17 @@ class ClingoRunner:
         Hard wall-clock timeout in seconds.  0 = no limit.
     """
 
-    def __init__(self, timeout: int = 60) -> None:
+    def __init__(
+        self,
+        timeout: int = 60,
+        threads: Optional[int] = None,
+        parallel_mode: Optional[str] = None,
+        configuration: Optional[str] = None,
+    ) -> None:
         self.timeout = timeout
+        self.threads = self._resolve_threads(threads)
+        self.parallel_mode = parallel_mode or os.environ.get("DSE_CLINGO_PARALLEL_MODE")
+        self.configuration = configuration or os.environ.get("DSE_CLINGO_CONFIGURATION")
 
     # ------------------------------------------------------------------
     # Public API
@@ -73,11 +83,7 @@ class ClingoRunner:
         }
 
         try:
-            flags = [
-                f"--opt-mode={opt_mode}",
-                f"-n {num_solutions}",
-                "--warn=none",
-            ]
+            flags = self._build_flags(opt_mode=opt_mode, num_solutions=num_solutions)
             ctl = clingo.Control(flags)
 
             # Load files
@@ -172,7 +178,7 @@ class ClingoRunner:
         }
 
         try:
-            ctl = clingo.Control(["-n", "1", "--warn=none"])
+            ctl = clingo.Control(self._build_flags(num_solutions=1))
 
             for path in lp_files:
                 try:
@@ -233,3 +239,32 @@ class ClingoRunner:
             result["status"] = "ERROR"
             result["message"] = str(exc)
             return result
+
+    def _build_flags(
+        self,
+        opt_mode: Optional[str] = None,
+        num_solutions: Optional[int] = None,
+    ) -> List[str]:
+        flags: List[str] = ["--warn=none"]
+        if opt_mode:
+            flags.append(f"--opt-mode={opt_mode}")
+        if num_solutions is not None:
+            flags.extend(["-n", str(num_solutions)])
+        if self.configuration:
+            flags.append(f"--configuration={self.configuration}")
+        if self.threads and self.threads > 1:
+            mode = self.parallel_mode or "compete"
+            flags.append(f"--parallel-mode={self.threads},{mode}")
+        return flags
+
+    @staticmethod
+    def _resolve_threads(threads: Optional[int]) -> Optional[int]:
+        if threads is not None:
+            return max(1, int(threads))
+        env_value = os.environ.get("DSE_CLINGO_THREADS")
+        if env_value:
+            try:
+                return max(1, int(env_value))
+            except ValueError:
+                return None
+        return None

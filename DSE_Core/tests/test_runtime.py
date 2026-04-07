@@ -216,6 +216,7 @@ def _run_phase1() -> Phase1Result:
             strategy="max_security",
             extra_instance_facts=_TC9_FACTS,
             timeout=60,
+            solver_config={"clingo_threads": 1},
         )
         _CACHED_P1 = agent.run()
     return _CACHED_P1
@@ -232,6 +233,7 @@ def _run_phase2(p1: Phase1Result) -> Phase2Result:
             strategy="max_security",
             extra_instance_facts=_TC9_FACTS,
             timeout=60,
+            solver_config={"clingo_threads": 1},
         )
         _CACHED_P2 = agent.run()
     return _CACHED_P2
@@ -245,6 +247,7 @@ def _run_runtime_adaptive() -> list[RuntimeAdaptiveResult]:
             testcase_lp=TESTCASE_LP,
             extra_instance_facts=_TC9_FACTS,
             timeout=60,
+            solver_config={"clingo_threads": 1},
         )
         _CACHED_RT_ADAPTIVE = rt.solve_adaptive(
             _run_phase1(),
@@ -262,6 +265,7 @@ def _run_runtime_joint() -> JointPhase2RuntimeResult:
             testcase_lp=TESTCASE_LP,
             extra_instance_facts=_TC9_FACTS,
             timeout=60,
+            solver_config={"clingo_threads": 1},
         )
         _CACHED_RT_JOINT = rt.solve_joint(_run_phase1())
     return _CACHED_RT_JOINT
@@ -275,6 +279,7 @@ def _run_runtime_joint_adaptive() -> list[RuntimeAdaptiveResult]:
             testcase_lp=TESTCASE_LP,
             extra_instance_facts=_TC9_FACTS,
             timeout=60,
+            solver_config={"clingo_threads": 1},
         )
         joint = _run_runtime_joint()
         _CACHED_RT_JOINT_ADAPTIVE = rt.solve_adaptive(
@@ -582,7 +587,7 @@ class TestOrchestratorRuntimePaths(unittest.TestCase):
         )
         fake_phase3 = [ScenarioResult(name="baseline", compromised=[], failed=[], satisfiable=True)]
 
-        with patch("dse_tool.agents.orchestrator.ILPPhase1Agent.run", return_value=cached_p1), \
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", return_value=cached_p1), \
              patch("dse_tool.agents.orchestrator.Phase1Agent.run", return_value=cached_p1), \
              patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=cached_p2), \
              patch("dse_tool.agents.orchestrator.RuntimeAgent.solve_joint", return_value=cached_joint), \
@@ -784,7 +789,7 @@ class TestOrchestratorBothFlags(unittest.TestCase):
         cached_joint = _run_runtime_joint()
         fake_phase3 = [ScenarioResult(name="baseline", compromised=[], failed=[], satisfiable=True)]
 
-        with patch("dse_tool.agents.orchestrator.ILPPhase1Agent.run", return_value=cached_p1), \
+        with patch("dse_tool.agents.orchestrator.Phase1MathOptAgent.run", return_value=cached_p1), \
              patch("dse_tool.agents.orchestrator.Phase1Agent.run", return_value=cached_p1), \
              patch("dse_tool.agents.orchestrator.Phase2Agent.run", return_value=cached_p2), \
              patch("dse_tool.agents.orchestrator.RuntimeAgent.solve_joint", return_value=cached_joint), \

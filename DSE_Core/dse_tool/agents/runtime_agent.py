@@ -127,12 +127,14 @@ class RuntimeAgent:
         progress_queue: Optional[queue.Queue] = None,
         timeout: int = 60,
         extra_instance_facts: str = "",
+        solver_config: Optional[dict] = None,
     ) -> None:
         self.clingo_dir = clingo_dir
         self.testcase_lp = testcase_lp
         self.progress_queue = progress_queue
         self.timeout = timeout
         self.extra_instance_facts = extra_instance_facts
+        self.solver_config = solver_config or {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -175,7 +177,7 @@ class RuntimeAgent:
             )
             lp_files = self._build_adaptive_lp_list()
 
-            runner = ClingoRunner(timeout=self.timeout)
+            runner = self._make_runner(timeout=self.timeout)
             raw = runner.solve(
                 lp_files=lp_files,
                 extra_facts=facts,
@@ -244,7 +246,7 @@ class RuntimeAgent:
             elif p1_facts:
                 facts = p1_facts
 
-            runner = ClingoRunner(timeout=self.timeout)
+            runner = self._make_runner(timeout=self.timeout)
             raw = runner.solve(
                 lp_files=lp_files,
                 extra_facts=facts,
@@ -501,7 +503,7 @@ coverage_gap(pep, PEP) :- policy_enforcement_point(PEP), not covered(PEP).
         facts = self._build_runtime_facts(p1, p2, scenario, extra_facts)
         combined = facts + "\n" + inline
 
-        runner = ClingoRunner(timeout=20)
+        runner = self._make_runner(timeout=20)
         raw = runner.solve(
             lp_files=diag_lp,
             extra_facts=combined,
@@ -534,4 +536,12 @@ coverage_gap(pep, PEP) :- policy_enforcement_point(PEP), not covered(PEP).
                 self.progress_queue.put_nowait(("INFO", msg))
             except queue.Full:
                 pass
+
+    def _make_runner(self, timeout: int) -> ClingoRunner:
+        return ClingoRunner(
+            timeout=timeout,
+            threads=self.solver_config.get("clingo_threads"),
+            parallel_mode=self.solver_config.get("clingo_parallel_mode"),
+            configuration=self.solver_config.get("clingo_configuration"),
+        )
 
