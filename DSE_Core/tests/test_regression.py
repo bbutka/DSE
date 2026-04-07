@@ -35,11 +35,18 @@ sys.path.insert(0, PROJECT_ROOT)
 from dse_tool.core.asp_generator import (
     Component, Asset, RedundancyGroup, Service, AccessNeed,
     MissionCapability, NetworkModel, ASPGenerator,
-    make_opentitan_network, make_tc9_network, make_reference_soc,
+    make_opentitan_network, make_pixhawk6x_platform, make_pixhawk6x_uav_network,
+    make_pixhawk6x_dual_ps_network, make_pixhawk6x_uav_dual_ps_network,
+    make_tc9_network, make_reference_soc,
 )
 from dse_tool.core.solution_parser import (
     Phase1Result, Phase2Result, ScenarioResult, SolutionResult,
     SolutionParser, AMP_DENOM,
+)
+from dse_tool.core.architecture_delta import compare_network_models
+from dse_tool.core.architecture_comparison_report import (
+    build_architecture_comparison_summary,
+    format_architecture_comparison,
 )
 from dse_tool.core.solution_ranker import SolutionRanker, CIA_WEIGHTS
 from dse_tool.core.comparison import ComparisonEngine, generate_report_text
@@ -289,6 +296,91 @@ class TestOpenTitanFactory(unittest.TestCase):
         self.assertIn("serial_io", caps)
 
 
+class TestPixhawk6XFactory(unittest.TestCase):
+    """Validate the Pixhawk 6X platform and UAV overlay models."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.platform = make_pixhawk6x_platform()
+        cls.uav = make_pixhawk6x_uav_network()
+        cls.uav_dual_ps = make_pixhawk6x_uav_dual_ps_network()
+
+    def test_platform_name(self):
+        self.assertEqual(self.platform.name, "Pixhawk 6X Platform")
+
+    def test_platform_contains_documented_components(self):
+        names = {c.name for c in self.platform.components}
+        for name in ("fmu_h753", "io_mcu", "imu_1", "imu_2", "imu_3", "baro_1", "baro_2", "mag", "se050", "ps_fmu"):
+            self.assertIn(name, names)
+
+    def test_platform_redundancy_groups(self):
+        groups = {g.group_id: set(g.members) for g in self.platform.redundancy_groups}
+        self.assertEqual(groups["imu_group"], {"imu_1", "imu_2", "imu_3"})
+        self.assertEqual(groups["baro_group"], {"baro_1", "baro_2"})
+
+    def test_platform_port_buses(self):
+        buses = set(self.platform.buses)
+        for bus in ("gps1_port", "gps2_port", "telem1_port", "uart4_i2c_port", "eth_port", "spi5_ext", "can1", "can2", "px4io_link"):
+            self.assertIn(bus, buses)
+
+    def test_platform_capabilities(self):
+        caps = {c.name for c in self.platform.capabilities}
+        self.assertEqual(caps, {"flight_stabilization_base", "failsafe_io", "crypto_anchor"})
+
+    def test_uav_name(self):
+        self.assertEqual(self.uav.name, "Pixhawk 6X UAV")
+
+    def test_uav_overlay_components(self):
+        names = {c.name for c in self.uav.components}
+        for name in ("gps_1", "gps_2", "telem_radio", "ground_station", "rc_receiver", "esc_bus_1", "esc_bus_2", "companion", "camera", "flash_fram"):
+            self.assertIn(name, names)
+
+    def test_uav_overlay_redundancy(self):
+        groups = {g.group_id: set(g.members) for g in self.uav.redundancy_groups}
+        self.assertEqual(groups["gps_group"], {"gps_1", "gps_2"})
+        self.assertEqual(groups["motor_bus_group"], {"esc_bus_1", "esc_bus_2"})
+
+    def test_uav_overlay_capabilities(self):
+        caps = {c.name for c in self.uav.capabilities}
+        for cap in ("flight_control", "navigation", "ground_comms", "rc_override", "surveillance", "crypto_ops", "logging"):
+            self.assertIn(cap, caps)
+
+    def test_uav_pep_candidates(self):
+        self.assertIn("pep_telem1", self.uav.cand_fws)
+        self.assertIn("pep_eth", self.uav.cand_fws)
+        self.assertIn("pep_can1", self.uav.cand_fws)
+        self.assertIn("pep_gps2", self.uav.cand_fws)
+
+    def test_dual_ps_overlay_contains_ps_io(self):
+        names = {c.name for c in self.uav_dual_ps.components}
+        self.assertIn("ps_io", names)
+        self.assertEqual(set(self.uav_dual_ps.cand_ps), {"ps_fmu", "ps_io"})
+
+    def test_dual_ps_alias_matches_uav_dual_ps_factory(self):
+        alias_model = make_pixhawk6x_dual_ps_network()
+        self.assertEqual(alias_model.name, self.uav_dual_ps.name)
+        self.assertEqual(set(alias_model.cand_ps), set(self.uav_dual_ps.cand_ps))
+        self.assertEqual(set(alias_model.fw_governs), set(self.uav_dual_ps.fw_governs))
+
+    def test_platform_to_uav_architecture_delta(self):
+        delta = compare_network_models(self.platform, self.uav)
+        self.assertTrue(delta.has_changes())
+        self.assertIn("gps_1", delta.added_components)
+        self.assertIn("gps_2", delta.added_components)
+        self.assertIn("telem_radio", delta.added_components)
+        self.assertIn("ground_station", delta.added_components)
+        self.assertIn("flash_fram", delta.added_components)
+        self.assertIn("gps_group", delta.added_redundancy_groups)
+        self.assertIn("motor_bus_group", delta.added_redundancy_groups)
+        self.assertIn("navigation", delta.added_capabilities)
+        self.assertIn("comms_svc", delta.added_services)
+
+    def test_uav_to_dual_ps_architecture_delta(self):
+        delta = compare_network_models(self.uav, self.uav_dual_ps)
+        self.assertEqual(delta.added_components, ["ps_io"])
+        self.assertEqual(delta.added_ps_candidates, ["ps_io"])
+
+
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # 3. ASP Generator Tests
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -532,6 +624,13 @@ class TestPhase1Result(unittest.TestCase):
         self.assertIn("p1_risk(c1r1, read, 2).", facts)
         self.assertIn("p1_risk(c1r1, 3).", facts)  # max over actions
 
+    def test_security_overhead_summary(self):
+        p1 = self._make_p1()
+        summary = p1.security_overhead_summary()
+        self.assertEqual(summary["luts"], 5000)
+        self.assertEqual(summary["ffs"], 2000)
+        self.assertEqual(summary["power_mw"], 800)
+
 
 class TestPhase2Result(unittest.TestCase):
     def test_as_phase3_facts(self):
@@ -552,6 +651,36 @@ class TestPhase2Result(unittest.TestCase):
     def test_avg_policy_tightness_empty(self):
         p2 = Phase2Result(satisfiable=True)
         self.assertEqual(p2.avg_policy_tightness(), 0.0)
+
+    def test_zta_overhead_cost(self):
+        p2 = Phase2Result(satisfiable=True, total_cost=275)
+        self.assertEqual(p2.zta_overhead_cost(), 275)
+
+    def test_resilience_objective_penalty(self):
+        p2 = Phase2Result(
+            satisfiable=True,
+            unplaced_safety_fw_penalty=750,
+            control_plane_concentration_penalty=400,
+        )
+        self.assertEqual(p2.resilience_objective_penalty(), 1150)
+
+    def test_phase2_objective_facts_control_plane(self):
+        from dse_tool.agents.phase2_agent import Phase2Agent
+
+        agent = Phase2Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=Phase1Result(strategy="max_security", satisfiable=True),
+            solver_config={
+                "phase2_objective": "control_plane",
+                "phase2_safety_fw_penalty_weight": 500,
+                "phase2_concentration_penalty_weight": 300,
+            },
+        )
+        facts = agent._phase2_objective_facts()
+        self.assertIn("phase2_resilience_mode(control_plane).", facts)
+        self.assertIn("phase2_safety_fw_penalty_weight(500).", facts)
+        self.assertIn("phase2_concentration_penalty_weight(300).", facts)
 
 
 class TestScenarioResult(unittest.TestCase):
@@ -780,6 +909,59 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("test_net", report)
         self.assertIn("COMPARISON TABLE", report)
         self.assertIn("RECOMMENDATIONS", report)
+
+
+class TestArchitectureComparisonReport(unittest.TestCase):
+    def test_build_summary_without_solutions(self):
+        baseline = make_pixhawk6x_platform()
+        candidate = make_pixhawk6x_uav_network()
+        summary = build_architecture_comparison_summary(baseline, candidate)
+
+        self.assertEqual(summary.baseline_name, "Pixhawk 6X Platform")
+        self.assertEqual(summary.candidate_name, "Pixhawk 6X UAV")
+        self.assertIn("gps_1", summary.delta.added_components)
+        self.assertIn("motor_bus_group", summary.delta.added_redundancy_groups)
+        self.assertEqual(summary.baseline_ledger.phase2_zta_cost, 0)
+        self.assertEqual(summary.candidate_ledger.phase2_zta_cost, 0)
+
+    def test_format_summary_with_solution_ledgers(self):
+        baseline = make_pixhawk6x_platform()
+        candidate = make_pixhawk6x_uav_network()
+
+        p1 = Phase1Result(strategy="max_security", satisfiable=True)
+        p1.total_luts = 25180
+        p1.total_ffs = 19230
+        p1.total_power = 507
+        p1.new_risk = [("telem_radio", "telem_radio_data", "read", 243)]
+        p2 = Phase2Result(satisfiable=True, total_cost=1)
+        baseline_sc = ScenarioResult(name="baseline", compromised=[], failed=[], satisfiable=True)
+        baseline_sc.total_risk_scaled = 2430
+        worst_sc = ScenarioResult(name="group_gps_group_compromise", compromised=["gps_1"], failed=[], satisfiable=True)
+        worst_sc.total_risk_scaled = 3469
+        sol = SolutionResult(
+            strategy="max_security",
+            phase1=p1,
+            phase2=p2,
+            scenarios=[baseline_sc, worst_sc],
+        )
+        sol.security_score = 73.13
+        sol.resource_score = 52.67
+        sol.power_score = 49.3
+        sol.resilience_score = 44.8
+
+        summary = build_architecture_comparison_summary(
+            baseline,
+            candidate,
+            baseline_solution=sol,
+            candidate_solution=sol,
+        )
+        text = format_architecture_comparison(summary)
+
+        self.assertIn("ARCHITECTURE COMPARISON", text)
+        self.assertIn("Added components: camera", text)
+        self.assertIn("Phase 1 security overhead: LUTs=25,180", text)
+        self.assertIn("Phase 2 ZTA cost: 1", text)
+        self.assertIn("Worst scenario: group_gps_group_compromise", text)
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1066,6 +1248,18 @@ class TestPhase1Integration(unittest.TestCase):
                 self.assertTrue(result.satisfiable, f"{profile} Phase 1 should be SAT")
                 self.assertGreater(len(result.security), 0)
 
+    def test_pixhawk6x_uav_phase1_max_security(self):
+        model = make_pixhawk6x_uav_network()
+        agent = Phase1MathOptAgent(
+            network_model=model,
+            strategy="max_security",
+            timeout=120,
+            solver_config={"cpsat_threads": 4},
+        )
+        result = agent.run()
+        self.assertTrue(result.satisfiable, "Pixhawk 6X UAV Phase 1 should be SAT")
+        self.assertGreater(len(result.security), 0)
+
 
 class TestPhase2Integration(unittest.TestCase):
     """Test Phase 2 with real Clingo solver."""
@@ -1110,6 +1304,61 @@ class TestPhase2Integration(unittest.TestCase):
         self.assertTrue(result.satisfiable, f"TC9 Phase 2 should be SAT: {result.unsat_reason}")
         self.assertGreater(len(result.placed_fws), 0, "Should place firewalls")
         self.assertGreater(len(result.placed_ps), 0, "Should place PS")
+
+    def test_pixhawk6x_dual_ps_phase2_current_optimum(self):
+        from dse_tool.agents.phase2_agent import Phase2Agent
+
+        model = make_pixhawk6x_dual_ps_network()
+        facts = ASPGenerator(model).generate()
+        p1 = Phase1MathOptAgent(
+            network_model=model,
+            strategy="max_security",
+            timeout=120,
+            solver_config={"cpsat_threads": 1},
+        ).run()
+        self.assertTrue(p1.satisfiable, "Pixhawk dual-PS Phase 1 should be SAT")
+
+        p2 = Phase2Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=p1,
+            strategy="max_security",
+            timeout=120,
+            extra_instance_facts=facts,
+            solver_config={"clingo_threads": 1},
+        ).run()
+
+        self.assertTrue(p2.satisfiable, f"Pixhawk dual-PS Phase 2 should be SAT: {p2.unsat_reason}")
+        self.assertEqual(sorted(set(p2.placed_fws)), ["pep_telem1"])
+        self.assertEqual(sorted(set(p2.placed_ps)), ["ps_fmu"])
+
+    def test_pixhawk6x_dual_ps_phase2_control_plane_objective(self):
+        from dse_tool.agents.phase2_agent import Phase2Agent
+
+        model = make_pixhawk6x_dual_ps_network()
+        facts = ASPGenerator(model).generate()
+        p1 = Phase1MathOptAgent(
+            network_model=model,
+            strategy="max_security",
+            timeout=120,
+            solver_config={"cpsat_threads": 1},
+        ).run()
+        self.assertTrue(p1.satisfiable, "Pixhawk dual-PS Phase 1 should be SAT")
+
+        p2 = Phase2Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=p1,
+            strategy="max_security",
+            timeout=120,
+            extra_instance_facts=facts,
+            solver_config={"clingo_threads": 1, "phase2_objective": "control_plane"},
+        ).run()
+
+        self.assertTrue(p2.satisfiable, f"Pixhawk dual-PS control-plane Phase 2 should be SAT: {p2.unsat_reason}")
+        self.assertEqual(sorted(set(p2.placed_fws)), ["pep_can1", "pep_can2", "pep_px4io", "pep_telem1"])
+        self.assertEqual(sorted(set(p2.placed_ps)), ["ps_fmu", "ps_io"])
+        self.assertEqual(p2.resilience_objective_penalty(), 0)
 
 
 class TestPhase3Integration(unittest.TestCase):
@@ -1196,6 +1445,51 @@ class TestPhase3Integration(unittest.TestCase):
             # With no compromise, should have some OK capabilities
             if total_caps > 0:
                 self.assertGreater(len(baseline.capabilities_ok), 0)
+
+    def test_pixhawk6x_dual_ps_control_plane_ps_fmu_compromise(self):
+        from dse_tool.agents.phase2_agent import Phase2Agent
+        from dse_tool.agents.phase3_agent import Phase3Agent
+
+        model = make_pixhawk6x_dual_ps_network()
+        facts = ASPGenerator(model).generate()
+        p1 = Phase1MathOptAgent(
+            network_model=model,
+            strategy="max_security",
+            timeout=120,
+            solver_config={"cpsat_threads": 1},
+        ).run()
+        self.assertTrue(p1.satisfiable, "Pixhawk dual-PS Phase 1 should be SAT")
+
+        p2 = Phase2Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=p1,
+            strategy="max_security",
+            timeout=120,
+            extra_instance_facts=facts,
+            solver_config={"clingo_threads": 1, "phase2_objective": "control_plane"},
+        ).run()
+        self.assertTrue(p2.satisfiable, "Pixhawk dual-PS Phase 2 should be SAT")
+
+        p3 = Phase3Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=p1,
+            phase2_result=p2,
+            strategy="max_security",
+            timeout=120,
+            extra_instance_facts=facts,
+            solver_config={"clingo_threads": 1},
+        ).run(model_scenarios=[{"name": "ps_fmu_compromise", "compromised": ["ps_fmu"], "failed": []}])
+
+        self.assertEqual(len(p3), 1)
+        scenario = p3[0]
+        self.assertTrue(scenario.satisfiable, "ps_fmu compromise scenario should be SAT")
+        self.assertEqual(scenario.active_ps_count, 1)
+        self.assertEqual(sorted(set(scenario.ungoverned_peps)), ["pep_telem1"])
+        self.assertNotIn("pep_px4io", scenario.ungoverned_peps)
+        self.assertNotIn("pep_can1", scenario.ungoverned_peps)
+        self.assertNotIn("pep_can2", scenario.ungoverned_peps)
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1287,6 +1581,23 @@ class TestFullPipeline(unittest.TestCase):
         self.assertTrue(len(summary.verdict) > 0)
         text = format_executive_summary(summary)
         self.assertIn("VERDICT", text)
+
+    def test_pixhawk6x_uav_full_pipeline(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+        model = make_pixhawk6x_uav_network()
+        q = queue.Queue()
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=q,
+            full_phase3=False,
+            phase_timeout=90,
+        )
+        orch.run()
+        self.assertTrue(orch.done, "Pixhawk orchestrator should be done")
+        self.assertEqual(orch.error, "", f"Pixhawk orchestrator error: {orch.error}")
+        self.assertEqual(len(orch.solutions), 3, "Pixhawk should produce 3 strategy results")
 
     def test_refsoc_phase1_all_strategies(self):
         """RefSoC-16 Phase 1 should pass for all strategies."""

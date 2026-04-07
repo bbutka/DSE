@@ -34,7 +34,9 @@ from typing import Dict, List, Optional, Tuple
 
 from ..core.asp_generator import (
     NetworkModel, Component, Asset, RedundancyGroup, Service,
-    AccessNeed, ASPGenerator, make_opentitan_network, make_tc9_network, make_reference_soc
+    AccessNeed, ASPGenerator, make_opentitan_network, make_pixhawk6x_platform,
+    make_pixhawk6x_uav_network, make_pixhawk6x_uav_dual_ps_network,
+    make_tc9_network, make_reference_soc
 )
 
 
@@ -606,6 +608,69 @@ class NetworkEditor(ttk.Frame):
                 "positions": ot_positions,
                 "default_pos": (420, 280),
             }
+
+        pixhawk_platform_positions = {
+            "fmu_h753": (120, 260),
+            "io_mcu": (120, 430),
+            "ps_fmu": (120, 90),
+            "imu_bus_1": (320, 90),
+            "imu_bus_2": (320, 160),
+            "imu_bus_3": (320, 230),
+            "baro_bus_1": (320, 320),
+            "baro_bus_2": (320, 390),
+            "mag_bus": (320, 460),
+            "gps1_port": (320, 560),
+            "gps2_port": (320, 630),
+            "telem1_port": (320, 700),
+            "telem2_port": (320, 770),
+            "telem3_port": (320, 840),
+            "uart4_i2c_port": (320, 910),
+            "eth_port": (320, 980),
+            "spi5_ext": (320, 1050),
+            "can1": (320, 1120),
+            "can2": (320, 1190),
+            "px4io_link": (320, 1260),
+            "imu_1": (560, 90),
+            "imu_2": (560, 160),
+            "imu_3": (560, 230),
+            "baro_1": (560, 320),
+            "baro_2": (560, 390),
+            "mag": (560, 460),
+            "se050": (560, 540),
+        }
+        cls.EXAMPLE_TOPOLOGIES["Pixhawk 6X Platform"] = {
+            "factory": make_pixhawk6x_platform,
+            "positions": pixhawk_platform_positions,
+            "default_pos": (420, 320),
+        }
+
+        pixhawk_uav_positions = dict(pixhawk_platform_positions)
+        pixhawk_uav_positions.update({
+            "ground_station": (820, 700),
+            "gps_1": (560, 630),
+            "gps_2": (560, 700),
+            "telem_radio": (560, 780),
+            "companion": (560, 980),
+            "camera": (820, 980),
+            "flash_fram": (560, 1050),
+            "esc_bus_1": (560, 1120),
+            "esc_bus_2": (560, 1190),
+            "rc_receiver": (560, 1260),
+        })
+        cls.EXAMPLE_TOPOLOGIES["Pixhawk 6X UAV"] = {
+            "factory": make_pixhawk6x_uav_network,
+            "positions": pixhawk_uav_positions,
+            "default_pos": (440, 360),
+        }
+        pixhawk_uav_dual_ps_positions = dict(pixhawk_uav_positions)
+        pixhawk_uav_dual_ps_positions.update({
+            "ps_io": (300, 620),
+        })
+        cls.EXAMPLE_TOPOLOGIES["Pixhawk 6X UAV (Dual-PS)"] = {
+            "factory": make_pixhawk6x_uav_dual_ps_network,
+            "positions": pixhawk_uav_dual_ps_positions,
+            "default_pos": (440, 360),
+        }
 
     @classmethod
     def available_examples(cls) -> List[str]:

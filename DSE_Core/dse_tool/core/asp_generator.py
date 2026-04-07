@@ -1110,8 +1110,536 @@ def make_opentitan_network(profile: str = "OT-A") -> NetworkModel:
     return model
 
 
+def make_pixhawk6x_platform() -> NetworkModel:
+    """
+    Create a documentation-faithful Pixhawk 6X platform model.
+
+    This model captures board-level structure only. Vehicle integration choices
+    such as radios, GPS receivers, companion computers, ESC topology, and
+    logging devices are added by ``make_pixhawk6x_uav_network()``.
+    """
+    model = NetworkModel(name="Pixhawk 6X Platform")
+
+    model.components = [
+        Component(
+            "fmu_h753", "processor", "privileged", 5, 5, 4, 4,
+            impact_avail=5, exploitability=2,
+            has_rot=True, has_sboot=True, has_attest=True,
+            is_master=True, is_receiver=False,
+            is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "io_mcu", "processor", "normal", 2, 4, 8, 8,
+            impact_avail=5, exploitability=2,
+            is_master=False, is_receiver=True,
+            is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "ps_fmu", "policy_server", "root", 1, 1, 1000, 1000,
+            is_master=False, is_receiver=False,
+        ),
+        Component(
+            "imu_1", "ip_core", "high", 4, 1, 4, 1000,
+            impact_avail=4, exploitability=2,
+            direction="input", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "imu_2", "ip_core", "high", 4, 1, 4, 1000,
+            impact_avail=4, exploitability=2,
+            direction="input", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "imu_3", "ip_core", "high", 4, 1, 4, 1000,
+            impact_avail=4, exploitability=2,
+            direction="input", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "baro_1", "ip_core", "normal", 3, 1, 8, 1000,
+            impact_avail=3, exploitability=2,
+            direction="input", is_critical=True,
+        ),
+        Component(
+            "baro_2", "ip_core", "normal", 3, 1, 8, 1000,
+            impact_avail=3, exploitability=2,
+            direction="input", is_critical=True,
+        ),
+        Component(
+            "mag", "ip_core", "normal", 2, 1, 8, 1000,
+            impact_avail=2, exploitability=2,
+            direction="input", is_critical=True,
+        ),
+        Component(
+            "se050", "ip_core", "root", 5, 5, 10, 10,
+            impact_avail=2, exploitability=1,
+            direction="bidirectional", is_critical=True,
+            has_rot=True, has_sboot=True,
+        ),
+    ]
+
+    model.assets = [
+        Asset("imu1_data", "imu_1", direction="input", impact_read=4, impact_write=0, impact_avail=4, latency_read=4),
+        Asset("imu2_data", "imu_2", direction="input", impact_read=4, impact_write=0, impact_avail=4, latency_read=4),
+        Asset("imu3_data", "imu_3", direction="input", impact_read=4, impact_write=0, impact_avail=4, latency_read=4),
+        Asset("baro1_data", "baro_1", direction="input", impact_read=3, impact_write=0, impact_avail=3, latency_read=8),
+        Asset("baro2_data", "baro_2", direction="input", impact_read=3, impact_write=0, impact_avail=3, latency_read=8),
+        Asset("mag_data", "mag", direction="input", impact_read=2, impact_write=0, impact_avail=2, latency_read=8),
+        Asset("se050_ctrl", "se050", direction="bidirectional", impact_read=5, impact_write=5, impact_avail=2, latency_read=10, latency_write=10),
+        Asset("px4io_status", "io_mcu", direction="bidirectional", impact_read=2, impact_write=4, impact_avail=5, latency_read=8, latency_write=8),
+    ]
+
+    # Bus topology notes (verified against PX4-Autopilot FMUv6X source):
+    #
+    # IMU buses — TRUE physical isolation.
+    #   spi.cpp confirms each ICM-45686 on a dedicated SPI peripheral:
+    #     imu_bus_1 → SPI1 (CS: PI9,  DRDY: PF2)
+    #     imu_bus_2 → SPI2 (CS: PH5,  DRDY: PA10)
+    #     imu_bus_3 → SPI3 (CS: PI4,  DRDY: PI7)
+    #   A single SPI peripheral failure affects only one IMU.
+    #
+    # Barometer buses — separate via internal/external I2C split.
+    #   i2c.cpp defines only ONE internal I2C bus (bus 4, hardware I2C4).
+    #   rc.board_sensors shows the Pixhawk 6X runs one baro internally
+    #   (ICP-201xx at 0x64 or BMP388 at 0x77, variant-dependent) on I2C
+    #   bus 4, and one baro externally on I2C bus 1/2/3. This gives true
+    #   bus-level isolation between baro_bus_1 (internal) and baro_bus_2
+    #   (external), since they use different I2C peripheral blocks on the
+    #   STM32H753. Modeling them as separate buses is correct.
+    #   ArduPilot wiki (common-holybro-pixhawk6X.rst) independently confirms:
+    #   "double redundant barometers on separate buses".
+    #
+    # Sources:
+    #   github.com/PX4/PX4-Autopilot/blob/main/boards/px4/fmu-v6x/src/spi.cpp
+    #   github.com/PX4/PX4-Autopilot/blob/main/boards/px4/fmu-v6x/src/i2c.cpp
+    #   github.com/PX4/PX4-Autopilot/blob/main/boards/px4/fmu-v6x/init/rc.board_sensors
+    model.buses = [
+        "imu_bus_1", "imu_bus_2", "imu_bus_3",
+        "baro_bus_1", "baro_bus_2", "mag_bus",
+        "gps1_port", "gps2_port",
+        "telem1_port", "telem2_port", "telem3_port",
+        "uart4_i2c_port", "eth_port", "spi5_ext",
+        "can1", "can2", "px4io_link",
+    ]
+
+    model.links = [
+        ("fmu_h753", "imu_bus_1"), ("imu_bus_1", "imu_1"),
+        ("fmu_h753", "imu_bus_2"), ("imu_bus_2", "imu_2"),
+        ("fmu_h753", "imu_bus_3"), ("imu_bus_3", "imu_3"),
+        ("fmu_h753", "baro_bus_1"), ("baro_bus_1", "baro_1"),
+        ("fmu_h753", "baro_bus_2"), ("baro_bus_2", "baro_2"),
+        ("fmu_h753", "mag_bus"), ("mag_bus", "mag"),
+        ("fmu_h753", "gps1_port"),
+        ("fmu_h753", "gps2_port"),
+        ("fmu_h753", "telem1_port"),
+        ("fmu_h753", "telem2_port"),
+        ("fmu_h753", "telem3_port"),
+        ("fmu_h753", "uart4_i2c_port"),
+        ("fmu_h753", "eth_port"),
+        ("fmu_h753", "spi5_ext"),
+        ("fmu_h753", "can1"),
+        ("fmu_h753", "can2"),
+        ("fmu_h753", "px4io_link"), ("px4io_link", "io_mcu"),
+        ("fmu_h753", "se050"),
+    ]
+
+    model.redundancy_groups = [
+        RedundancyGroup("imu_group", ["imu_1", "imu_2", "imu_3"]),
+        RedundancyGroup("baro_group", ["baro_1", "baro_2"]),
+    ]
+
+    model.services = [
+        Service("attitude_sensor_svc", ["imu_1", "imu_2", "imu_3"], 2),
+        Service("altitude_sensor_svc", ["baro_1", "baro_2"], 1),
+        Service("mag_sensor_svc", ["mag"], 1),
+        Service("crypto_svc", ["se050"], 1),
+        Service("io_failsafe_svc", ["io_mcu"], 1),
+    ]
+
+    model.access_needs = [
+        AccessNeed("fmu_h753", "imu_1", "read"),
+        AccessNeed("fmu_h753", "imu_2", "read"),
+        AccessNeed("fmu_h753", "imu_3", "read"),
+        AccessNeed("fmu_h753", "baro_1", "read"),
+        AccessNeed("fmu_h753", "baro_2", "read"),
+        AccessNeed("fmu_h753", "mag", "read"),
+        AccessNeed("fmu_h753", "se050", "read"),
+        AccessNeed("fmu_h753", "se050", "write"),
+        AccessNeed("fmu_h753", "io_mcu", "read"),
+        AccessNeed("fmu_h753", "io_mcu", "write"),
+    ]
+
+    model.system_caps = {
+        "max_power": 15000,
+        "max_luts": 53200,
+        "max_ffs": 106400,
+        "max_dsps": 220,
+        "max_lutram": 17400,
+        "max_bufgs": 32,
+        "max_bram": 140,
+        "max_security_risk": 60,
+        "max_avail_risk": 25,
+        "max_attack_depth": 8,
+    }
+
+    model.cand_fws = ["pep_px4io", "pep_se050"]
+    model.cand_ps = ["ps_fmu"]
+    model.on_paths = [
+        ("pep_px4io", "fmu_h753", "io_mcu"),
+        ("pep_se050", "fmu_h753", "se050"),
+    ]
+    model.ip_locs = [("io_mcu", "pep_px4io"), ("se050", "pep_se050")]
+    model.fw_governs = [("ps_fmu", "pep_px4io"), ("ps_fmu", "pep_se050")]
+    model.fw_costs = {"pep_px4io": 120, "pep_se050": 100}
+    model.ps_costs = {"ps_fmu": 180}
+    model.roles = [("fmu_h753", "flight_controller")]
+    model.allow_rules = [(an.master, an.component, "normal") for an in model.access_needs]
+    model.trust_anchors = {
+        "fmu_h753": ["rot", "sboot", "attest"],
+        "se050": ["rot", "key_storage"],
+        "ps_fmu": ["signed_policy"],
+    }
+    model.pep_guards = [("pep_px4io", "io_mcu"), ("pep_se050", "se050")]
+    model.ps_governs_pep = [("ps_fmu", "pep_px4io"), ("ps_fmu", "pep_se050")]
+    model.capabilities = [
+        MissionCapability(
+            name="flight_stabilization_base",
+            description="On-board inertial and barometric sensing for flight stabilization",
+            required_services=["attitude_sensor_svc", "altitude_sensor_svc"],
+            required_components=["fmu_h753"],
+            required_access=[
+                ("fmu_h753", "imu_1", "read"),
+                ("fmu_h753", "baro_1", "read"),
+            ],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="failsafe_io",
+            description="Independent IO processing path for RC and failsafe functions",
+            required_services=["io_failsafe_svc"],
+            required_components=["io_mcu"],
+            required_access=[("fmu_h753", "io_mcu", "write")],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="crypto_anchor",
+            description="Board-integrated hardware root of trust and key handling",
+            required_services=["crypto_svc"],
+            required_components=["se050"],
+            required_access=[
+                ("fmu_h753", "se050", "read"),
+                ("fmu_h753", "se050", "write"),
+            ],
+            criticality="important",
+        ),
+    ]
+
+    return model
+
+
+def make_pixhawk6x_uav_network() -> NetworkModel:
+    """
+    Create a Pixhawk 6X UAV integration overlay on top of the base platform.
+    """
+    model = make_pixhawk6x_platform()
+    model.name = "Pixhawk 6X UAV"
+
+    model.components.extend([
+        Component(
+            "ground_station", "processor", "untrusted", 3, 3, 1000, 1000,
+            impact_avail=1, exploitability=5,
+            is_master=True, is_receiver=False,
+        ),
+        Component(
+            "gps_1", "ip_core", "low", 4, 1, 12, 1000,
+            impact_avail=4, exploitability=4,
+            direction="input", is_critical=True,
+        ),
+        Component(
+            "gps_2", "ip_core", "low", 4, 1, 12, 1000,
+            impact_avail=4, exploitability=4,
+            direction="input", is_critical=True,
+        ),
+        Component(
+            "telem_radio", "ip_core", "untrusted", 4, 4, 15, 15,
+            impact_avail=4, exploitability=5,
+            direction="bidirectional", is_critical=True,
+        ),
+        Component(
+            "rc_receiver", "ip_core", "low", 2, 1, 20, 1000,
+            impact_avail=5, exploitability=4,
+            direction="input", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "esc_bus_1", "ip_core", "privileged", 1, 5, 1000, 5,
+            impact_avail=5, exploitability=2,
+            direction="output", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "esc_bus_2", "ip_core", "privileged", 1, 5, 1000, 5,
+            impact_avail=5, exploitability=2,
+            direction="output", is_critical=True, is_safety_critical=True,
+        ),
+        Component(
+            "companion", "ip_core", "normal", 3, 3, 20, 20,
+            impact_avail=3, exploitability=4,
+            direction="bidirectional", is_critical=True,
+        ),
+        Component(
+            "camera", "ip_core", "normal", 3, 1, 20, 1000,
+            impact_avail=2, exploitability=3,
+            direction="input",
+        ),
+        Component(
+            "flash_fram", "ip_core", "privileged", 3, 4, 12, 12,
+            impact_avail=3, exploitability=2,
+            direction="bidirectional", is_critical=True,
+        ),
+    ])
+
+    model.assets.extend([
+        Asset("gps1_nav", "gps_1", direction="input", impact_read=4, impact_write=0, impact_avail=4, latency_read=12),
+        Asset("gps2_nav", "gps_2", direction="input", impact_read=4, impact_write=0, impact_avail=4, latency_read=12),
+        Asset("telem_link", "telem_radio", direction="bidirectional", impact_read=4, impact_write=4, impact_avail=4, latency_read=15, latency_write=15),
+        Asset("rc_input", "rc_receiver", direction="input", impact_read=2, impact_write=0, impact_avail=5, latency_read=20),
+        Asset("motor_cmd_1", "esc_bus_1", direction="output", impact_read=0, impact_write=5, impact_avail=5, latency_write=5),
+        Asset("motor_cmd_2", "esc_bus_2", direction="output", impact_read=0, impact_write=5, impact_avail=5, latency_write=5),
+        Asset("companion_eth", "companion", direction="bidirectional", impact_read=3, impact_write=3, impact_avail=3, latency_read=20, latency_write=20),
+        Asset("camera_stream", "camera", direction="input", impact_read=3, impact_write=0, impact_avail=2, latency_read=20),
+        Asset("log_store", "flash_fram", direction="bidirectional", impact_read=3, impact_write=4, impact_avail=3, latency_read=12, latency_write=12),
+    ])
+
+    model.links.extend([
+        ("ground_station", "telem_radio"),
+        ("fmu_h753", "gps1_port"), ("gps1_port", "gps_1"),
+        ("fmu_h753", "gps2_port"), ("gps2_port", "gps_2"),
+        ("fmu_h753", "telem1_port"), ("telem1_port", "telem_radio"),
+        ("fmu_h753", "px4io_link"), ("px4io_link", "rc_receiver"),
+        ("fmu_h753", "can1"), ("can1", "esc_bus_1"),
+        ("fmu_h753", "can2"), ("can2", "esc_bus_2"),
+        ("fmu_h753", "eth_port"), ("eth_port", "companion"),
+        ("companion", "camera"),
+        ("fmu_h753", "spi5_ext"), ("spi5_ext", "flash_fram"),
+    ])
+
+    model.redundancy_groups.extend([
+        RedundancyGroup("gps_group", ["gps_1", "gps_2"]),
+        RedundancyGroup("motor_bus_group", ["esc_bus_1", "esc_bus_2"]),
+    ])
+
+    model.services = [
+        Service("attitude_svc", ["imu_1", "imu_2", "imu_3"], 2),
+        Service("altitude_svc", ["baro_1", "baro_2"], 1),
+        Service("navigation_svc", ["gps_1", "gps_2"], 1),
+        Service("motor_svc", ["esc_bus_1", "esc_bus_2"], 1),
+        Service("comms_svc", ["telem_radio"], 1),
+        Service("failsafe_svc", ["io_mcu", "rc_receiver"], 2),
+        Service("crypto_svc", ["se050"], 1),
+        Service("payload_svc", ["companion", "camera"], 2),
+        Service("logging_svc", ["flash_fram"], 1),
+    ]
+
+    model.access_needs.extend([
+        AccessNeed("ground_station", "telem_radio", "read"),
+        AccessNeed("ground_station", "telem_radio", "write"),
+        AccessNeed("fmu_h753", "gps_1", "read"),
+        AccessNeed("fmu_h753", "gps_2", "read"),
+        AccessNeed("fmu_h753", "telem_radio", "read"),
+        AccessNeed("fmu_h753", "telem_radio", "write"),
+        AccessNeed("fmu_h753", "rc_receiver", "read"),
+        AccessNeed("fmu_h753", "esc_bus_1", "write"),
+        AccessNeed("fmu_h753", "esc_bus_2", "write"),
+        AccessNeed("fmu_h753", "companion", "read"),
+        AccessNeed("fmu_h753", "companion", "write"),
+        AccessNeed("fmu_h753", "camera", "read"),
+        AccessNeed("fmu_h753", "flash_fram", "read"),
+        AccessNeed("fmu_h753", "flash_fram", "write"),
+    ])
+
+    model.cand_fws = [
+        "pep_px4io", "pep_se050",
+        "pep_telem1", "pep_eth", "pep_can1", "pep_can2", "pep_gps2",
+    ]
+    model.on_paths = [
+        ("pep_px4io", "fmu_h753", "io_mcu"),
+        ("pep_se050", "fmu_h753", "se050"),
+        ("pep_telem1", "fmu_h753", "telem_radio"),
+        ("pep_telem1", "ground_station", "telem_radio"),
+        ("pep_eth", "fmu_h753", "companion"),
+        ("pep_can1", "fmu_h753", "esc_bus_1"),
+        ("pep_can2", "fmu_h753", "esc_bus_2"),
+        ("pep_gps2", "fmu_h753", "gps_2"),
+    ]
+    model.ip_locs = [
+        ("io_mcu", "pep_px4io"),
+        ("se050", "pep_se050"),
+        ("telem_radio", "pep_telem1"),
+        ("companion", "pep_eth"),
+        ("esc_bus_1", "pep_can1"),
+        ("esc_bus_2", "pep_can2"),
+        ("gps_2", "pep_gps2"),
+    ]
+    model.fw_governs = [("ps_fmu", fw) for fw in model.cand_fws]
+    model.fw_costs = {
+        "pep_px4io": 120,
+        "pep_se050": 100,
+        "pep_telem1": 160,
+        "pep_eth": 180,
+        "pep_can1": 140,
+        "pep_can2": 140,
+        "pep_gps2": 110,
+    }
+    model.roles = [
+        ("fmu_h753", "flight_controller"),
+        ("ground_station", "external_operator"),
+    ]
+    model.allow_rules = [(an.master, an.component, "normal") for an in model.access_needs]
+    model.policy_exceptions = [
+        ("fmu_h753", "telem_radio", "write", "emergency", "status_broadcast"),
+        ("fmu_h753", "flash_fram", "write", "maintenance", "log_export"),
+    ]
+    model.pep_guards = [
+        ("pep_px4io", "io_mcu"),
+        ("pep_se050", "se050"),
+        ("pep_telem1", "telem_radio"),
+        ("pep_eth", "companion"),
+        ("pep_can1", "esc_bus_1"),
+        ("pep_can2", "esc_bus_2"),
+        ("pep_gps2", "gps_2"),
+    ]
+    model.ps_governs_pep = [("ps_fmu", fw) for fw in model.cand_fws]
+    model.capabilities = [
+        MissionCapability(
+            name="flight_control",
+            description="Stabilized flight using inertial sensing and actuator command paths",
+            required_services=["attitude_svc", "motor_svc"],
+            required_components=["fmu_h753"],
+            required_access=[
+                ("fmu_h753", "imu_1", "read"),
+                ("fmu_h753", "esc_bus_1", "write"),
+            ],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="navigation",
+            description="Position and altitude estimation using dual GPS and barometric sensing",
+            required_services=["navigation_svc", "altitude_svc"],
+            required_components=[],
+            required_access=[
+                ("fmu_h753", "gps_1", "read"),
+                ("fmu_h753", "baro_1", "read"),
+            ],
+            criticality="essential",
+            mission_phases=["operational"],
+        ),
+        MissionCapability(
+            name="ground_comms",
+            description="Bidirectional telemetry exchange with the ground station",
+            required_services=["comms_svc"],
+            required_components=["telem_radio"],
+            required_access=[
+                ("fmu_h753", "telem_radio", "read"),
+                ("fmu_h753", "telem_radio", "write"),
+            ],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="rc_override",
+            description="Independent RC-based override and failsafe path",
+            required_services=["failsafe_svc"],
+            required_components=["io_mcu", "rc_receiver"],
+            required_access=[("fmu_h753", "rc_receiver", "read")],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="surveillance",
+            description="Payload observation path via companion compute and camera",
+            required_services=["payload_svc"],
+            required_components=["companion", "camera"],
+            required_access=[("fmu_h753", "companion", "read")],
+            criticality="important",
+            mission_phases=["operational"],
+        ),
+        MissionCapability(
+            name="crypto_ops",
+            description="Hardware-rooted cryptographic operations and key handling",
+            required_services=["crypto_svc"],
+            required_components=["se050"],
+            required_access=[
+                ("fmu_h753", "se050", "read"),
+                ("fmu_h753", "se050", "write"),
+            ],
+            criticality="important",
+            mission_phases=["operational", "maintenance"],
+        ),
+        MissionCapability(
+            name="logging",
+            description="Persistent flight logging to SPI-attached storage",
+            required_services=["logging_svc"],
+            required_components=["flash_fram"],
+            required_access=[
+                ("fmu_h753", "flash_fram", "read"),
+                ("fmu_h753", "flash_fram", "write"),
+            ],
+            criticality="important",
+            mission_phases=["operational", "maintenance"],
+        ),
+    ]
+
+    return model
+
+
+def make_pixhawk6x_uav_dual_ps_network() -> NetworkModel:
+    """
+    Create a revised Pixhawk 6X UAV overlay with split control-plane governance.
+
+    This variant preserves the documented board and UAV topology but adds a
+    second candidate policy server (`ps_io`) associated with the I/O/safety
+    side of the architecture. The intent is to compare the baseline single-PS
+    design against a decentralized control-plane option.
+    """
+    model = make_pixhawk6x_uav_network()
+    model.name = "Pixhawk 6X UAV (Dual-PS)"
+
+    model.components.append(
+        Component(
+            "ps_io", "policy_server", "root", 1, 1, 1000, 1000,
+            is_master=False, is_receiver=False,
+        )
+    )
+
+    model.links.append(("io_mcu", "ps_io"))
+
+    model.cand_ps = ["ps_fmu", "ps_io"]
+    model.fw_governs = [
+        ("ps_fmu", "pep_se050"),
+        ("ps_fmu", "pep_telem1"),
+        ("ps_fmu", "pep_eth"),
+        ("ps_fmu", "pep_gps2"),
+        ("ps_io", "pep_px4io"),
+        ("ps_io", "pep_can1"),
+        ("ps_io", "pep_can2"),
+    ]
+    model.ps_costs = {
+        "ps_fmu": 180,
+        "ps_io": 160,
+    }
+    model.trust_anchors["ps_io"] = ["signed_policy"]
+    model.ps_governs_pep = list(model.fw_governs)
+
+    return model
+
+
+def make_pixhawk6x_dual_ps_network() -> NetworkModel:
+    """Compatibility alias for the revised Pixhawk 6X dual-policy-server UAV variant."""
+    return make_pixhawk6x_uav_dual_ps_network()
+
+
 # ---------------------------------------------------------------------------
-# Reference SoC factory â€” exercises every DSE tool feature
+# Reference SoC factory — exercises every DSE tool feature
 # ---------------------------------------------------------------------------
 
 def make_reference_soc() -> NetworkModel:
@@ -1515,4 +2043,3 @@ def make_reference_soc() -> NetworkModel:
     ]
 
     return model
-

@@ -22,7 +22,12 @@ AMP_DENOM = 10  # risk is scaled by 10 in the ASP encodings
 
 @dataclass
 class Phase1Result:
-    """Structured output of the Phase 1 security DSE optimisation."""
+    """Structured output of the Phase 1 security DSE optimisation.
+
+    Resource totals on this object are Phase 1-added security/logging overhead
+    only. They are not intended to represent the fixed baseline hardware cost
+    of the architecture itself.
+    """
     security:              Dict[str, str]  = field(default_factory=dict)
     logging:               Dict[str, str]  = field(default_factory=dict)
     new_risk:              List[Tuple]     = field(default_factory=list)
@@ -54,6 +59,22 @@ class Phase1Result:
     def total_risk(self) -> int:
         """Sum of max risk values across all assets."""
         return sum(self.max_risk_per_asset().values())
+
+    def security_overhead_summary(self) -> Dict[str, int]:
+        """Return the Phase 1-added security/logging overhead totals.
+
+        These numbers are the correct resource ledger for comparing protection
+        choices on the same architecture. They should not be interpreted as the
+        full platform resource footprint.
+        """
+        return {
+            "luts": self.total_luts,
+            "ffs": self.total_ffs,
+            "dsps": self.total_dsps,
+            "lutram": self.total_lutram,
+            "bram": self.total_bram,
+            "power_mw": self.total_power,
+        }
 
     def risk_by_component(self) -> Dict[str, int]:
         """Aggregate total risk contribution per component (sum over all assets/actions)."""
@@ -125,6 +146,8 @@ class Phase2Result:
     unexplained_exceptions: List[Tuple]            = field(default_factory=list)
     critical_exceptions:    List[Tuple]            = field(default_factory=list)
     total_cost:             int  = 0
+    unplaced_safety_fw_penalty: int = 0
+    control_plane_concentration_penalty: int = 0
     satisfiable:            bool = False
     optimal:                bool = False
     unsat_reason:           str  = ""
@@ -145,6 +168,19 @@ class Phase2Result:
         if not self.policy_tightness:
             return 0.0
         return sum(self.policy_tightness.values()) / len(self.policy_tightness)
+
+    def zta_overhead_cost(self) -> int:
+        """Return the abstract Phase 2 placement cost.
+
+        This value is an optimisation cost from fw_cost/ps_cost facts, not a
+        direct LUT/FF resource total. Keep it as a separate ledger from the
+        Phase 1 security-IP utilization totals.
+        """
+        return self.total_cost
+
+    def resilience_objective_penalty(self) -> int:
+        """Return the optional resilience-aware Phase 2 penalty total."""
+        return self.unplaced_safety_fw_penalty + self.control_plane_concentration_penalty
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +436,10 @@ class SolutionParser:
                 r.critical_exceptions.append(tuple(str(x) for x in a))
             elif n == "total_zta_cost"     and len(a) == 1:
                 r.total_cost = a[0].number
+            elif n == "unplaced_safety_fw_penalty" and len(a) == 1:
+                r.unplaced_safety_fw_penalty = a[0].number
+            elif n == "control_plane_concentration_penalty" and len(a) == 1:
+                r.control_plane_concentration_penalty = a[0].number
         return r
 
     # ------------------------------------------------------------------

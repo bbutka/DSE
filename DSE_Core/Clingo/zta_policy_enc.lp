@@ -158,7 +158,7 @@ mission_final_deny(M, C, Op, Phase) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 { place_fw(FWL) : cand_fw(FWL) }.
-1 { place_ps(PS) : cand_ps(PS) }.
+1 { place_ps(PS) : cand_ps(PS) } N :- N = #count { PS : cand_ps(PS) }.
 
 protected(M, IP) :- place_fw(FWL), on_path(FWL, M, IP).
 
@@ -277,11 +277,66 @@ critical_exception(M, C, Op, Ph, Reason) :-
 %% 9. COST MINIMISATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+resilience_objective_enabled :- phase2_resilience_mode(control_plane).
+
+safety_fw_penalty_weight(W) :-
+    phase2_safety_fw_penalty_weight(W).
+safety_fw_penalty_weight(250) :-
+    resilience_objective_enabled,
+    not phase2_safety_fw_penalty_weight(_).
+
+concentration_penalty_weight(W) :-
+    phase2_concentration_penalty_weight(W).
+concentration_penalty_weight(400) :-
+    resilience_objective_enabled,
+    not phase2_concentration_penalty_weight(_).
+
+safety_guarded_fw(FW) :-
+    cand_fw(FW),
+    pep_guards(FW, IP),
+    safety_critical(IP).
+
+critical_guarded_fw(FW) :-
+    cand_fw(FW),
+    pep_guards(FW, IP),
+    critical(IP).
+
+perimeter_guarded_fw(FW) :-
+    critical_guarded_fw(FW),
+    not safety_guarded_fw(FW).
+
+mixed_ps_concentration_pair(PS, FWs, FWp) :-
+    resilience_objective_enabled,
+    place_ps(PS),
+    place_fw(FWs),
+    place_fw(FWp),
+    safety_guarded_fw(FWs),
+    perimeter_guarded_fw(FWp),
+    governs(PS, FWs),
+    governs(PS, FWp).
+
+unplaced_safety_fw_penalty(Total) :-
+    resilience_objective_enabled,
+    safety_fw_penalty_weight(W),
+    Total = #sum { W, FW : safety_guarded_fw(FW), not place_fw(FW) }.
+
+control_plane_concentration_penalty(Total) :-
+    resilience_objective_enabled,
+    concentration_penalty_weight(W),
+    Total = #sum { W, PS, FWs, FWp : mixed_ps_concentration_pair(PS, FWs, FWp) }.
+
 total_zta_cost(C) :-
     C = #sum { Cost,   FW : place_fw(FW),  fw_cost(FW,   Cost)  ;
                CostPS, PS : place_ps(PS),  ps_cost(PS, CostPS) }.
 
 #minimize { C : total_zta_cost(C) }.
+#minimize { W, FW : resilience_objective_enabled,
+                     safety_guarded_fw(FW),
+                     not place_fw(FW),
+                     safety_fw_penalty_weight(W) }.
+#minimize { W, PS, FWs, FWp : resilience_objective_enabled,
+                                mixed_ps_concentration_pair(PS, FWs, FWp),
+                                concentration_penalty_weight(W) }.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -293,6 +348,8 @@ total_zta_cost(C) :-
 #show final_allow/3.
 #show final_deny/3.
 #show total_zta_cost/1.
+#show unplaced_safety_fw_penalty/1.
+#show control_plane_concentration_penalty/1.
 #show asset_policy/4.
 #show role_allow/4.
 #show isolated/2.

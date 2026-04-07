@@ -89,12 +89,18 @@ class Phase2Agent:
 
         lp_files = self._build_lp_list()
         p1_facts = p1.as_p1_facts()
+        objective_facts = self._phase2_objective_facts()
         # Combine generated instance facts (topology) with Phase 1 output
         all_extra = self.extra_instance_facts
         if all_extra and p1_facts:
             all_extra = all_extra + "\n" + p1_facts
         elif p1_facts:
             all_extra = p1_facts
+        if objective_facts:
+            if all_extra:
+                all_extra = all_extra + "\n" + objective_facts
+            else:
+                all_extra = objective_facts
 
         runner = self._make_runner(timeout=self.timeout)
         result_raw = runner.solve(
@@ -131,7 +137,8 @@ class Phase2Agent:
             f"[Phase 2/{self.strategy}] Done — "
             f"Firewalls: {sorted(set(r.placed_fws))}, "
             f"PS: {sorted(set(r.placed_ps))}, "
-            f"Trust gaps: {len(r.trust_gap_rot)+len(r.trust_gap_sboot)+len(r.trust_gap_attest)}"
+            f"Trust gaps: {len(r.trust_gap_rot)+len(r.trust_gap_sboot)+len(r.trust_gap_attest)}, "
+            f"Resilience penalty: {r.resilience_objective_penalty()}"
         )
         return r
 
@@ -151,6 +158,23 @@ class Phase2Agent:
             else:
                 self._post(f"[Phase 2] WARNING: LP file not found: {path}")
         return files
+
+    def _phase2_objective_facts(self) -> str:
+        """Return optional objective-tuning facts injected into the encoding."""
+        objective = self.solver_config.get("phase2_objective")
+        if objective != "control_plane":
+            return ""
+
+        lines = ["phase2_resilience_mode(control_plane)."]
+        if "phase2_safety_fw_penalty_weight" in self.solver_config:
+            lines.append(
+                f"phase2_safety_fw_penalty_weight({int(self.solver_config['phase2_safety_fw_penalty_weight'])})."
+            )
+        if "phase2_concentration_penalty_weight" in self.solver_config:
+            lines.append(
+                f"phase2_concentration_penalty_weight({int(self.solver_config['phase2_concentration_penalty_weight'])})."
+            )
+        return "\n".join(lines)
 
     def _diagnose_unsat(self, lp_files: list, all_extra: str) -> str:
         """

@@ -496,6 +496,8 @@ def generate_report_text(
                                   for s in solutions]),
         ("Power (mW)",          [f"{s.phase1.total_power:,}" if s.phase1 and s.phase1.satisfiable else "N/A"
                                   for s in solutions]),
+        ("ZTA Cost",            [str(s.phase2.total_cost) if s.phase2 and s.phase2.satisfiable else "N/A"
+                                  for s in solutions]),
         ("Firewalls Placed",    [str(len(set(s.phase2.placed_fws))) if s.phase2 and s.phase2.satisfiable else "N/A"
                                   for s in solutions]),
         ("Excess Privileges",   [str(len(s.phase2.excess_privileges)) if s.phase2 and s.phase2.satisfiable else "N/A"
