@@ -30,13 +30,7 @@ DEFAULT_MODULES = [
 
 def default_workers() -> int:
     cpu_count = max(1, os.cpu_count() or 1)
-    if cpu_count >= 16:
-        return 4
-    if cpu_count >= 8:
-        return 3
-    if cpu_count >= 4:
-        return 2
-    return 1
+    return min(8, cpu_count)
 
 
 def default_threads_per_worker(workers: int) -> int:
@@ -93,7 +87,16 @@ def _target_sort_key(target: str) -> tuple[int, str]:
     """
     priority = 0
     heavy_markers = {
+        "TestTC9GoldenBaselineSlow": 110,
+        "TestDarpaUAVGoldenBaselineSlow": 108,
+        "TestPixhawk6XGoldenBaselineSlow": 106,
         "test_refsoc_phase1_all_strategies": 100,
+        "TestRefSoCPhase1MinResources": 100,
+        "test_refsoc_phase1_min_resources": 100,
+        "TestRefSoCPhase1Balanced": 95,
+        "test_refsoc_phase1_balanced": 95,
+        "TestRefSoCPhase1MaxSecurity": 90,
+        "test_refsoc_phase1_max_security": 90,
         "TestRuntimeGoldenBaselines": 90,
         "TestRuntimeJointIntegration": 80,
         "TestPhase1BackendIntegration": 75,
@@ -195,6 +198,7 @@ def main() -> int:
         f"{args.workers} workers and {solver_threads} solver threads per worker."
     )
     failures: list[TargetResult] = []
+    results: list[TargetResult] = []
     completed = 0
     start_all = time.perf_counter()
 
@@ -205,6 +209,7 @@ def main() -> int:
         }
         for future in concurrent.futures.as_completed(future_map):
             result = future.result()
+            results.append(result)
             completed += 1
             status = "PASS" if result.returncode == 0 else "FAIL"
             print(f"[{completed}/{len(targets)}] {status} {result.target} ({result.duration_s:.1f}s)")
@@ -213,6 +218,17 @@ def main() -> int:
 
     total_s = time.perf_counter() - start_all
     print(f"Completed in {total_s:.1f}s")
+    print(f"Passed: {len(results) - len(failures)}  Failed: {len(failures)}")
+
+    if results:
+        print()
+        print("Slowest targets:")
+        for index, result in enumerate(
+            sorted(results, key=lambda item: item.duration_s, reverse=True)[: min(10, len(results))],
+            start=1,
+        ):
+            status = "PASS" if result.returncode == 0 else "FAIL"
+            print(f"  {index}. {result.target} [{status}] {result.duration_s:.1f}s")
 
     if failures:
         print()

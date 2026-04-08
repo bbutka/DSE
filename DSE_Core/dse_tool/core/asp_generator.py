@@ -198,6 +198,8 @@ class NetworkModel:
     ps_costs: Dict[str, int] = field(default_factory=dict)
     roles: List[Tuple[str, str]] = field(default_factory=list)
     allow_rules: List[Tuple[str, str, str]] = field(default_factory=list)
+    mission_access_rules: List[str] = field(default_factory=list)
+    role_need_rules: List[str] = field(default_factory=list)
     policy_exceptions: List[Tuple] = field(default_factory=list)
     trust_anchors: Dict[str, List[str]] = field(default_factory=dict)
     pep_guards: List[Tuple[str, str]] = field(default_factory=list)
@@ -349,8 +351,8 @@ class ASPGenerator:
         for c in ip_comps:
             if c.is_critical and c.comp_type not in ("policy_server", "firewall", "bus"):
                 lines.append(f"critical({c.name}).")
-        for c in ip_comps:
-            if c.is_safety_critical:
+        for c in m.components:
+            if c.comp_type not in ("bus", "policy_server", "firewall") and c.is_safety_critical:
                 lines.append(f"safety_critical({c.name}).")
         lines.append("")
 
@@ -464,28 +466,33 @@ class ASPGenerator:
         primary_proc = next((c.name for c in masters if c.comp_type == "processor"), None)
         dma_master = next((c.name for c in masters if c.comp_type == "dma"), None)
         lines.append("% Mission access rules")
-        lines.append("mission_access(M, C, Op, operational) :- access_need(M, C, Op).")
-        if primary_proc:
-            lines.append(f"mission_access({primary_proc}, C, read,  maintenance) :- receiver(C).")
-            lines.append(f"mission_access({primary_proc}, C, write, maintenance) :- receiver(C).")
-        if dma_master:
-            lines.append(f"mission_access({dma_master}, C, Op, maintenance) :- access_need({dma_master}, C, Op).")
-        lines.append("mission_access(M, C, read, emergency) :- master(M), receiver(C), access_need(M, C, read).")
+        if m.mission_access_rules:
+            lines.extend(m.mission_access_rules)
+        else:
+            lines.append("mission_access(M, C, Op, operational) :- access_need(M, C, Op).")
+            if primary_proc:
+                lines.append(f"mission_access({primary_proc}, C, read,  maintenance) :- receiver(C).")
+                lines.append(f"mission_access({primary_proc}, C, write, maintenance) :- receiver(C).")
+            if dma_master:
+                lines.append(f"mission_access({dma_master}, C, Op, maintenance) :- access_need({dma_master}, C, Op).")
+            lines.append("mission_access(M, C, read, emergency) :- master(M), receiver(C), access_need(M, C, read).")
         lines.append("")
 
         # â”€â”€ Role needs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Derive from model roles and topology instead of hardcoding TC9 names
         lines.append("% Role-level access needs")
-        role_names = {role for _, role in m.roles}
-        for _, role in m.roles:
-            # Each role gets read access to high-trust receivers
-            lines.append(f"role_need({role}, C, read)  :- receiver(C), domain(C, high).")
-            lines.append(f"role_need({role}, C, read)  :- receiver(C), domain(C, root).")
-        # DMA-type roles get write access to all receivers
-        if dma_master:
-            dma_role = next((role for master, role in m.roles if master == dma_master), None)
-            if dma_role:
-                lines.append(f"role_need({dma_role}, C, write) :- receiver(C).")
+        if m.role_need_rules:
+            lines.extend(m.role_need_rules)
+        else:
+            for _, role in m.roles:
+                # Each role gets read access to high-trust receivers
+                lines.append(f"role_need({role}, C, read)  :- receiver(C), domain(C, high).")
+                lines.append(f"role_need({role}, C, read)  :- receiver(C), domain(C, root).")
+            # DMA-type roles get write access to all receivers
+            if dma_master:
+                dma_role = next((role for master, role in m.roles if master == dma_master), None)
+                if dma_role:
+                    lines.append(f"role_need({dma_role}, C, write) :- receiver(C).")
         lines.append("")
 
         # â”€â”€ Static risk weights (amplification proxy for Phase 1 objective) â”€â”€
@@ -659,7 +666,7 @@ class ASPGenerator:
                 if c.comp_type in ("bus", "policy_server", "firewall"):
                     warnings.append(
                         f"Safety-critical '{c.name}' has type '{c.comp_type}' "
-                        f"but isolation rules require receiver/1"
+                        f"but the model only supports safety-critical masters/receivers"
                     )
 
         return warnings
@@ -866,6 +873,303 @@ def make_tc9_network() -> NetworkModel:
             required_access=[],
             criticality="essential",
         ),
+    ]
+
+    return model
+
+
+# ---------------------------------------------------------------------------
+# DARPA CASE UAV factory
+# ---------------------------------------------------------------------------
+
+def make_darpa_uav_network() -> NetworkModel:
+    """Create the DARPA CASE UAV benchmark as a first-class NetworkModel."""
+    model = NetworkModel(name="darpa_case_uav")
+
+    model.components = [
+        Component("mc", "processor", "privileged", 0, 0, 1000, 1000,
+                  exploitability=2, has_rot=True, has_sboot=True, has_attest=True,
+                  is_master=True, is_receiver=False),
+        Component("fc", "processor", "privileged", 0, 0, 1000, 1000,
+                  exploitability=2, has_rot=True, has_sboot=True,
+                  is_master=True, is_receiver=False, is_safety_critical=True),
+        Component("gs", "processor", "untrusted", 0, 0, 1000, 1000,
+                  exploitability=4, is_master=True, is_receiver=False),
+        Component("radio_drv", "ip_core", "low", 4, 5, 10, 10,
+                  impact_avail=4, exploitability=5),
+        Component("fpln", "ip_core", "normal", 3, 5, 15, 15,
+                  impact_avail=4, exploitability=3, is_critical=True),
+        Component("wpm", "ip_core", "normal", 2, 5, 10, 10,
+                  impact_avail=5, exploitability=3, is_critical=True),
+        Component("cam_mgr", "ip_core", "normal", 2, 3, 1000, 1000,
+                  exploitability=3),
+        Component("wifi_drv", "ip_core", "untrusted", 3, 4, 1000, 1000,
+                  impact_avail=2, exploitability=5),
+        Component("uart_drv", "ip_core", "normal", 3, 5, 5, 5,
+                  impact_avail=5, exploitability=3, is_critical=True,
+                  is_safety_critical=True),
+        Component("nfzdb", "ip_core", "high", 1, 5, 15, 1000,
+                  impact_avail=4, exploitability=2, is_critical=True),
+        Component("attest_gate", "ip_core", "root", 2, 0, 8, 1000,
+                  impact_avail=5, exploitability=1, is_critical=True,
+                  direction="input"),
+        Component("geofence", "ip_core", "high", 2, 5, 10, 10,
+                  impact_avail=5, exploitability=1, is_critical=True,
+                  is_safety_critical=True),
+        Component("fpln_filt", "ip_core", "high", 2, 5, 8, 8,
+                  impact_avail=5, exploitability=1, is_critical=True,
+                  is_safety_critical=True),
+        Component("swu", "ip_core", "privileged", 3, 5, 1000, 1000,
+                  exploitability=4, is_critical=True),
+        Component("ps_mc", "policy_server", "root", 0, 0, 1000, 1000,
+                  is_receiver=False),
+        Component("ps_uart", "policy_server", "high", 0, 0, 1000, 1000,
+                  is_receiver=False),
+        Component("pep_mc", "firewall", "high", 0, 0, 1000, 1000,
+                  is_receiver=False),
+    ]
+
+    model.assets = [
+        Asset("radio_drvr1", "radio_drv", "bidirectional", 4, 5, 4, 10, 10),
+        Asset("fplnr1", "fpln", "bidirectional", 3, 5, 4, 15, 15),
+        Asset("wpmr1", "wpm", "bidirectional", 2, 5, 5, 10, 10),
+        Asset("cam_mgrr1", "cam_mgr", "bidirectional", 2, 3, 0, 1000, 1000),
+        Asset("wifi_drvr1", "wifi_drv", "bidirectional", 3, 4, 2, 1000, 1000),
+        Asset("uart_drvr1", "uart_drv", "bidirectional", 3, 5, 5, 5, 5),
+        Asset("nfzdbr1", "nfzdb", "bidirectional", 1, 5, 4, 15, 1000),
+        Asset("attest_gater1", "attest_gate", "input", 2, 0, 5, 8, 1000),
+        Asset("geofencer1", "geofence", "bidirectional", 2, 5, 5, 10, 10),
+        Asset("fpln_filtr1", "fpln_filt", "bidirectional", 2, 5, 5, 8, 8),
+        Asset("swur1", "swu", "bidirectional", 3, 5, 0, 1000, 1000),
+    ]
+
+    model.buses = ["bus_rf", "bus_mc", "bus_uart", "bus_wifi"]
+    model.links = [
+        ("gs", "bus_rf"),
+        ("bus_rf", "radio_drv"),
+        ("radio_drv", "bus_mc"),
+        ("mc", "bus_mc"),
+        ("bus_mc", "attest_gate"),
+        ("bus_mc", "fpln"),
+        ("bus_mc", "fpln_filt"),
+        ("bus_mc", "geofence"),
+        ("bus_mc", "wpm"),
+        ("bus_mc", "cam_mgr"),
+        ("bus_mc", "nfzdb"),
+        ("bus_mc", "uart_drv"),
+        ("bus_mc", "swu"),
+        ("mc", "bus_wifi"),
+        ("bus_wifi", "wifi_drv"),
+        ("bus_wifi", "cam_mgr"),
+        ("uart_drv", "bus_uart"),
+        ("bus_uart", "fc"),
+        ("fc", "bus_uart"),
+    ]
+
+    model.system_caps = {
+        "max_power": 15000,
+        "max_luts": 53200,
+        "max_ffs": 106400,
+        "max_dsps": 220,
+        "max_lutram": 17400,
+        "max_bufgs": 32,
+        "max_bram": 140,
+        "max_security_risk": 50,
+        "max_avail_risk": 25,
+        "max_attack_depth": 6,
+    }
+
+    model.cand_fws = ["pep_mc"]
+    model.cand_ps = ["ps_mc", "ps_uart"]
+    model.on_paths = [
+        ("pep_mc", "gs", "attest_gate"),
+        ("pep_mc", "gs", "fpln"),
+        ("pep_mc", "gs", "fpln_filt"),
+        ("pep_mc", "gs", "geofence"),
+        ("pep_mc", "gs", "wpm"),
+        ("pep_mc", "gs", "cam_mgr"),
+        ("pep_mc", "gs", "nfzdb"),
+        ("pep_mc", "gs", "uart_drv"),
+        ("pep_mc", "gs", "swu"),
+    ]
+    model.ip_locs = [
+        ("attest_gate", "pep_mc"),
+        ("fpln", "pep_mc"),
+        ("fpln_filt", "pep_mc"),
+        ("geofence", "pep_mc"),
+        ("wpm", "pep_mc"),
+        ("cam_mgr", "pep_mc"),
+        ("nfzdb", "pep_mc"),
+        ("uart_drv", "pep_mc"),
+        ("swu", "pep_mc"),
+    ]
+    model.fw_governs = [("ps_mc", "pep_mc"), ("ps_uart", "pep_mc")]
+    model.fw_costs = {"pep_mc": 200}
+    model.ps_costs = {"ps_mc": 200, "ps_uart": 150}
+    model.pep_guards = [("pep_mc", comp) for comp, _fw in model.ip_locs]
+    model.ps_governs_pep = list(model.fw_governs)
+
+    model.allow_rules = [
+        ("mc", "attest_gate", "normal"),
+        ("mc", "fpln", "normal"),
+        ("mc", "fpln_filt", "normal"),
+        ("mc", "geofence", "normal"),
+        ("mc", "wpm", "normal"),
+        ("mc", "cam_mgr", "normal"),
+        ("mc", "nfzdb", "normal"),
+        ("mc", "uart_drv", "normal"),
+        ("mc", "swu", "normal"),
+        ("gs", "radio_drv", "normal"),
+        ("fc", "uart_drv", "normal"),
+    ]
+    model.access_needs = [
+        AccessNeed("mc", "fpln", "read"), AccessNeed("mc", "fpln", "write"),
+        AccessNeed("mc", "fpln_filt", "read"), AccessNeed("mc", "fpln_filt", "write"),
+        AccessNeed("mc", "geofence", "read"), AccessNeed("mc", "geofence", "write"),
+        AccessNeed("mc", "wpm", "read"), AccessNeed("mc", "wpm", "write"),
+        AccessNeed("mc", "cam_mgr", "read"), AccessNeed("mc", "cam_mgr", "write"),
+        AccessNeed("mc", "uart_drv", "read"), AccessNeed("mc", "uart_drv", "write"),
+        AccessNeed("mc", "nfzdb", "read"),
+        AccessNeed("mc", "attest_gate", "read"),
+        AccessNeed("mc", "radio_drv", "read"), AccessNeed("mc", "radio_drv", "write"),
+        AccessNeed("gs", "radio_drv", "write"), AccessNeed("gs", "radio_drv", "read"),
+        AccessNeed("fc", "uart_drv", "read"), AccessNeed("fc", "uart_drv", "write"),
+    ]
+    model.roles = [
+        ("mc", "mission_computer"),
+        ("gs", "ground_station"),
+        ("fc", "flight_controller"),
+    ]
+    model.mission_access_rules = [
+        "mission_access(M, C, Op, operational) :- access_need(M, C, Op).",
+        "mission_access(mc, swu, read, maintenance).",
+        "mission_access(mc, swu, write, maintenance).",
+        "mission_access(mc, wifi_drv, read, maintenance).",
+        "mission_access(mc, wifi_drv, write, maintenance).",
+        "mission_access(M, C, Op, maintenance) :- access_need(M, C, Op).",
+        "mission_access(M, C, read, emergency) :- master(M), receiver(C), access_need(M, C, read).",
+    ]
+    model.role_need_rules = [
+        "role_need(mission_computer, C, read)  :- receiver(C), link(bus_mc, C).",
+        "role_need(mission_computer, C, write) :- receiver(C), link(bus_mc, C), not C = nfzdb.",
+        "role_need(ground_station, radio_drv, read).",
+        "role_need(ground_station, radio_drv, write).",
+        "role_need(flight_controller, uart_drv, read).",
+        "role_need(flight_controller, uart_drv, write).",
+    ]
+    model.policy_exceptions = [
+        ("gs", "fpln", "write", "emergency", "emergency_recovery"),
+    ]
+
+    model.trust_anchors = {
+        "mc": ["rot", "sboot", "attest", "key_storage", "trusted_telemetry"],
+        "fc": ["rot", "sboot"],
+        "attest_gate": ["rot", "sboot", "key_storage", "trusted_telemetry"],
+        "geofence": ["sboot"],
+        "fpln_filt": ["sboot"],
+        "nfzdb": ["key_storage"],
+        "ps_mc": ["signed_policy"],
+    }
+
+    model.services = [
+        Service("flight_safety_svc", ["fpln", "fpln_filt", "geofence", "wpm", "uart_drv"], quorum=5),
+        Service("navigation_svc", ["nfzdb", "geofence"], quorum=2),
+        Service("surveillance_svc", ["cam_mgr"], quorum=1),
+        Service("comms_svc", ["radio_drv"], quorum=1),
+        Service("maintenance_svc", ["wifi_drv", "swu"], quorum=2),
+    ]
+
+    model.capabilities = [
+        MissionCapability(
+            name="flight_control",
+            description="Flight control command path from MC to FC.",
+            required_services=["flight_safety_svc"],
+            required_components=["fc", "uart_drv"],
+            required_access=[("mc", "wpm", "write"), ("mc", "uart_drv", "write")],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="navigation",
+            description="No-fly-zone-aware navigation and geofence enforcement.",
+            required_services=["navigation_svc"],
+            required_components=["geofence", "nfzdb"],
+            required_access=[("mc", "geofence", "read"), ("mc", "nfzdb", "read")],
+            criticality="essential",
+            mission_phases=["operational"],
+        ),
+        MissionCapability(
+            name="surveillance",
+            description="Payload camera management and surveillance data handling.",
+            required_services=["surveillance_svc"],
+            required_components=["cam_mgr"],
+            required_access=[("mc", "cam_mgr", "read")],
+            criticality="important",
+            mission_phases=["operational"],
+        ),
+        MissionCapability(
+            name="ground_comms",
+            description="Ground-station command and telemetry exchange.",
+            required_services=["comms_svc"],
+            required_components=["radio_drv"],
+            required_access=[("mc", "radio_drv", "read"), ("gs", "radio_drv", "write")],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="ota_update",
+            description="Maintenance-mode over-the-air update path.",
+            required_services=["maintenance_svc"],
+            required_components=["swu", "wifi_drv"],
+            required_access=[("mc", "swu", "write")],
+            criticality="important",
+            mission_phases=["maintenance"],
+        ),
+        MissionCapability(
+            name="policy_management",
+            description="Policy distribution and enforcement control plane.",
+            required_services=[],
+            required_components=["ps_mc"],
+            required_access=[],
+            criticality="essential",
+            mission_phases=["operational", "emergency"],
+        ),
+        MissionCapability(
+            name="attestation",
+            description="Attestation gate verification of mission-computer trust state.",
+            required_services=[],
+            required_components=["attest_gate"],
+            required_access=[("mc", "attest_gate", "read")],
+            criticality="essential",
+            mission_phases=["operational"],
+        ),
+    ]
+
+    model.scenarios = [
+        {"name": "baseline", "compromised": [], "failed": []},
+        {"name": "mc_compromise", "compromised": ["mc"], "failed": []},
+        {"name": "fc_compromise", "compromised": ["fc"], "failed": []},
+        {"name": "gs_compromise", "compromised": ["gs"], "failed": []},
+        {"name": "radio_drv_compromise", "compromised": ["radio_drv"], "failed": []},
+        {"name": "wifi_drv_compromise", "compromised": ["wifi_drv"], "failed": []},
+        {"name": "swu_compromise", "compromised": ["swu"], "failed": []},
+        {"name": "geofence_compromise", "compromised": ["geofence"], "failed": []},
+        {"name": "fpln_filt_compromise", "compromised": ["fpln_filt"], "failed": []},
+        {"name": "uart_drv_compromise", "compromised": ["uart_drv"], "failed": []},
+        {"name": "bus_rf_failure", "compromised": [], "failed": ["bus_rf"]},
+        {"name": "bus_mc_failure", "compromised": [], "failed": ["bus_mc"]},
+        {"name": "bus_uart_failure", "compromised": [], "failed": ["bus_uart"]},
+        {"name": "bus_wifi_failure", "compromised": [], "failed": ["bus_wifi"]},
+        {"name": "fc_failure", "compromised": [], "failed": ["fc"]},
+        {"name": "geofence_failure", "compromised": [], "failed": ["geofence"]},
+        {"name": "uart_drv_failure", "compromised": [], "failed": ["uart_drv"]},
+        {"name": "ps_mc_compromise", "compromised": ["ps_mc"], "failed": []},
+        {"name": "ps_uart_compromise", "compromised": ["ps_uart"], "failed": []},
+        {"name": "pep_mc_bypass", "compromised": ["pep_mc"], "failed": []},
+        {"name": "all_ps_failure", "compromised": [], "failed": ["ps_mc", "ps_uart"]},
+        {"name": "radio_drv_comp_bus_mc_fail", "compromised": ["radio_drv"], "failed": ["bus_mc"]},
+        {"name": "mc_comp_bus_uart_fail", "compromised": ["mc"], "failed": ["bus_uart"]},
+        {"name": "gs_radio_chain", "compromised": ["gs", "radio_drv"], "failed": []},
     ]
 
     return model

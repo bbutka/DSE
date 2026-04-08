@@ -45,6 +45,7 @@ from dse_tool.agents.phase2_agent import Phase2Agent
 from dse_tool.agents.phase3_agent import Phase3Agent, generate_scenarios
 from dse_tool.core.asp_generator import (
     ASPGenerator,
+    make_darpa_uav_network,
     make_opentitan_network,
     make_pixhawk6x_uav_network,
     make_tc9_network,
@@ -53,6 +54,9 @@ from dse_tool.core.asp_generator import (
 _TC9_MODEL = make_tc9_network()
 _TC9_FACTS = ASPGenerator(_TC9_MODEL).generate()
 _TC9_SCENARIOS = generate_scenarios(_TC9_MODEL, full=True)
+_DARPA_MODEL = make_darpa_uav_network()
+_DARPA_FACTS = ASPGenerator(_DARPA_MODEL).generate()
+_DARPA_SCENARIOS = list(_DARPA_MODEL.scenarios)
 _PIXHAWK_MODEL = make_pixhawk6x_uav_network()
 _PIXHAWK_FACTS = ASPGenerator(_PIXHAWK_MODEL).generate()
 _PIXHAWK_SCENARIOS = generate_scenarios(_PIXHAWK_MODEL, full=True)
@@ -99,32 +103,34 @@ def _run_tc9_pipeline(strategy: str, timeout: int):
 
 
 def _run_darpa_pipeline(strategy: str, timeout: int):
-    p1 = Phase1Agent(
-        clingo_dir=CLINGO_DIR,
-        testcase_lp=DARPA_LP,
+    p1 = Phase1MathOptAgent(
+        network_model=_DARPA_MODEL,
         strategy=strategy,
         timeout=timeout,
-        solver_config=DETERMINISTIC_CLINGO,
+        solver_config=DETERMINISTIC_MATHOPT,
     ).run()
 
     p2 = Phase2Agent(
         clingo_dir=CLINGO_DIR,
-        testcase_lp=DARPA_LP,
+        testcase_lp="",
         phase1_result=p1,
         strategy=strategy,
+        extra_instance_facts=_DARPA_FACTS,
         timeout=timeout,
         solver_config=DETERMINISTIC_CLINGO,
     ).run()
 
     p3 = Phase3Agent(
         clingo_dir=CLINGO_DIR,
-        testcase_lp=DARPA_LP,
+        testcase_lp="",
         phase1_result=p1,
         phase2_result=p2,
         strategy=strategy,
         timeout=timeout,
+        full_scenarios=True,
+        extra_instance_facts=_DARPA_FACTS,
         solver_config=DETERMINISTIC_CLINGO,
-    ).run()
+    ).run(model_scenarios=_DARPA_SCENARIOS)
 
     return p1, p2, p3
 
@@ -284,10 +290,6 @@ class TestTC9GoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):
                 )
 
 
-@unittest.skipUnless(
-    os.path.isfile(DARPA_LP),
-    "DARPA UAV instance file not present",
-)
 class TestDarpaUAVGoldenBaselineFast(unittest.TestCase, _GoldenAssertions):
     @classmethod
     def setUpClass(cls):
@@ -370,7 +372,7 @@ class TestPixhawk6XGoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):
 
 
 @unittest.skipUnless(
-    os.path.isfile(DARPA_LP) and RUN_SLOW_GOLDEN,
+    RUN_SLOW_GOLDEN,
     "Set DSE_RUN_SLOW_GOLDEN=1 to run balanced/min_resources DARPA golden baselines.",
 )
 class TestDarpaUAVGoldenBaselineSlow(unittest.TestCase, _GoldenAssertions):

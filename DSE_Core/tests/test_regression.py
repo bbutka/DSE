@@ -1160,30 +1160,25 @@ class TestClingoIntegration(unittest.TestCase):
 
 
 class TestPhase1Integration(unittest.TestCase):
-    """Test Phase 1 with real Clingo solver on TC9."""
+    """Test Phase 1 integration across representative topologies."""
 
     @classmethod
     def setUpClass(cls):
         try:
-            import clingo
-            cls.has_clingo = True
+            import ortools  # noqa: F401
+            cls.has_ortools = True
         except ImportError:
-            cls.has_clingo = False
-        cls.has_lp = os.path.isfile(os.path.join(CLINGO_DIR, "init_enc.lp"))
+            cls.has_ortools = False
 
     def setUp(self):
-        if not self.has_clingo or not self.has_lp:
-            self.skipTest("clingo or LP files not available")
+        if not self.has_ortools:
+            self.skipTest("OR-Tools not available")
 
     def test_tc9_phase1_max_security(self):
-        from dse_tool.agents.phase1_agent import Phase1Agent
         model = make_tc9_network()
-        facts = ASPGenerator(model).generate()
-        agent = Phase1Agent(
-            clingo_dir=CLINGO_DIR,
-            testcase_lp="",
+        agent = Phase1MathOptAgent(
+            network_model=model,
             strategy="max_security",
-            extra_instance_facts=facts,
             timeout=60,
         )
         result = agent.run()
@@ -1192,42 +1187,30 @@ class TestPhase1Integration(unittest.TestCase):
         self.assertGreater(result.total_luts, 0, "Should have LUT usage")
 
     def test_tc9_phase1_min_resources(self):
-        from dse_tool.agents.phase1_agent import Phase1Agent
         model = make_tc9_network()
-        facts = ASPGenerator(model).generate()
-        agent = Phase1Agent(
-            clingo_dir=CLINGO_DIR,
-            testcase_lp="",
+        agent = Phase1MathOptAgent(
+            network_model=model,
             strategy="min_resources",
-            extra_instance_facts=facts,
             timeout=60,
         )
         result = agent.run()
         self.assertTrue(result.satisfiable, "Phase 1 min_resources should be SAT")
 
     def test_tc9_phase1_balanced(self):
-        from dse_tool.agents.phase1_agent import Phase1Agent
         model = make_tc9_network()
-        facts = ASPGenerator(model).generate()
-        agent = Phase1Agent(
-            clingo_dir=CLINGO_DIR,
-            testcase_lp="",
+        agent = Phase1MathOptAgent(
+            network_model=model,
             strategy="balanced",
-            extra_instance_facts=facts,
             timeout=60,
         )
         result = agent.run()
         self.assertTrue(result.satisfiable, "Phase 1 balanced should be SAT")
 
     def test_refsoc_phase1_max_security(self):
-        from dse_tool.agents.phase1_agent import Phase1Agent
         model = make_reference_soc()
-        facts = ASPGenerator(model).generate()
-        agent = Phase1Agent(
-            clingo_dir=CLINGO_DIR,
-            testcase_lp="",
+        agent = Phase1MathOptAgent(
+            network_model=model,
             strategy="max_security",
-            extra_instance_facts=facts,
             timeout=60,
         )
         result = agent.run()
@@ -1496,9 +1479,7 @@ class TestPhase3Integration(unittest.TestCase):
 # 10. Full Pipeline Integration Test
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-class TestFullPipeline(unittest.TestCase):
-    """Full orchestrator pipeline test (TC9 all 3 strategies)."""
-
+class _ClingoLpAvailabilityMixin:
     @classmethod
     def setUpClass(cls):
         try:
@@ -1511,6 +1492,24 @@ class TestFullPipeline(unittest.TestCase):
     def setUp(self):
         if not self.has_clingo or not self.has_lp:
             self.skipTest("clingo or LP files not available")
+
+
+class _MathOptAvailabilityMixin:
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import ortools  # noqa: F401
+            cls.has_ortools = True
+        except ImportError:
+            cls.has_ortools = False
+
+    def setUp(self):
+        if not self.has_ortools:
+            self.skipTest("OR-Tools not available")
+
+
+class TestFullPipeline(_ClingoLpAvailabilityMixin, unittest.TestCase):
+    """Full orchestrator pipeline test (TC9 all 3 strategies)."""
 
     def test_tc9_full_pipeline(self):
         from dse_tool.agents.orchestrator import DSEOrchestrator
@@ -1599,19 +1598,53 @@ class TestFullPipeline(unittest.TestCase):
         self.assertEqual(orch.error, "", f"Pixhawk orchestrator error: {orch.error}")
         self.assertEqual(len(orch.solutions), 3, "Pixhawk should produce 3 strategy results")
 
-    def test_refsoc_phase1_all_strategies(self):
-        """RefSoC-16 Phase 1 should pass for all strategies."""
-        from dse_tool.agents.phase1_agent import Phase1Agent
+class _RefSoCPhase1StrategyMixin:
+    strategy: str = ""
+
+    def _assert_refsoc_phase1_strategy(self):
+        if not self.has_ortools:
+            self.skipTest("OR-Tools not available")
         model = make_reference_soc()
-        facts = ASPGenerator(model).generate()
-        for strat in ["max_security", "min_resources", "balanced"]:
-            agent = Phase1Agent(
-                clingo_dir=CLINGO_DIR, testcase_lp="",
-                strategy=strat, extra_instance_facts=facts, timeout=60,
-            )
-            result = agent.run()
-            self.assertTrue(result.satisfiable,
-                          f"RefSoC Phase 1 {strat} should be SAT")
+        agent = Phase1MathOptAgent(
+            network_model=model,
+            strategy=self.strategy,
+            timeout=60,
+        )
+        result = agent.run()
+        self.assertTrue(result.satisfiable, f"RefSoC Phase 1 {self.strategy} should be SAT")
+
+
+class TestRefSoCPhase1MaxSecurity(
+    _MathOptAvailabilityMixin,
+    _RefSoCPhase1StrategyMixin,
+    unittest.TestCase,
+):
+    strategy = "max_security"
+
+    def test_refsoc_phase1_max_security(self):
+        self._assert_refsoc_phase1_strategy()
+
+
+class TestRefSoCPhase1MinResources(
+    _MathOptAvailabilityMixin,
+    _RefSoCPhase1StrategyMixin,
+    unittest.TestCase,
+):
+    strategy = "min_resources"
+
+    def test_refsoc_phase1_min_resources(self):
+        self._assert_refsoc_phase1_strategy()
+
+
+class TestRefSoCPhase1Balanced(
+    _MathOptAvailabilityMixin,
+    _RefSoCPhase1StrategyMixin,
+    unittest.TestCase,
+):
+    strategy = "balanced"
+
+    def test_refsoc_phase1_balanced(self):
+        self._assert_refsoc_phase1_strategy()
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

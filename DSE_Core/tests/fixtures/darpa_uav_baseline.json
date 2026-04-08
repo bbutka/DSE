@@ -12,8 +12,8 @@
     "placed_ps": [
       "ps_uart"
     ],
-    "phase3_scenario_count": 1,
-    "phase3_worst_case_risk_scaled": 2815
+    "phase3_scenario_count": 24,
+    "phase3_worst_case_risk_scaled": 5825
   },
   "min_resources": {
     "satisfiable": true,
@@ -27,8 +27,8 @@
     "placed_ps": [
       "ps_uart"
     ],
-    "phase3_scenario_count": 1,
-    "phase3_worst_case_risk_scaled": 5795
+    "phase3_scenario_count": 24,
+    "phase3_worst_case_risk_scaled": 12025
   },
   "balanced": {
     "satisfiable": true,
@@ -42,7 +42,7 @@
     "placed_ps": [
       "ps_uart"
     ],
-    "phase3_scenario_count": 1,
-    "phase3_worst_case_risk_scaled": 2815
+    "phase3_scenario_count": 24,
+    "phase3_worst_case_risk_scaled": 5825
   }
 }
