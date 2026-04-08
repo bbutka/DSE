@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+DSE_Core/tools/local_tc9_asp_artifacts*/
+DSE_Core/darpa_generated.lp
