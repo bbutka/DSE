@@ -63,7 +63,7 @@ Current `DSE_Core` ledgers:
 
 Important:
 
-- Phase 1 totals are security/logging overhead only
+- Phase 1 totals are security/realtime-detection overhead only
 - Phase 2 `total_cost` is an abstract ZTA placement cost, not a LUT/FF total
 
 ## Current Implementation Status

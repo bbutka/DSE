@@ -195,21 +195,31 @@ ps_conflict_exposure(A, 13) :-
 
 % Base security discount (prevention)
 security_discount(C, 5) :- p1_security(C, zero_trust).
+security_discount(C, 4) :- p1_security(C, authenticated_encryption).
 security_discount(C, 3) :- p1_security(C, dynamic_mac).
 security_discount(C, 1) :- p1_security(C, mac).
+security_discount(C, 1) :- p1_security(C, basic_access_control).
+security_discount(C, 0) :- p1_security(C, no_security).
 security_discount(C, 0) :- receiver(C), not p1_security(C, _).
 
-% Logging discount (detection / dwell-time reduction)
-logging_discount(C, 2) :- p1_logging(C, zero_trust_logger).
-logging_discount(C, 1) :- p1_logging(C, some_logging).
-logging_discount(C, 0) :- receiver(C), not p1_logging(C, _).
+% Realtime detection discount (detection / dwell-time reduction)
+realtime_discount(C, 2) :- p1_realtime(C, runtime_attestation).
+realtime_discount(C, 2) :- p1_realtime(C, bus_monitor).
+realtime_discount(C, 1) :- p1_realtime(C, watchdog).
+realtime_discount(C, 0) :- receiver(C), not p1_realtime(C, _).
 
-% Combined protection discount: security + logging (capped at 7)
+audit_discount(C, 3) :- audit_capability(C, full_audit).
+audit_discount(C, 2) :- audit_capability(C, standard_audit).
+audit_discount(C, 1) :- audit_capability(C, minimal_audit).
+audit_discount(C, 0) :- receiver(C), not audit_capability(C, _).
+
+% Combined protection discount: security + realtime + audit (capped at 10)
 protection_discount(C, D) :-
     security_discount(C, SD),
-    logging_discount(C, LD),
-    D0 = SD + LD,
-    D = #min { D0; 7 }.
+    realtime_discount(C, RD),
+    audit_discount(C, AD),
+    D0 = SD + RD + AD,
+    D = #min { D0; 10 }.
 
 % Modified cross-trust indirect exposure with protection factor
 protected_indirect_cross(A, N, AdjFactor) :-

@@ -10,6 +10,7 @@ solves, and returns the atoms from the best (optimal) model found.
 from __future__ import annotations
 
 import os
+import multiprocessing
 import threading
 from typing import List, Optional, Dict, Any
 
@@ -32,11 +33,13 @@ class ClingoRunner:
         threads: Optional[int] = None,
         parallel_mode: Optional[str] = None,
         configuration: Optional[str] = None,
+        opt_strategy: Optional[str] = None,
     ) -> None:
         self.timeout = timeout
         self.threads = self._resolve_threads(threads)
         self.parallel_mode = parallel_mode or os.environ.get("DSE_CLINGO_PARALLEL_MODE")
         self.configuration = configuration or os.environ.get("DSE_CLINGO_CONFIGURATION")
+        self.opt_strategy = opt_strategy or os.environ.get("DSE_CLINGO_OPT_STRATEGY")
 
     # ------------------------------------------------------------------
     # Public API
@@ -252,6 +255,8 @@ class ClingoRunner:
             flags.extend(["-n", str(num_solutions)])
         if self.configuration:
             flags.append(f"--configuration={self.configuration}")
+        if opt_mode and self.opt_strategy:
+            flags.append(f"--opt-strategy={self.opt_strategy}")
         if self.threads and self.threads > 1:
             mode = self.parallel_mode or "compete"
             flags.append(f"--parallel-mode={self.threads},{mode}")
@@ -267,4 +272,5 @@ class ClingoRunner:
                 return max(1, int(env_value))
             except ValueError:
                 return None
-        return None
+        cpu_count = multiprocessing.cpu_count() or 1
+        return max(1, min(4, cpu_count))

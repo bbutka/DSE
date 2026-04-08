@@ -19,13 +19,29 @@ from dse_tool.agents.phase1_agent import Phase1Agent
 from dse_tool.agents.orchestrator import DSEOrchestrator
 
 
+class _FakeAtomArg:
+    def __init__(self, value):
+        self._value = value
+        if isinstance(value, int):
+            self.number = value
+
+    def __str__(self):
+        return str(self._value)
+
+
+class _FakeAtom:
+    def __init__(self, name, *args):
+        self.name = name
+        self.arguments = [_FakeAtomArg(arg) for arg in args]
+
+
 def _sat_phase1(strategy: str = "max_security") -> Phase1Result:
     return Phase1Result(
         strategy=strategy,
         satisfiable=True,
         optimal=True,
         security={"c1": "zero_trust"},
-        logging={"c1": "zero_trust_logger"},
+        realtime={"c1": "runtime_attestation"},
         new_risk=[("c1", "c1r1", "read", 1)],
         security_risk=[("c1", "c1r1", "read", 1)],
         total_luts=100,
@@ -105,6 +121,44 @@ class TestOrchestratorPhase1BackendSelection(unittest.TestCase):
             sol = orch._run_strategy("max_security", facts)
         self.assertTrue(mathopt_run.called)
         self.assertTrue(sol.phase1.satisfiable)
+
+
+class TestPhase1AgentTimeoutReuse(unittest.TestCase):
+    def test_timeout_with_atoms_returns_best_so_far_solution(self):
+        atoms = [
+            _FakeAtom("selected_security", "c1", "zero_trust"),
+            _FakeAtom("selected_realtime", "c1", "runtime_attestation"),
+            _FakeAtom("new_risk", "c1", "c1r1", "read", 7),
+            _FakeAtom("security_risk", "c1", "c1r1", "read", 7),
+            _FakeAtom("total_luts_used", 120),
+            _FakeAtom("total_ffs_used", 80),
+            _FakeAtom("total_power_used", 9),
+        ]
+
+        class _Runner:
+            def solve(self, **_kwargs):
+                return {
+                    "status": "TIMEOUT",
+                    "atoms": atoms,
+                    "message": "Clingo timed out after 60s",
+                }
+
+        with patch("dse_tool.agents.phase1_agent.export_security_features_to_lp"), \
+             patch.object(Phase1Agent, "_make_runner", return_value=_Runner()):
+            result = Phase1Agent(
+                clingo_dir=CLINGO_DIR,
+                testcase_lp="",
+                strategy="max_security",
+                extra_instance_facts="component(c1).",
+                timeout=60,
+            ).run()
+
+        self.assertTrue(result.satisfiable)
+        self.assertFalse(result.optimal)
+        self.assertEqual(result.security["c1"], "zero_trust")
+        self.assertEqual(result.realtime["c1"], "runtime_attestation")
+        self.assertEqual(result.total_luts, 120)
+        self.assertEqual(result.risk_per_asset_action(), {("c1r1", "read"): 7})
 
 
 class TestPhase1BackendIntegration(unittest.TestCase):
@@ -218,3 +272,4 @@ class TestPhase1BackendIntegration(unittest.TestCase):
             any("/MATHOPT]" in msg for msg in messages),
             f"Expected ILP backend progress messages, got: {messages[:20]}",
         )
+

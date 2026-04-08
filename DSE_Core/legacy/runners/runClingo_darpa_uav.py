@@ -116,7 +116,7 @@ SCENARIOS = [
 @dataclass
 class Phase1Result:
     security:     dict = field(default_factory=dict)
-    logging:      dict = field(default_factory=dict)
+    realtime:     dict = field(default_factory=dict)
     new_risk:     list = field(default_factory=list)
     total_luts:   int  = 0
     total_ffs:    int  = 0
@@ -125,6 +125,14 @@ class Phase1Result:
     total_bram:   int  = 0
     total_power:  int  = 0
     optimal:      bool = False
+
+    @property
+    def logging(self) -> dict:
+        return self.realtime
+
+    @logging.setter
+    def logging(self, value: dict) -> None:
+        self.realtime = value
 
     def max_risk_per_asset(self) -> dict:
         result = {}
@@ -139,8 +147,8 @@ class Phase1Result:
         lines = []
         for comp, feat in self.security.items():
             lines.append(f"p1_security({comp}, {feat}).")
-        for comp, feat in self.logging.items():
-            lines.append(f"p1_logging({comp}, {feat}).")
+        for comp, feat in self.realtime.items():
+            lines.append(f"p1_realtime({comp}, {feat}).")
         for asset, risk in self.max_risk_per_asset().items():
             lines.append(f"p1_risk({asset}, {risk}).")
         if extra:
@@ -298,8 +306,8 @@ def phase1_optimise(strategy: str = "max_security") -> Phase1Result:
         n, a = sym.name, sym.arguments
         if n == "selected_security" and len(a) == 2 and str(a[0]) in COMPONENTS:
             result.security[str(a[0])] = str(a[1])
-        elif n == "selected_logging"  and len(a) == 2 and str(a[0]) in COMPONENTS:
-            result.logging[str(a[0])]  = str(a[1])
+        elif n in ("selected_realtime", "selected_logging") and len(a) == 2 and str(a[0]) in COMPONENTS:
+            result.realtime[str(a[0])] = str(a[1])
         elif n == "new_risk"          and len(a) == 4:
             result.new_risk.append((str(a[0]), str(a[1]), str(a[2]), a[3].number))
         elif n == "total_luts_used"   and len(a) == 1: result.total_luts   = a[0].number

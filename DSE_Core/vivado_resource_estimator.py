@@ -6,7 +6,7 @@ using the existing xilinx_ip_catalog.py estimates.
 
 Usage:
     python vivado_resource_estimator.py --design <design_file.lp>
-    python vivado_resource_estimator.py --features mac,zero_trust,some_logging
+    python vivado_resource_estimator.py --features mac,zero_trust,watchdog
     python vivado_resource_estimator.py --list-features
 """
 
@@ -135,7 +135,7 @@ def main():
     )
     parser.add_argument(
         "--features", "-f",
-        help="Comma-separated list of security features (e.g., mac,zero_trust,some_logging)"
+        help="Comma-separated list of feature IPs (e.g., mac,zero_trust,watchdog)"
     )
     parser.add_argument(
         "--list-features", "-l",

@@ -24,12 +24,12 @@ AMP_DENOM = 10  # risk is scaled by 10 in the ASP encodings
 class Phase1Result:
     """Structured output of the Phase 1 security DSE optimisation.
 
-    Resource totals on this object are Phase 1-added security/logging overhead
+    Resource totals on this object are Phase 1-added security/realtime-detection overhead
     only. They are not intended to represent the fixed baseline hardware cost
     of the architecture itself.
     """
     security:              Dict[str, str]  = field(default_factory=dict)
-    logging:               Dict[str, str]  = field(default_factory=dict)
+    realtime:              Dict[str, str]  = field(default_factory=dict)
     new_risk:              List[Tuple]     = field(default_factory=list)
     # Typed risk breakdown — populated when ASP shows these predicates
     security_risk:          List[Tuple]   = field(default_factory=list)
@@ -37,6 +37,7 @@ class Phase1Result:
     # Diagnostic: per-component domain bonus and exploitability modifier
     domain_bonus:           Dict[str, int] = field(default_factory=dict)
     exploit_mod:            Dict[str, int] = field(default_factory=dict)
+    exploit_factor:         Dict[str, int] = field(default_factory=dict)
     # Amplification weights: asset → weight used in weighted objective
     risk_weights:           Dict[str, int] = field(default_factory=dict)
     total_luts:   int = 0
@@ -48,6 +49,15 @@ class Phase1Result:
     optimal:      bool = False
     satisfiable:  bool = False
     strategy:     str  = "unknown"
+
+    @property
+    def logging(self) -> Dict[str, str]:
+        """Temporary compatibility alias; prefer ``realtime``."""
+        return self.realtime
+
+    @logging.setter
+    def logging(self, value: Dict[str, str]) -> None:
+        self.realtime = value
 
     def max_risk_per_asset(self) -> Dict[str, int]:
         """Return max risk value per asset across read/write operations."""
@@ -61,7 +71,7 @@ class Phase1Result:
         return sum(self.max_risk_per_asset().values())
 
     def security_overhead_summary(self) -> Dict[str, int]:
-        """Return the Phase 1-added security/logging overhead totals.
+        """Return the Phase 1-added security/realtime-detection overhead totals.
 
         These numbers are the correct resource ledger for comparing protection
         choices on the same architecture. They should not be interpreted as the
@@ -101,8 +111,8 @@ class Phase1Result:
         lines: List[str] = []
         for comp, feat in self.security.items():
             lines.append(f"p1_security({comp}, {feat}).")
-        for comp, feat in self.logging.items():
-            lines.append(f"p1_logging({comp}, {feat}).")
+        for comp, feat in self.realtime.items():
+            lines.append(f"p1_realtime({comp}, {feat}).")
         # 3-arg form: per (asset, action)
         for (asset, action), risk in sorted(self.risk_per_asset_action().items()):
             lines.append(f"p1_risk({asset}, {action}, {risk}).")
@@ -340,10 +350,10 @@ class SolutionParser:
                 comp_name = str(a[0])
                 if not _asset_pat.match(comp_name):   # skip asset-level entries
                     r.security[comp_name] = str(a[1])
-            elif n == "selected_logging" and len(a) == 2:
+            elif n == "selected_realtime" and len(a) == 2:
                 comp_name = str(a[0])
                 if not _asset_pat.match(comp_name):   # skip asset-level entries
-                    r.logging[comp_name] = str(a[1])
+                    r.realtime[comp_name] = str(a[1])
             elif n == "new_risk" and len(a) == 4:
                 r.new_risk.append((
                     str(a[0]), str(a[1]), str(a[2]), a[3].number
@@ -360,6 +370,8 @@ class SolutionParser:
                 r.domain_bonus[str(a[0])] = a[1].number
             elif n == "exploit_mod" and len(a) == 2:
                 r.exploit_mod[str(a[0])] = a[1].number
+            elif n == "exploit_factor" and len(a) == 2:
+                r.exploit_factor[str(a[0])] = a[1].number
             elif n == "risk_weight" and len(a) == 2:
                 r.risk_weights[str(a[0])] = a[1].number
             elif n == "total_luts_used"   and len(a) == 1:

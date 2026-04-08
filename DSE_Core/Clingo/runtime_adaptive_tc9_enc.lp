@@ -5,7 +5,7 @@
 %% Expects:
 %%   - integrated tc9 instance facts (generated or tgt_system_tc9_inst.lp)
 %%   - runtime_monitor_tc9_inst.lp
-%%   - injected Phase 1 facts: p1_logging/2
+%%   - injected Phase 1 facts: p1_realtime/2
 %%   - injected Phase 2 facts: deployed_pep/1, deployed_ps/1
 %%   - injected observations: observed(Node, SignalKind, Severity)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,16 +88,17 @@ monitor_visibility(N, Score) :-
 %% 3. OBSERVABILITY / EVIDENCE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-logging_visibility(C, 0)  :- p1_logging(C, no_logging).
-logging_visibility(C, 6)  :- p1_logging(C, some_logging).
-logging_visibility(C, 15) :- p1_logging(C, zero_trust_logger).
+logging_visibility(C, 0)  :- p1_realtime(C, no_realtime).
+logging_visibility(C, 6)  :- p1_realtime(C, watchdog).
+logging_visibility(C, 10) :- p1_realtime(C, bus_monitor).
+logging_visibility(C, 15) :- p1_realtime(C, runtime_attestation).
 % Non-receivers (masters, PSes, PEPs) have no logging feature — always 0.
 logging_visibility(N, 0)  :- observed_node(N), not receiver(N).
-% Safety fallback: receivers for which no p1_logging fact was injected
+% Safety fallback: receivers for which no p1_realtime fact was injected
 % (e.g. Phase 1 was skipped or partial) default to 0 rather than being
 % undefined, which would silently drop their observability_score and
 % cause all signals from them to be missed.
-logging_visibility(C, 0)  :- receiver(C), not p1_logging(C, _).
+logging_visibility(C, 0)  :- receiver(C), not p1_realtime(C, _).
 
 observability_score(N, Score) :-
     observed_node(N),

@@ -3,7 +3,7 @@
 %
 % The exported security_features_inst.lp maps Vivado totals as:
 % - security feature cost -> byComponent
-% - logging feature cost  -> base (counted once per selected component)
+% - realtime-detection feature cost -> base (counted once per selected component)
 %
 % This encoding counts component-level selections directly and preserves the
 % existing output atoms (total_asset_*, total_component_*, total_base_*,
@@ -25,14 +25,14 @@ security_base_luts_for_component(C, TotalLut) :-
     component(C),
     TotalLut = #sum { Lut : selected_security(C, F), luts(F, base, Lut) }.
 
-logging_base_luts_for_component(C, TotalLut) :-
+realtime_base_luts_for_component(C, TotalLut) :-
     component(C),
-    TotalLut = #sum { Lut : selected_logging(C, L), luts(L, base, Lut) }.
+    TotalLut = #sum { Lut : selected_realtime(C, L), luts(L, base, Lut) }.
 
 total_base_luts(BaseLUTs) :-
     SecurityBaseLUTs = #sum { Lut, C : security_base_luts_for_component(C, Lut) },
-    LoggingBaseLUTs = #sum { Lut, C : logging_base_luts_for_component(C, Lut) },
-    BaseLUTs = SecurityBaseLUTs + LoggingBaseLUTs.
+    RealtimeBaseLUTs = #sum { Lut, C : realtime_base_luts_for_component(C, Lut) },
+    BaseLUTs = SecurityBaseLUTs + RealtimeBaseLUTs.
 
 total_asset_luts(0).
 
@@ -63,14 +63,14 @@ security_base_ffs_for_component(C, TotalFFS) :-
     component(C),
     TotalFFS = #sum { FFS : selected_security(C, F), ffs(F, base, FFS) }.
 
-logging_base_ffs_for_component(C, TotalFFS) :-
+realtime_base_ffs_for_component(C, TotalFFS) :-
     component(C),
-    TotalFFS = #sum { FFS : selected_logging(C, L), ffs(L, base, FFS) }.
+    TotalFFS = #sum { FFS : selected_realtime(C, L), ffs(L, base, FFS) }.
 
 total_base_ffs(BaseFFSs) :-
     SecurityBaseFFSs = #sum { FFS, C : security_base_ffs_for_component(C, FFS) },
-    LoggingBaseFFSs = #sum { FFS, C : logging_base_ffs_for_component(C, FFS) },
-    BaseFFSs = SecurityBaseFFSs + LoggingBaseFFSs.
+    RealtimeBaseFFSs = #sum { FFS, C : realtime_base_ffs_for_component(C, FFS) },
+    BaseFFSs = SecurityBaseFFSs + RealtimeBaseFFSs.
 
 total_asset_ffs(0).
 
@@ -101,14 +101,14 @@ security_base_dsps_for_component(C, TotalDSPS) :-
     component(C),
     TotalDSPS = #sum { DSPS : selected_security(C, F), dsps(F, base, DSPS) }.
 
-logging_base_dsps_for_component(C, TotalDSPS) :-
+realtime_base_dsps_for_component(C, TotalDSPS) :-
     component(C),
-    TotalDSPS = #sum { DSPS : selected_logging(C, L), dsps(L, base, DSPS) }.
+    TotalDSPS = #sum { DSPS : selected_realtime(C, L), dsps(L, base, DSPS) }.
 
 total_base_dsps(BaseDSPS) :-
     SecurityBaseDSPS = #sum { DSPS, C : security_base_dsps_for_component(C, DSPS) },
-    LoggingBaseDSPS = #sum { DSPS, C : logging_base_dsps_for_component(C, DSPS) },
-    BaseDSPS = SecurityBaseDSPS + LoggingBaseDSPS.
+    RealtimeBaseDSPS = #sum { DSPS, C : realtime_base_dsps_for_component(C, DSPS) },
+    BaseDSPS = SecurityBaseDSPS + RealtimeBaseDSPS.
 
 total_asset_dsps(0).
 
@@ -139,14 +139,14 @@ security_base_lutram_for_component(C, TotalLUTRAM) :-
     component(C),
     TotalLUTRAM = #sum { LUTRAM : selected_security(C, F), lutram(F, base, LUTRAM) }.
 
-logging_base_lutram_for_component(C, TotalLUTRAM) :-
+realtime_base_lutram_for_component(C, TotalLUTRAM) :-
     component(C),
-    TotalLUTRAM = #sum { LUTRAM : selected_logging(C, L), lutram(L, base, LUTRAM) }.
+    TotalLUTRAM = #sum { LUTRAM : selected_realtime(C, L), lutram(L, base, LUTRAM) }.
 
 total_base_lutram(BaseLUTRAMs) :-
     SecurityBaseLUTRAMs = #sum { LUTRAM, C : security_base_lutram_for_component(C, LUTRAM) },
-    LoggingBaseLUTRAMs = #sum { LUTRAM, C : logging_base_lutram_for_component(C, LUTRAM) },
-    BaseLUTRAMs = SecurityBaseLUTRAMs + LoggingBaseLUTRAMs.
+    RealtimeBaseLUTRAMs = #sum { LUTRAM, C : realtime_base_lutram_for_component(C, LUTRAM) },
+    BaseLUTRAMs = SecurityBaseLUTRAMs + RealtimeBaseLUTRAMs.
 
 total_asset_lutram(0).
 
@@ -177,14 +177,14 @@ security_base_bufg_for_component(C, TotalBUFG) :-
     component(C),
     TotalBUFG = #sum { BUFG : selected_security(C, F), bufg(F, base, BUFG) }.
 
-logging_base_bufg_for_component(C, TotalBUFG) :-
+realtime_base_bufg_for_component(C, TotalBUFG) :-
     component(C),
-    TotalBUFG = #sum { BUFG : selected_logging(C, L), bufg(L, base, BUFG) }.
+    TotalBUFG = #sum { BUFG : selected_realtime(C, L), bufg(L, base, BUFG) }.
 
 total_base_bufg(BaseBUFGs) :-
     SecurityBaseBUFGs = #sum { BUFG, C : security_base_bufg_for_component(C, BUFG) },
-    LoggingBaseBUFGs = #sum { BUFG, C : logging_base_bufg_for_component(C, BUFG) },
-    BaseBUFGs = SecurityBaseBUFGs + LoggingBaseBUFGs.
+    RealtimeBaseBUFGs = #sum { BUFG, C : realtime_base_bufg_for_component(C, BUFG) },
+    BaseBUFGs = SecurityBaseBUFGs + RealtimeBaseBUFGs.
 
 total_asset_bufg(0).
 
@@ -217,14 +217,14 @@ security_base_bram_for_component(C, TotalBRAM) :-
     component(C),
     TotalBRAM = #sum { BRAM : selected_security(C, F), bram(F, base, BRAM) }.
 
-logging_base_bram_for_component(C, TotalBRAM) :-
+realtime_base_bram_for_component(C, TotalBRAM) :-
     component(C),
-    TotalBRAM = #sum { BRAM : selected_logging(C, L), bram(L, base, BRAM) }.
+    TotalBRAM = #sum { BRAM : selected_realtime(C, L), bram(L, base, BRAM) }.
 
 total_base_bram(BaseBRAMs) :-
     SecurityBaseBRAMs = #sum { BRAM, C : security_base_bram_for_component(C, BRAM) },
-    LoggingBaseBRAMs = #sum { BRAM, C : logging_base_bram_for_component(C, BRAM) },
-    BaseBRAMs = SecurityBaseBRAMs + LoggingBaseBRAMs.
+    RealtimeBaseBRAMs = #sum { BRAM, C : realtime_base_bram_for_component(C, BRAM) },
+    BaseBRAMs = SecurityBaseBRAMs + RealtimeBaseBRAMs.
 
 total_asset_bram(0).
 

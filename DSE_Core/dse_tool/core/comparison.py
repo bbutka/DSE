@@ -84,7 +84,7 @@ class ComparisonEngine:
             # Feature quality commentary
             zt_count = sum(1 for f in p1.security.values() if f == "zero_trust")
             mac_count = sum(1 for f in p1.security.values() if f == "mac")
-            no_log_count = sum(1 for f in p1.logging.values() if f == "no_logging")
+            no_log_count = sum(1 for f in p1.realtime.values() if f == "no_realtime")
             if zt_count == len(p1.security) and p1.security:
                 pros.append(
                     "Maximum protection — zero_trust assigned to all components"
@@ -92,11 +92,11 @@ class ComparisonEngine:
             if mac_count > 0:
                 cons.append(
                     f"Reduced security — {mac_count} component(s) use minimal MAC "
-                    f"feature (vulnerability=30)"
+                    f"feature (exposure=25)"
                 )
             if no_log_count > 0:
                 cons.append(
-                    f"Limited observability — {no_log_count} component(s) have no logging"
+                    f"Limited observability — {no_log_count} component(s) have no realtime detection"
                 )
 
         # ── Resource usage ─────────────────────────────────────────────────
@@ -133,7 +133,7 @@ class ComparisonEngine:
         if p1 and p1.satisfiable:
             # Check for latency-constrained components forced to weaker features
             for comp, feat in p1.security.items():
-                if feat in ("mac", "no_logging") and feat != "zero_trust":
+                if feat != "zero_trust":
                     # Only flag if other solutions give this component a better feature
                     other_feats = []
                     for other_sol in self.solutions:
@@ -367,12 +367,12 @@ def generate_report_text(
         # Feature assignments
         lines.append("  FEATURE ASSIGNMENTS")
         lines.append(SEP2)
-        lines.append(f"    {'Component':<16}  {'Security':<16}  {'Logging':<22}  {'Risk'}")
+        lines.append(f"    {'Component':<16}  {'Security':<16}  {'Detection':<22}  {'Risk'}")
         lines.append(f"    {'-'*16}  {'-'*16}  {'-'*22}  {'-'*5}")
-        all_comps = sorted(set(list(p1.security.keys()) + list(p1.logging.keys())))
+        all_comps = sorted(set(list(p1.security.keys()) + list(p1.realtime.keys())))
         for comp in all_comps:
             sec  = p1.security.get(comp, "—")
-            log  = p1.logging.get(comp, "—")
+            log  = p1.realtime.get(comp, "—")
             # Find risk for any asset on this component
             comp_risk = "—"
             for asset_key, r in per_asset.items():
@@ -720,3 +720,4 @@ def export_csv(
                 "CIA_A":              sol.cia_scores.get("A", 0),
             }
             writer.writerow(row)
+

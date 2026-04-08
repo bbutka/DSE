@@ -129,6 +129,31 @@ IP_CATALOG: Dict[str, IPResourceEstimate] = {
               "Source: HMAC + nonce counter + FSM overhead estimate.",
     ),
 
+    "authenticated_encryption": IPResourceEstimate(
+        luts=1050, ffs=720,
+        power_mw=20.0,
+        latency=4,
+        fmax_mhz=220,
+        notes="Authenticated encryption wrapper (e.g. AES-GCM) around datapath. "
+              "Source: interpolated between MAC and zero_trust feature costs.",
+    ),
+
+    "basic_access_control": IPResourceEstimate(
+        luts=350, ffs=200,
+        power_mw=6.0,
+        latency=2,
+        fmax_mhz=300,
+        notes="Simple discretionary access-control wrapper. "
+              "Source: lightweight ACL / register-gate estimate.",
+    ),
+
+    "no_security": IPResourceEstimate(
+        luts=0, ffs=0,
+        power_mw=0.0,
+        latency=0,
+        notes="No prevention feature instantiated.",
+    ),
+
     # ── Zero Trust ───────────────────────────────────────────────────────────
 
     "zero_trust": IPResourceEstimate(
@@ -144,34 +169,44 @@ IP_CATALOG: Dict[str, IPResourceEstimate] = {
               "Source: Xilinx Ethernet MAC resource cost + 64-entry CAM.",
     ),
 
-    # ── Logging features ────────────────────────────────────────────────────
+    # ── Real-time detection features ────────────────────────────────────────
 
-    "no_logging": IPResourceEstimate(
+    "no_realtime": IPResourceEstimate(
         luts=0, ffs=0,
-        notes="No logging instantiated — zero cost.",
+        power_mw=0.0,
+        latency=0,
+        notes="No real-time detection instantiated.",
     ),
 
-    "some_logging": IPResourceEstimate(
-        # Basic logging: timestamp + header capture to BRAM FIFO
+    "watchdog": IPResourceEstimate(
+        # Basic watchdog / heartbeat monitor
         luts=180, ffs=220,
-        brams=1,            # 1 BRAM tile for 18Kb log buffer
+        brams=1,
         power_mw=4.0,
         latency=1,
         fmax_mhz=300,
-        notes="Basic log buffer. BRAM stores timestamp + truncated header. "
-              "Source: Xilinx LogiCORE FIFO resource cost.",
+        notes="Watchdog or heartbeat-based detection path. "
+              "Source: lightweight monitor / FIFO estimate.",
     ),
 
-    "zero_trust_logger": IPResourceEstimate(
-        # Full zero-trust logging: deep packet inspection + BRAM storage
-        # More capable than some_logging: captures full header + payload digest
+    "bus_monitor": IPResourceEstimate(
+        luts=380, ffs=320,
+        power_mw=8.0,
+        latency=1,
+        fmax_mhz=280,
+        notes="Bus monitor / anomaly detection wrapper. "
+              "Source: interpolated between watchdog and runtime attestation.",
+    ),
+
+    "runtime_attestation": IPResourceEstimate(
+        # Highest-grade detection / runtime attestation path
         luts=520, ffs=480,
-        brams=2,            # 2 BRAM tiles for deeper log
+        brams=2,
         power_mw=11.0,
         latency=2,
         fmax_mhz=250,
-        notes="Deep logging with header + payload digest. "
-              "Source: Xilinx LogiCORE AXI Stream FIFO + BRAM estimate.",
+        notes="Runtime attestation / deep inspection monitor. "
+              "Source: former zero_trust_logger estimate.",
     ),
 
     # ── Bus infrastructure ───────────────────────────────────────────────────
@@ -254,20 +289,38 @@ IP_CATALOG: Dict[str, IPResourceEstimate] = {
 }
 
 
-SECURITY_FEATURE_EXPORT_ORDER = ["zero_trust", "mac", "dynamic_mac"]
-LOGGING_FEATURE_EXPORT_ORDER = ["zero_trust_logger", "some_logging", "no_logging"]
+SECURITY_FEATURE_EXPORT_ORDER = [
+    "zero_trust",
+    "authenticated_encryption",
+    "dynamic_mac",
+    "mac",
+    "basic_access_control",
+    "no_security",
+]
+REALTIME_FEATURE_EXPORT_ORDER = [
+    "runtime_attestation",
+    "bus_monitor",
+    "watchdog",
+    "no_realtime",
+]
 
-VULNERABILITY_VALUES = {
+EXPOSURE_VALUES = {
     "zero_trust": 10,
-    "mac": 30,
+    "authenticated_encryption": 15,
     "dynamic_mac": 20,
+    "mac": 25,
+    "basic_access_control": 35,
+    "no_security": 50,
 }
 
-LOGGING_RISK_VALUES = {
-    "zero_trust_logger": 5,
-    "some_logging": 10,
-    "no_logging": 20,
+REALTIME_DETECTION_VALUES = {
+    "runtime_attestation": 5,
+    "bus_monitor": 8,
+    "watchdog": 12,
+    "no_realtime": 20,
 }
+
+EXPLOIT_FACTOR_MAP = {1: 5, 2: 7, 3: 10, 4: 14, 5: 20}
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -533,7 +586,7 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
 
     Mapping choice:
     - security feature catalog totals are exported as byComponent costs
-    - logging feature catalog totals are exported as base costs, which are
+    - realtime detection feature catalog totals are exported as base costs, which are
       consumed per selected component by the updated ASP resource encodings
     - byAsset costs are exported as zero so Vivado totals are not double-counted
     """
@@ -543,12 +596,12 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
         "% Vivado catalog is the default source of truth for resource calculations.",
         "% Do not edit manually unless you also update the catalog exporter.",
         "",
-        "% Security and logging feature declarations",
+        "% Security and realtime-detection feature declarations",
     ]
     for feature in SECURITY_FEATURE_EXPORT_ORDER:
         lines.append(f"security_feature({feature}).")
-    for feature in LOGGING_FEATURE_EXPORT_ORDER:
-        lines.append(f"logging_feature({feature}).")
+    for feature in REALTIME_FEATURE_EXPORT_ORDER:
+        lines.append(f"realtime_feature({feature}).")
 
     lines.extend(
         [
@@ -561,7 +614,7 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
         lines.append(f"power_cost({feature}, byAsset, 0).")
         lines.append(f"power_cost({feature}, byComponent, {_mw_to_int(est.power_mw)}).")
         lines.append(f"power_cost({feature}, base, 0).")
-    for feature in LOGGING_FEATURE_EXPORT_ORDER:
+    for feature in REALTIME_FEATURE_EXPORT_ORDER:
         est = get_calibrated_estimate(feature)
         lines.append(f"power_cost({feature}, base, {_mw_to_int(est.power_mw)}).")
 
@@ -572,9 +625,11 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
         ]
     )
     for feature in SECURITY_FEATURE_EXPORT_ORDER:
-        lines.append(f"vulnerability({feature}, {VULNERABILITY_VALUES[feature]}).")
-    for feature in LOGGING_FEATURE_EXPORT_ORDER:
-        lines.append(f"logging({feature}, {LOGGING_RISK_VALUES[feature]}).")
+        lines.append(f"exposure({feature}, {EXPOSURE_VALUES[feature]}).")
+    for feature in REALTIME_FEATURE_EXPORT_ORDER:
+        lines.append(f"realtime_detection({feature}, {REALTIME_DETECTION_VALUES[feature]}).")
+    for exploitability, factor in EXPLOIT_FACTOR_MAP.items():
+        lines.append(f"exploit_factor_map({exploitability}, {factor}).")
 
     resource_specs = [
         ("luts", "luts"),
@@ -592,7 +647,7 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
             lines.append(f"{lp_name}({feature}, byAsset, 0).")
             lines.append(f"{lp_name}({feature}, byComponent, {value}).")
             lines.append(f"{lp_name}({feature}, base, 0).")
-        for feature in LOGGING_FEATURE_EXPORT_ORDER:
+        for feature in REALTIME_FEATURE_EXPORT_ORDER:
             est = get_calibrated_estimate(feature)
             value = getattr(est, attr_name)
             lines.append(f"{lp_name}({feature}, base, {value}).")
@@ -602,11 +657,11 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
         lines.append(f"bufg({feature}, byAsset, 0).")
         lines.append(f"bufg({feature}, byComponent, 0).")
         lines.append(f"bufg({feature}, base, 0).")
-    for feature in LOGGING_FEATURE_EXPORT_ORDER:
+    for feature in REALTIME_FEATURE_EXPORT_ORDER:
         lines.append(f"bufg({feature}, base, 0).")
 
     lines.extend(["", "% Latency costs (Vivado defaults)"])
-    for feature in SECURITY_FEATURE_EXPORT_ORDER + LOGGING_FEATURE_EXPORT_ORDER:
+    for feature in SECURITY_FEATURE_EXPORT_ORDER + REALTIME_FEATURE_EXPORT_ORDER:
         est = get_calibrated_estimate(feature)
         lines.append(f"latency_cost({feature}, {est.latency}).")
 
@@ -627,8 +682,10 @@ __all__ = [
     "TC9_NOC_MODEL",
     "TARGET_DEVICE", "TARGET_LUT", "TARGET_FF", "TARGET_BRAM", "TARGET_DSP",
     "DEFAULT_CLK_NS",
-    "VULNERABILITY_VALUES",
-    "LOGGING_RISK_VALUES",
+    "EXPOSURE_VALUES",
+    "REALTIME_DETECTION_VALUES",
+    "REALTIME_FEATURE_EXPORT_ORDER",
+    "EXPLOIT_FACTOR_MAP",
     "summarize_security_feature",
     "feature_cost_table",
     "get_calibrated_estimate",

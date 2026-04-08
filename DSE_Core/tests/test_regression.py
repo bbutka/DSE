@@ -1,4 +1,4 @@
-﻿"""
+"""
 Full regression test suite for the DSE security analysis tool.
 
 Covers:
@@ -58,9 +58,9 @@ from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
 from dse_tool.agents.phase3_agent import generate_scenarios, _valid_asp_components
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 1. Data Model Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestComponent(unittest.TestCase):
     """Test Component dataclass defaults and creation."""
@@ -115,9 +115,9 @@ class TestNetworkModel(unittest.TestCase):
         self.assertEqual(d["name"], "test_net")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 2. Factory Model Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestTC9Factory(unittest.TestCase):
     """Validate the TC9 factory model structure."""
@@ -381,9 +381,9 @@ class TestPixhawk6XFactory(unittest.TestCase):
         self.assertEqual(delta.added_ps_candidates, ["ps_io"])
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 3. ASP Generator Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestASPGenerator(unittest.TestCase):
     """Test ASP fact generation from NetworkModel."""
@@ -442,7 +442,7 @@ class TestASPGenerator(unittest.TestCase):
         self.assertIn("risk_weight(", self.tc9_facts)
 
     def test_tc9_contains_redundancy(self):
-        # Group g1 â†’ integer 1
+        # Group g1 → integer 1
         self.assertIn("redundant_group(1, c1).", self.tc9_facts)
 
     def test_refsoc_contains_safety_critical(self):
@@ -532,7 +532,7 @@ class TestTopologyValidation(unittest.TestCase):
         ]
         model.links = [("cpu", "secret")]
         model.cand_fws = ["fw1"]
-        # No on_paths â†’ should warn
+        # No on_paths → should warn
         warnings = ASPGenerator(model).validate_topology()
         self.assertGreater(len(warnings), 0)
         self.assertTrue(any("UNSAT risk" in w for w in warnings))
@@ -548,7 +548,7 @@ class TestTopologyValidation(unittest.TestCase):
         model.links = [("cpu", "ip1")]
         model.cand_fws = ["fw1"]
         model.on_paths = [("fw1", "cpu", "ip1")]
-        model.fw_governs = []  # No governance â†’ should warn
+        model.fw_governs = []  # No governance → should warn
         warnings = ASPGenerator(model).validate_topology()
         self.assertTrue(any("governing PS" in w for w in warnings))
 
@@ -571,15 +571,15 @@ class TestTopologyValidation(unittest.TestCase):
         self.assertTrue(any("Safety-critical" in w for w in warnings))
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 4. Solution Parser Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestPhase1Result(unittest.TestCase):
     def _make_p1(self) -> Phase1Result:
         p1 = Phase1Result(strategy="max_security", satisfiable=True, optimal=True)
         p1.security = {"c1": "zero_trust", "c2": "dynamic_mac", "c3": "mac"}
-        p1.logging = {"c1": "zero_trust_logger", "c2": "some_logging", "c3": "no_logging"}
+        p1.realtime = {"c1": "runtime_attestation", "c2": "watchdog", "c3": "no_realtime"}
         p1.new_risk = [
             ("c1", "c1r1", "read", 2),
             ("c1", "c1r1", "write", 3),
@@ -620,7 +620,7 @@ class TestPhase1Result(unittest.TestCase):
         p1 = self._make_p1()
         facts = p1.as_p1_facts()
         self.assertIn("p1_security(c1, zero_trust).", facts)
-        self.assertIn("p1_logging(c1, zero_trust_logger).", facts)
+        self.assertIn("p1_realtime(c1, runtime_attestation).", facts)
         self.assertIn("p1_risk(c1r1, read, 2).", facts)
         self.assertIn("p1_risk(c1r1, 3).", facts)  # max over actions
 
@@ -716,7 +716,7 @@ class TestSolutionResult(unittest.TestCase):
 
     def test_avg_blast_radius(self):
         sol = self._make_sol()
-        # avg of max(3,5)=5 and max(8,2)=8 â†’ 6.5
+        # avg of max(3,5)=5 and max(8,2)=8 → 6.5
         self.assertAlmostEqual(sol.avg_blast_radius(), 6.5)
 
     def test_worst_scenario(self):
@@ -730,9 +730,9 @@ class TestSolutionResult(unittest.TestCase):
         self.assertEqual(sol.latency_violations(), 0)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 5. Solution Ranker Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestSolutionRanker(unittest.TestCase):
     def _make_solutions(self) -> List[SolutionResult]:
@@ -785,7 +785,7 @@ class TestSolutionRanker(unittest.TestCase):
         ranker = SolutionRanker(sols, max_luts=10000, max_power=5000)
         ranker.rank()
         # With lower caps, resource percentages should be higher
-        # min_resources: 3000/10000 = 30% â†’ score = 70
+        # min_resources: 3000/10000 = 30% → score = 70
         self.assertAlmostEqual(sols[1].resource_score, 70.0)
 
     def test_relative_ranks(self):
@@ -859,9 +859,9 @@ class TestSolutionRanker(unittest.TestCase):
         self.assertGreater(sol1.resilience_score, sol2.resilience_score)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 6. Comparison Engine Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestComparisonEngine(unittest.TestCase):
     def _make_sols(self):
@@ -874,7 +874,7 @@ class TestComparisonEngine(unittest.TestCase):
             p1 = Phase1Result(strategy=strat, satisfiable=True)
             p1.new_risk = [("c1", "c1r1", "read", risk_val)]
             p1.security = {"c1": "zero_trust" if strat == "max_security" else "mac"}
-            p1.logging = {"c1": "zero_trust_logger" if strat == "max_security" else "no_logging"}
+            p1.realtime = {"c1": "runtime_attestation" if strat == "max_security" else "no_realtime"}
             p1.total_luts = luts
             p1.total_power = 1000
             p2 = Phase2Result(satisfiable=True)
@@ -964,9 +964,9 @@ class TestArchitectureComparisonReport(unittest.TestCase):
         self.assertIn("Worst scenario: group_gps_group_compromise", text)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 7. Executive Summary Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestExecutiveSummary(unittest.TestCase):
     def _make_sols(self):
@@ -976,7 +976,7 @@ class TestExecutiveSummary(unittest.TestCase):
             p1.new_risk = [("c1", "c1r1", "read", risk_val)]
             p1.total_luts = 5000
             p1.security = {"c1": "zero_trust"}
-            p1.logging = {"c1": "zero_trust_logger"}
+            p1.realtime = {"c1": "runtime_attestation"}
             p2 = Phase2Result(satisfiable=True)
             p2.placed_fws = ["fw1"]
             p2.policy_servers_active = ["ps0"]
@@ -1035,9 +1035,9 @@ class TestExecutiveSummary(unittest.TestCase):
         self.assertEqual(items[1].severity, "HIGH")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 8. Phase 3 Scenario Generation Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestScenarioGeneration(unittest.TestCase):
     def test_tc9_core_scenarios(self):
@@ -1115,9 +1115,9 @@ class TestScenarioGeneration(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)), "Duplicate scenario names found")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 9. Clingo Integration Tests (require clingo)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestClingoIntegration(unittest.TestCase):
     """End-to-end tests using the actual Clingo solver."""
@@ -1475,9 +1475,9 @@ class TestPhase3Integration(unittest.TestCase):
         self.assertNotIn("pep_can2", scenario.ungoverned_peps)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 10. Full Pipeline Integration Test
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class _ClingoLpAvailabilityMixin:
     @classmethod
@@ -1532,7 +1532,7 @@ class TestFullPipeline(_ClingoLpAvailabilityMixin, unittest.TestCase):
             self.assertIsNotNone(sol.phase1)
             self.assertTrue(sol.phase1.satisfiable,
                           f"Phase 1 should be SAT for {sol.strategy}")
-            # Phase 2 might be UNSAT in some configs â€” just verify it ran
+            # Phase 2 might be UNSAT in some configs — just verify it ran
             self.assertIsNotNone(sol.phase2)
             # Phase 3 should have scenarios
             self.assertGreater(len(sol.scenarios), 0,
@@ -1647,9 +1647,9 @@ class TestRefSoCPhase1Balanced(
         self._assert_refsoc_phase1_strategy()
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # 11. Edge Case and Regression Tests
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestEdgeCases(unittest.TestCase):
     def test_empty_solution_ranker(self):
@@ -1713,9 +1713,9 @@ class TestEdgeCases(unittest.TestCase):
         self.assertEqual(len(grp.members), 3)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # CSV Export
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestCSVExport(unittest.TestCase):
     """Tests for the CSV export function."""
@@ -1723,7 +1723,7 @@ class TestCSVExport(unittest.TestCase):
     def _make_solution(self, strategy: str) -> SolutionResult:
         p1 = Phase1Result(strategy=strategy, satisfiable=True)
         p1.security = {"c1": "zero_trust"}
-        p1.logging = {"c1": "zero_trust_logger"}
+        p1.realtime = {"c1": "runtime_attestation"}
         p1.new_risk = [("c1", "c1r1", "read", 2)]
         p1.total_luts = 5000
         p1.total_power = 3000
@@ -1782,9 +1782,9 @@ class TestCSVExport(unittest.TestCase):
             os.unlink(path)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # RefSoC Full Pipeline Integration
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 class TestRefSoCFullPipeline(unittest.TestCase):
     """End-to-end pipeline test for RefSoC-16 topology."""
@@ -1832,13 +1832,14 @@ class TestRefSoCFullPipeline(unittest.TestCase):
         self.assertGreater(len(sat_sc), 0, "At least one scenario should be SAT")
         # Check capabilities are assessed
         any_caps = any(s.capabilities_ok or s.capabilities_lost for s in sat_sc)
-        self.assertTrue(any_caps, "RefSoC has 8 capabilities â€” should be assessed")
+        self.assertTrue(any_caps, "RefSoC has 8 capabilities — should be assessed")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 # Runner
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

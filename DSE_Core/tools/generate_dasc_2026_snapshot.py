@@ -96,7 +96,7 @@ def _phase1_summary(result) -> dict:
         "total_luts": result.total_luts,
         "total_power": result.total_power,
         "security": result.security,
-        "logging": result.logging,
+        "realtime": result.realtime,
         "risk_by_component": result.risk_by_component(),
     }
 
@@ -372,3 +372,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

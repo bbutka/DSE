@@ -10,7 +10,7 @@
 % To avoid 32-bit integer overflow (Clingo 5 uses signed 32-bit integers),
 % the division by 1000 is applied at each multiplication step rather than
 % at the end.  This keeps every intermediate value in [0, 1000], safe from
-% overflow regardless of group size or the vulnerability/logging values used.
+% overflow regardless of group size or the exposure/realtime values used.
 %
 % Correctness: dividing by 1000 at step k is equivalent to dividing the
 % final product by 1000^(N-1) — the mathematically correct normalisation
@@ -22,7 +22,7 @@
 % write (integrity), avail (availability / DoS). For non-redundant
 % components the residual-risk model is multiplicative:
 %
-%   Risk = Impact * Vulnerability * Logging / 10
+%   Risk = Impact * Exposure * Realtime * ExploitFactor / 100
 %
 % This matches the older multiplicative Phase 1 formulation. Avail impact
 % facts are only emitted by the generator when impact_avail > 0, so existing
@@ -30,8 +30,10 @@
 %
 % EXPLOITABILITY MODIFIER / GRADUATED TRUST DOMAINS
 % ================================================
-% These facts are still emitted for downstream diagnostics and weighting, but
-% they no longer change the Phase 1 residual-risk calculation directly.
+% domain_bonus/2 is retained for diagnostics and downstream weighting only.
+% exploit_factor/2 now participates directly in both Phase 1 risk paths:
+%   - non-redundant multiplicative residual risk
+%   - redundant denormalized availability risk
 %
 % DUAL-RISK BUDGET (Option A)
 % ===========================
@@ -39,19 +41,19 @@
 %
 %   max_security_risk  — caps the MULTIPLICATIVE residual risk for
 %                        non-redundant components:
-%                        Risk = Impact * Vulnerability * Logging / 10.
+%                        Risk = Impact * Exposure * Realtime * ExploitFactor / 100.
 %
 %   max_avail_risk     — caps the PROBABILISTIC availability risk for redundant
 %                        groups.  This is what redundancy architecture controls:
-%                        Risk = Imp * denorm_combined_prob / 100.
+%                        Risk = Imp * denorm_combined_prob * ExploitFactor / 1000.
 %
 % The two budgets are entirely independent.  A design can violate one, the
 % other, or both.  The solver enforces them as separate hard constraints.
 %
 % Inputs expected from instance/selected files:
 %   component/1, asset/3, impact/3          (read, write, and/or avail)
-%   vulnerability/2, logging/2
-%   selected_security/2, selected_logging/2
+%   exposure/2, realtime_detection/2
+%   selected_security/2, selected_realtime/2
 %   redundant_group/2
 %   domain/2  (untrusted | low | normal | privileged | high | root)
 %   exploitability/2  (optional, 1–5; default = 3 neutral)
@@ -65,12 +67,12 @@ omega(1000).
 #show impact/3.
 #show asset/3.
 
-% --- Security and logging scores per component ---
-vulnerability_score(C, V) :- selected_security(C, S), vulnerability(S, V).
-logging_score(C, L)        :- selected_logging(C, Lf), logging(Lf, L).
+% --- Security and realtime scores per component ---
+exposure_score(C, V) :- selected_security(C, S), exposure(S, V).
+realtime_score(C, L)        :- selected_realtime(C, Lf), realtime_detection(Lf, L).
 
-#show vulnerability_score/2.
-#show logging_score/2.
+#show exposure_score/2.
+#show realtime_score/2.
 
 % --- Graduated domain bonus ---
 % Supports: untrusted(0) | low(0) | normal(1) | privileged(2) | high(3) | root(3)
@@ -91,20 +93,23 @@ domain_bonus(C, 1) :- component(C),
 % Default: 0 when no exploitability fact is present.
 exploit_mod(C, Mod) :- exploitability(C, E), Mod = E - 3.
 exploit_mod(C, 0)   :- component(C), not exploitability(C, _).
+exploit_factor(C, F) :- exploitability(C, E), exploit_factor_map(E, F).
+exploit_factor(C, 10) :- component(C), not exploitability(C, _).
 
 % --- Multiplicative residual risk per component (all CIA action types) ---
-% Risk = Impact * Vulnerability * Logging / 10.
+% Risk = Impact * Exposure * Realtime * ExploitFactor / 100.
 original_register_risk(C, R, Action, Risk) :-
     component(C), asset(C, R, Action),
     impact(R, Action, Imp),
-    vulnerability_score(C, V),
-    logging_score(C, L),
-    Risk = Imp * V * L / 10.
+    exposure_score(C, V),
+    realtime_score(C, L),
+    exploit_factor(C, EF),
+    Risk = Imp * V * L * EF / 100.
 
-% --- Original combined probability V*L ---
+% --- Original combined probability Exposure*Realtime ---
 original_prob(C, Prob) :-
-    vulnerability_score(C, V),
-    logging_score(C, L),
+    exposure_score(C, V),
+    realtime_score(C, L),
     Prob = V * L.
 
 % --- Normalize to [0, 1000] ---
@@ -178,7 +183,8 @@ avail_risk(C, R, Action, Risk) :-
     asset(C, R, Action),
     impact(R, Action, Imp),
     new_prob_denormalized(C, P),
-    Risk = Imp * P / 100.
+    exploit_factor(C, EF),
+    Risk = Imp * P * EF / 1000.
 
 % Unified new_risk feeds the minimize objective and downstream phases.
 new_risk(C, R, A, Risk) :- security_risk(C, R, A, Risk).
@@ -218,6 +224,9 @@ weighted_risk(C, Asset, Action, Risk) :-
     not risk_weight(Asset, _).
 
 #minimize { WR, C, Asset, Action : weighted_risk(C, Asset, Action, WR) }.
+
+#show exploit_mod/2.
+#show exploit_factor/2.
 
 % --- Output ---
 #show original_register_risk/4.

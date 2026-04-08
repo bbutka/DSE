@@ -44,9 +44,10 @@ monitor_visibility(N, Score) :-
     Score = #max { S, M : place_monitor(M), monitor_covers(M, N), monitor_strength(M, S);
                    0    : placement_node(N) }.
 
-logging_visibility(C, 0)  :- p1_logging(C, no_logging).
-logging_visibility(C, 6)  :- p1_logging(C, some_logging).
-logging_visibility(C, 15) :- p1_logging(C, zero_trust_logger).
+logging_visibility(C, 0)  :- p1_realtime(C, no_realtime).
+logging_visibility(C, 6)  :- p1_realtime(C, watchdog).
+logging_visibility(C, 10) :- p1_realtime(C, bus_monitor).
+logging_visibility(C, 15) :- p1_realtime(C, runtime_attestation).
 logging_visibility(N, 0)  :- placement_node(N), not receiver(N).
 
 observability_score(N, Score) :-

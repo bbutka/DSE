@@ -3,7 +3,7 @@
 %
 % The exported security_features_inst.lp now treats:
 % - security feature costs as per-component (`byComponent`)
-% - logging feature costs as per-component selections via `base`
+% - realtime-detection feature costs as per-component selections via `base`
 %
 % This encoding therefore counts component-level selections directly and
 % avoids the legacy asset-level double counting.
@@ -22,12 +22,12 @@ total_component_power(ComponentPower) :-
 
 #show total_component_power/1.
 
-% Logging and any future security-base terms
+% Realtime-detection and any future security-base terms
 base_power_for_component(C, TotalPower) :-
     component(C),
     SecurityBasePower = #sum { Power : selected_security(C, F), power_cost(F, base, Power) },
-    LoggingBasePower = #sum { Power : selected_logging(C, L), power_cost(L, base, Power) },
-    TotalPower = SecurityBasePower + LoggingBasePower.
+    RealtimeBasePower = #sum { Power : selected_realtime(C, L), power_cost(L, base, Power) },
+    TotalPower = SecurityBasePower + RealtimeBasePower.
 
 total_base_power(BasePower) :-
     BasePower = #sum { Power, C : base_power_for_component(C, Power) }.

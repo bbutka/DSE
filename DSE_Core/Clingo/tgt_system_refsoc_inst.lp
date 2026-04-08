@@ -253,4 +253,4 @@ link(axi_main, comm_eth).
 % When running via the DSE tool, asp_generator.py emits these.
 % For standalone Clingo runs: uncomment the choice rules below.
 % 1 { selected_security(C, S) : security_feature(S) } 1 :- component(C).
-% 1 { selected_logging(C, L)  : logging_feature(L)  } 1 :- component(C).
+% 1 { selected_realtime(C, L)  : realtime_feature(L)  } 1 :- component(C).

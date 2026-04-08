@@ -3,7 +3,7 @@ phase1_agent.py
 ===============
 Phase 1 worker: upstream protection-baseline synthesis via ASP optimisation.
 
-This stage selects security and logging features subject to resource,
+This stage selects security and realtime-detection features subject to resource,
 latency, and dual-risk budgets. Availability in Phase 1 follows the CIA
 "A" definition: per-asset availability risk / DoS exposure in the
 protected baseline, not operational resilience under fault scenarios.
@@ -130,7 +130,7 @@ class Phase1Agent:
             lp_files=lp_files,
             extra_facts=extra,
             num_solutions=1,
-            opt_mode="optN",
+            opt_mode="opt",
         )
 
         status = result_raw["status"]
@@ -141,6 +141,22 @@ class Phase1Agent:
             )
             result_raw = self._try_relaxed(lp_files, extra)
             status = result_raw["status"]
+
+        if status == "TIMEOUT" and result_raw.get("atoms"):
+            self._post(
+                f"[Phase 1/{self.strategy}] TIMEOUT â€” using best-so-far model from ASP. "
+                f"{result_raw['message']}"
+            )
+            r = SolutionParser.parse_phase1(result_raw["atoms"], strategy=self.strategy)
+            r.satisfiable = True
+            r.optimal = False
+            self._post(
+                f"[Phase 1/{self.strategy}] Best-so-far â€” "
+                f"Risk: {r.total_risk()}, "
+                f"LUTs: {r.total_luts:,}, "
+                f"Power: {r.total_power:,} mW"
+            )
+            return r
 
         if status not in ("SAT",):
             self._post(
@@ -213,7 +229,8 @@ class Phase1Agent:
         return ClingoRunner(
             timeout=timeout,
             threads=self.solver_config.get("clingo_threads"),
-            parallel_mode=self.solver_config.get("clingo_parallel_mode"),
-            configuration=self.solver_config.get("clingo_configuration"),
+            parallel_mode=self.solver_config.get("clingo_parallel_mode", "compete"),
+            configuration=self.solver_config.get("clingo_configuration", "jumpy"),
+            opt_strategy=self.solver_config.get("clingo_opt_strategy", "usc"),
         )
 

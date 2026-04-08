@@ -1,35 +1,25 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % By: [Author]
 % File: Initialize DSE Encoding
-% Last Edited: 6/24/2025
+% Last Edited: 4/8/2026
 % Purpose: Initialize the DSE with required constraints
-%			Specifically, allow only one feature per asset
+%          Specifically, allow only one feature per receiver/component
 %
-% Design note on asset-level vs component-level selection:
-%   The choice rules below use `asset(C, _, _)` which iterates
-%   over every (component, asset, operation) tuple.  For a
-%   component with both read and write assets, this creates
-%   multiple independent selection choices for the same
-%   component C — all of which produce `selected_security(C, F)`
-%   with the same first argument.  Because Clingo uses set
-%   semantics, duplicate atoms are collapsed.  However, the
-%   cardinality constraint `1 { ... } 1` applies per ground
-%   body match, meaning each asset-operation tuple independently
-%   requires exactly one feature.  In practice, the solver will
-%   assign the SAME feature to all assets on a component because
-%   the risk minimization objective treats them uniformly per
-%   component.  The Phase 1 parser filters asset-level atoms
-%   with a regex, retaining only component-level selections.
+% Design note:
+%   Phase 1 features are selected once per receiver/component.
+%   Resource accounting, risk scoring, and the Python backends are all
+%   component-scoped, so grounding the choice over asset(C,_,_) only
+%   duplicates equivalent decisions and inflates the TC9 ground program.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Initialization -------------------------------------------
 
-% Allow only one selected logging feature per asset
-1 { selected_logging(C, L) : logging_feature(L) } 1 :- asset(C, _,_).
-% Allow only one selected security feature per asset
-1 { selected_security(C, F) : security_feature(F) } 1 :- asset(C, _,_).
+% Allow only one selected realtime-detection feature per receiver/component
+1 { selected_realtime(C, L) : realtime_feature(L) } 1 :- receiver(C).
+% Allow only one selected security feature per receiver/component
+1 { selected_security(C, F) : security_feature(F) } 1 :- receiver(C).
 
-#show selected_logging/2.
+#show selected_realtime/2.
 #show selected_security/2.
 
 % End Initialization ---------------------------------------

@@ -229,6 +229,22 @@ class ASPGenerator:
     def __init__(self, model: NetworkModel) -> None:
         self.model = model
 
+    @staticmethod
+    def _audit_capability(component: Component) -> str:
+        if component.comp_type in {"policy_server", "firewall"}:
+            return "no_audit"
+        if component.is_master and component.has_rot:
+            return "full_audit"
+        if component.has_sboot or component.has_attest:
+            return "standard_audit"
+        if component.is_safety_critical or component.is_critical:
+            return "standard_audit"
+        if component.is_receiver and component.domain in {"privileged", "high", "root"}:
+            return "standard_audit"
+        if component.is_receiver:
+            return "minimal_audit"
+        return "no_audit"
+
     def generate(self) -> str:
         """Return a complete .lp facts string for the network model."""
         m = self.model
@@ -344,6 +360,12 @@ class ASPGenerator:
             if c.comp_type not in ("policy_server", "firewall", "bus"):
                 if c.exploitability != 3:   # only emit non-default values
                     lines.append(f"exploitability({c.name}, {c.exploitability}).")
+        lines.append("")
+
+        lines.append("% Audit capability (computed from component properties)")
+        for c in m.components:
+            if c.comp_type not in ("bus",):
+                lines.append(f"audit_capability({c.name}, {self._audit_capability(c)}).")
         lines.append("")
 
         # â”€â”€ Critical components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

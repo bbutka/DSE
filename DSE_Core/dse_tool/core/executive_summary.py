@@ -228,7 +228,7 @@ class ExecutiveSummaryAnalyser:
 
         # Components using mac in best strategy
         mac_comps = [c for c, f in best.phase1.security.items() if f == "mac"]
-        no_log = [c for c, f in best.phase1.logging.items() if f == "no_logging"]
+        no_log = [c for c, f in best.phase1.realtime.items() if f == "no_realtime"]
 
         if mac_comps:
             s.findings.append(
@@ -237,7 +237,7 @@ class ExecutiveSummaryAnalyser:
             )
         if no_log:
             s.findings.append(
-                f"{len(no_log)} component(s) have no logging — "
+                f"{len(no_log)} component(s) have no realtime detection — "
                 f"incidents on these components are undetectable"
             )
 
@@ -719,3 +719,4 @@ def format_executive_summary(summary: ExecutiveSummary) -> str:
     lines.append(SEP)
 
     return "\n".join(lines)
+

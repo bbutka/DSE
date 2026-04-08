@@ -4,15 +4,15 @@
 %%
 %% DUAL-RISK BUDGET (Option A)
 %% ============================
-%% Non-redundant components (c6, c7, c8) — multiplicative model:
-%%   Risk = Impact * Vulnerability * Logging / 10
+%% Non-redundant components (c6, c7, c8) - multiplicative model:
+%%   Risk = Impact * Exposure * Realtime * ExploitFactor / 100
 %%   max_security_risk = 50 keeps the strongest combinations feasible while
 %%   still ruling out weak pairings on high-impact assets.
 %%
-%% Redundant group (c1-c5, group size 5) — probabilistic model:
-%%   Risk = Imp * denorm_prob / 100
-%%   Denorm floor = Mu*10 = 250, so minimum risk = Imp * 250/100
-%%   For impact=5: minimum = 12 (with any security), max ≈ 15 (mac+no_logging)
+%% Redundant group (c1-c5, group size 5) - probabilistic model:
+%%   Risk = Imp * denorm_prob * ExploitFactor / 1000
+%%   Denorm floor = Mu*10 = 250, so minimum risk = Imp * 250 * ExploitFactor / 1000
+%%   For impact=5 and neutral exploitability: minimum = 12
 %%   max_avail_risk = 20 is permissive: allows all security choices,
 %%   letting the minimiser drive selection.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

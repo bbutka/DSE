@@ -918,7 +918,7 @@ class _Phase1DetailDialog(tk.Toplevel):
         t = self._make_text(tab)
         lines = []
         sec  = p1.security  or {}
-        log  = p1.logging   or {}
+        log  = p1.realtime  or {}
         lines.append(f"Security features placed  ({len(sec)} components):")
         lines.append("─" * 50)
         if sec:
@@ -929,15 +929,15 @@ class _Phase1DetailDialog(tk.Toplevel):
         else:
             lines.append("  (no security features placed)")
         lines.append("")
-        lines.append(f"Logging modes  ({len(log)} components):")
+        lines.append(f"Realtime detection  ({len(log)} components):")
         lines.append("─" * 50)
         if log:
-            lines.append(f"  {'Component':<25} {'Logging Mode'}")
+            lines.append(f"  {'Component':<25} {'Detection Mode'}")
             lines.append(f"  {'─'*24} {'─'*20}")
             for comp in sorted(log):
                 lines.append(f"  {comp:<25} {log[comp]}")
         else:
-            lines.append("  (no logging configured)")
+            lines.append("  (no realtime detection configured)")
         self._write(t, "\n".join(lines))
 
     def _add_risk_tab(self, nb, p1) -> None:
@@ -946,20 +946,20 @@ class _Phase1DetailDialog(tk.Toplevel):
         t = self._make_text(tab)
         lines = []
 
-        HDR = f"  {'Component':<10} {'Register':<10} {'Op':<8} {'Risk':>5}  {'Security':<16} {'Logging'}"
+        HDR = f"  {'Component':<10} {'Register':<10} {'Op':<8} {'Risk':>5}  {'Security':<16} {'Detection'}"
         SEP = "  " + "─" * 80
 
         # ── Section 1: Non-redundant components (multiplicative security risk) ──
         sec_risks = p1.security_risk or []
         lines.append("NON-REDUNDANT COMPONENTS  —  Multiplicative Security Risk")
-        lines.append("  Risk = Impact × Vulnerability × Logging / 10")
+        lines.append("  Risk = Impact x Exposure x Detection x ExploitFactor / 100")
         lines.append(SEP)
         if sec_risks:
             lines.append(HDR)
             lines.append(SEP)
             for comp, reg, op, risk in sorted(sec_risks, key=lambda x: -x[3]):
                 sec  = p1.security.get(comp, "—")
-                log  = p1.logging.get(comp,  "—")
+                log  = p1.realtime.get(comp,  "—")
                 lines.append(f"  {comp:<10} {reg:<10} {op:<8} {risk:>5}  {sec:<16} {log}")
         else:
             lines.append("  (no data — check #show security_risk/4 in encoding)")
@@ -968,14 +968,14 @@ class _Phase1DetailDialog(tk.Toplevel):
         lines.append("")
         avail_risks = p1.avail_risk or []
         lines.append("REDUNDANT GROUP MEMBERS  —  Probabilistic Availability Risk")
-        lines.append("  Risk = Impact × denorm_combined_prob / 100  (floor set by Mu × group size)")
+        lines.append("  Risk = Impact x denorm_combined_prob x ExploitFactor / 1000  (floor set by Mu x 10)")
         lines.append(SEP)
         if avail_risks:
             lines.append(HDR)
             lines.append(SEP)
             for comp, reg, op, risk in sorted(avail_risks, key=lambda x: -x[3]):
                 sec  = p1.security.get(comp, "—")
-                log  = p1.logging.get(comp,  "—")
+                log  = p1.realtime.get(comp,  "—")
                 lines.append(f"  {comp:<10} {reg:<10} {op:<8} {risk:>5}  {sec:<16} {log}")
         else:
             lines.append("  (no data — check #show avail_risk/4 in encoding)")
@@ -1241,3 +1241,4 @@ class _StrategyComparisonDialog(tk.Toplevel):
         if not valid:
             return -1
         return max(valid, key=lambda x: x[1] if lower_better else -x[1])[0]
+

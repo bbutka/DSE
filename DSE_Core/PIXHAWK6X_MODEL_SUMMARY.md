@@ -183,11 +183,11 @@ Important implementation note:
 - component `exploitability` is also analyst-assigned
 - the active Phase 1 multiplicative risk rule currently uses:
   - asset impact
-  - selected security-feature vulnerability value
-  - selected logging-risk value
-- component `exploitability` is exported and retained diagnostically, but it
-  is not currently multiplied directly into the active Phase 1 residual-risk
-  equation
+  - selected prevention-feature exposure score
+  - selected realtime-detection score
+  - exploit factor derived from component `exploitability`
+- component `exploitability` is exported diagnostically and is also multiplied
+  into the active Phase 1 residual-risk equation through the exploit-factor map
 
 ### General method
 
@@ -347,7 +347,7 @@ Results below are from the current implemented `Pixhawk 6X UAV` model run in
 
 Resource-accounting note:
 
-- Phase 1 `LUTs`, `FFs`, and `Power` above are added security/logging overhead
+- Phase 1 `LUTs`, `FFs`, and `Power` above are added security/realtime-detection overhead
   only
 - they are not the full fixed hardware cost of the Pixhawk architecture
 - Phase 2 placement cost is tracked separately as `total_zta_cost`
@@ -364,10 +364,10 @@ Resource-accounting note:
   - `zero_trust`: 13
   - `dynamic_mac`: 3
   - `mac`: 1
-- logging:
-  - `zero_trust_logger`: 11
-  - `some_logging`: 2
-  - `no_logging`: 4
+- realtime detection:
+  - `runtime_attestation`: 11
+  - `watchdog`: 2
+  - `no_realtime`: 4
 
 #### `min_resources`
 
@@ -375,20 +375,20 @@ Resource-accounting note:
   - `zero_trust`: 6
   - `mac`: 9
   - `dynamic_mac`: 2
-- logging:
-  - `zero_trust_logger`: 2
-  - `some_logging`: 7
-  - `no_logging`: 8
+- realtime detection:
+  - `runtime_attestation`: 2
+  - `watchdog`: 7
+  - `no_realtime`: 8
 
 #### `balanced`
 
 - security:
   - `zero_trust`: 13
   - `mac`: 4
-- logging:
-  - `zero_trust_logger`: 11
-  - `some_logging`: 3
-  - `no_logging`: 3
+- realtime detection:
+  - `runtime_attestation`: 11
+  - `watchdog`: 3
+  - `no_realtime`: 3
 
 ### Baseline scenario result
 
@@ -584,7 +584,7 @@ For architecture comparisons, the recommended accounting method is:
 
 - fixed architecture cost
 - architecture delta cost
-- added Phase 1 security/logging overhead
+- added Phase 1 security/realtime-detection overhead
 - added Phase 2 ZTA placement cost
 
 This is documented in:
