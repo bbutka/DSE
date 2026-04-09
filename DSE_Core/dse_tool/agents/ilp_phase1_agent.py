@@ -173,7 +173,9 @@ class Phase1MathOptAgent:
         for component in protected_components:
             feasible_pairs[component] = []
             for pair_index, pair in enumerate(pair_options):
-                if pair.latency > latency_caps[component]:
+                # Per-action latency check: pair must satisfy ALL asset/action caps.
+                # Matches ASP bridge_enc.lp per-asset per-action enforcement.
+                if any(pair.latency > cap for _action, cap in latency_caps[component]):
                     continue
                 risk_rows = self._component_risk_rows(
                     component_assets[component],
@@ -411,6 +413,17 @@ class Phase1MathOptAgent:
         avail_risk.sort(key=lambda row: (row[0], row[1], row[2]))
         new_risk = sorted(security_risk + avail_risk, key=lambda row: (row[0], row[1], row[2]))
 
+        # Populate diagnostic fields for parity with ASP backend
+        domain_bonus_diag: Dict[str, int] = {}
+        exploit_mod_diag: Dict[str, int] = {}
+        exploit_factor_diag: Dict[str, int] = {}
+        for comp in protected_components:
+            domain_bonus_diag[comp] = self._domain_bonus(
+                getattr(self._component_obj(comp), "domain", "normal"))
+            exp = int(self._component_exploitability(comp))
+            exploit_mod_diag[comp] = exp - 3
+            exploit_factor_diag[comp] = EXPLOIT_FACTOR_MAP.get(exp, 10)
+
         return Phase1Result(
             security=security,
             realtime=realtime,
@@ -418,6 +431,9 @@ class Phase1MathOptAgent:
             security_risk=security_risk,
             avail_risk=avail_risk,
             risk_weights=asset_weights,
+            domain_bonus=domain_bonus_diag,
+            exploit_mod=exploit_mod_diag,
+            exploit_factor=exploit_factor_diag,
             total_luts=int(round(pulp.value(total_luts) or 0)),
             total_ffs=int(round(pulp.value(totals["ffs"]) or 0)),
             total_dsps=int(round(pulp.value(totals["dsps"]) or 0)),
@@ -606,6 +622,17 @@ class Phase1MathOptAgent:
         avail_risk.sort(key=lambda row: (row[0], row[1], row[2]))
         new_risk = sorted(security_risk + avail_risk, key=lambda row: (row[0], row[1], row[2]))
 
+        # Populate diagnostic fields for parity with ASP backend
+        domain_bonus_diag: Dict[str, int] = {}
+        exploit_mod_diag: Dict[str, int] = {}
+        exploit_factor_diag: Dict[str, int] = {}
+        for comp in protected_components:
+            domain_bonus_diag[comp] = self._domain_bonus(
+                getattr(self._component_obj(comp), "domain", "normal"))
+            exp = int(self._component_exploitability(comp))
+            exploit_mod_diag[comp] = exp - 3
+            exploit_factor_diag[comp] = EXPLOIT_FACTOR_MAP.get(exp, 10)
+
         return Phase1Result(
             security=security,
             realtime=realtime,
@@ -613,6 +640,9 @@ class Phase1MathOptAgent:
             security_risk=security_risk,
             avail_risk=avail_risk,
             risk_weights=asset_weights,
+            domain_bonus=domain_bonus_diag,
+            exploit_mod=exploit_mod_diag,
+            exploit_factor=exploit_factor_diag,
             total_luts=int(solver.Value(total_luts)),
             total_ffs=int(solver.Value(totals["ffs"])),
             total_dsps=int(solver.Value(totals["dsps"])),
@@ -850,16 +880,21 @@ class Phase1MathOptAgent:
             component_assets.setdefault(asset.component, []).append(asset)
         return component_assets
 
-    def _component_latency_caps(self, component_assets: Dict[str, List[Asset]]) -> Dict[str, int]:
-        caps: Dict[str, int] = {}
+    def _component_latency_caps(self, component_assets: Dict[str, List[Asset]]) -> Dict[str, List[Tuple[str, int]]]:
+        """Return per-component list of (action, max_latency) caps.
+
+        Changed from min-cap-across-all-actions to per-action caps to match
+        the ASP bridge_enc.lp per-asset per-action latency enforcement.
+        """
+        caps: Dict[str, List[Tuple[str, int]]] = {}
         for component, assets in component_assets.items():
-            per_action_caps: List[int] = []
+            action_caps: List[Tuple[str, int]] = []
             for asset in assets:
                 if asset.direction in ("input", "bidirectional"):
-                    per_action_caps.append(asset.latency_read)
+                    action_caps.append(("read", asset.latency_read))
                 if asset.direction in ("output", "bidirectional"):
-                    per_action_caps.append(asset.latency_write)
-            caps[component] = min(per_action_caps) if per_action_caps else 1000
+                    action_caps.append(("write", asset.latency_write))
+            caps[component] = action_caps if action_caps else [("read", 1000)]
         return caps
 
     def _component_risk_rows(
@@ -940,7 +975,7 @@ class Phase1MathOptAgent:
     ) -> List[List[_GroupTransition]]:
         transitions_by_stage: List[List[_GroupTransition]] = []
         prior_states = {START_STATE}
-        for component in members:
+        for component in sorted(members):  # lexicographic order matches ASP group_rank
             stage_transitions: List[_GroupTransition] = []
             next_states = set()
             for prev_state in prior_states:
@@ -1034,6 +1069,13 @@ class Phase1MathOptAgent:
 
     def _component_lookup(self) -> Dict[str, Component]:
         return {component.name: component for component in self.network_model.components}
+
+    def _component_obj(self, component_name: str):
+        """Return the Component object for a given name (or a dummy)."""
+        for c in self.network_model.components:
+            if c.name == component_name:
+                return c
+        return type("Dummy", (), {"domain": "normal", "exploitability": 3})()
 
     def _prune_pair_indices(
         self,
@@ -1143,6 +1185,7 @@ class Phase1MathOptAgent:
             "dsps": "dsps",
             "lutram": "lutrams",
             "bram": "brams",
+            "bufg": "bufg",
             "power_cost": "power_mw",
         }.get(resource_name)
         if attr_name is None:

@@ -393,9 +393,13 @@ class TestASPGenerator(unittest.TestCase):
         cls.tc9 = make_tc9_network()
         cls.refsoc = make_reference_soc()
         cls.ot = make_opentitan_network("OT-A")
+        cls.pixhawk_platform = make_pixhawk6x_platform()
+        cls.pixhawk_uav = make_pixhawk6x_uav_network()
         cls.tc9_facts = ASPGenerator(cls.tc9).generate()
         cls.refsoc_facts = ASPGenerator(cls.refsoc).generate()
         cls.ot_facts = ASPGenerator(cls.ot).generate()
+        cls.pixhawk_platform_facts = ASPGenerator(cls.pixhawk_platform).generate()
+        cls.pixhawk_uav_facts = ASPGenerator(cls.pixhawk_uav).generate()
 
     def test_tc9_nonempty(self):
         self.assertGreater(len(self.tc9_facts), 100)
@@ -410,6 +414,12 @@ class TestASPGenerator(unittest.TestCase):
     def test_tc9_contains_masters(self):
         self.assertIn("master(sys_cpu).", self.tc9_facts)
         self.assertIn("master(dma).", self.tc9_facts)
+
+    def test_tc9_precomputed_phase2_reachability(self):
+        self.assertIn("reachable(sys_cpu, c1).", self.tc9_facts)
+        self.assertIn("reachable(dma, c8).", self.tc9_facts)
+        self.assertNotIn("reachable(c1, sys_cpu).", self.tc9_facts)
+        self.assertNotIn("reachable(sys_cpu, noc0).", self.tc9_facts)
 
     def test_tc9_contains_receivers(self):
         self.assertIn("receiver(c1).", self.tc9_facts)
@@ -440,6 +450,38 @@ class TestASPGenerator(unittest.TestCase):
 
     def test_tc9_contains_risk_weights(self):
         self.assertIn("risk_weight(", self.tc9_facts)
+
+    def test_pixhawk_master_without_asset_does_not_emit_dead_risk_weight(self):
+        self.assertNotIn("risk_weight(fmu_h753r1,", self.pixhawk_platform_facts)
+        self.assertNotIn("risk_weight(fmu_h753r1,", self.pixhawk_uav_facts)
+
+    def test_pixhawk_platform_capability_preserves_service_quorum_semantics(self):
+        self.assertNotIn(
+            "capability_requires_access(flight_stabilization_base, fmu_h753, imu_1, read).",
+            self.pixhawk_platform_facts,
+        )
+        self.assertNotIn(
+            "capability_requires_access(flight_stabilization_base, fmu_h753, baro_1, read).",
+            self.pixhawk_platform_facts,
+        )
+
+    def test_pixhawk_uav_capabilities_do_not_pin_redundant_members(self):
+        self.assertNotIn(
+            "capability_requires_access(flight_control, fmu_h753, imu_1, read).",
+            self.pixhawk_uav_facts,
+        )
+        self.assertNotIn(
+            "capability_requires_access(flight_control, fmu_h753, esc_bus_1, write).",
+            self.pixhawk_uav_facts,
+        )
+        self.assertNotIn(
+            "capability_requires_access(navigation, fmu_h753, gps_1, read).",
+            self.pixhawk_uav_facts,
+        )
+        self.assertNotIn(
+            "capability_requires_access(navigation, fmu_h753, baro_1, read).",
+            self.pixhawk_uav_facts,
+        )
 
     def test_tc9_contains_redundancy(self):
         # Group g1 → integer 1
@@ -606,8 +648,12 @@ class TestPhase1Result(unittest.TestCase):
     def test_risk_by_component(self):
         p1 = self._make_p1()
         by_comp = p1.risk_by_component()
-        self.assertEqual(by_comp["c1"], 2 + 3)
-        self.assertEqual(by_comp["c2"], 5 + 4)
+        # risk_by_component uses max-per-asset-then-sum (same as total_risk)
+        # c1: max(c1r1 read=2, c1r1 write=3) = 3
+        # c2: max(c2r1 read=5, c2r1 write=4) = 5
+        # c3: c3r1 read=7
+        self.assertEqual(by_comp["c1"], 3)
+        self.assertEqual(by_comp["c2"], 5)
         self.assertEqual(by_comp["c3"], 7)
 
     def test_risk_per_asset_action(self):
@@ -641,7 +687,7 @@ class TestPhase2Result(unittest.TestCase):
         facts = p2.as_phase3_facts()
         self.assertIn("deployed_pep(fw1).", facts)
         self.assertIn("deployed_ps(ps0).", facts)
-        self.assertIn("p2_allow(cpu, ip1, read).", facts)
+        self.assertIn("p2_mode_allow(cpu, ip1, read).", facts)
 
     def test_avg_policy_tightness(self):
         p2 = Phase2Result(satisfiable=True)
@@ -1256,18 +1302,16 @@ class TestPhase2Integration(unittest.TestCase):
             cls.has_clingo = False
         cls.has_lp = os.path.isfile(os.path.join(CLINGO_DIR, "zta_policy_enc.lp"))
         if cls.has_clingo and cls.has_lp:
-            from dse_tool.agents.phase1_agent import Phase1Agent
             model = make_tc9_network()
             facts = ASPGenerator(model).generate()
             cls.tc9_facts = facts
-            agent = Phase1Agent(
-                clingo_dir=CLINGO_DIR,
-                testcase_lp="",
+            # Use CP-SAT for Phase 1 — ASP is too slow for 60s timeout on TC9
+            cls.tc9_p1 = Phase1MathOptAgent(
+                network_model=model,
                 strategy="max_security",
-                extra_instance_facts=facts,
                 timeout=60,
-            )
-            cls.tc9_p1 = agent.run()
+                solver_config={"cpsat_threads": 1},
+            ).run()
 
     def setUp(self):
         if not self.has_clingo or not self.has_lp:
@@ -1377,10 +1421,10 @@ class TestPhase3Integration(unittest.TestCase):
     def setUp(self):
         if not self.has_clingo or not self.has_lp:
             self.skipTest("clingo or LP files not available")
-        if not self.tc9_p1.satisfiable:
-            self.skipTest("Phase 1 was UNSAT")
 
     def test_tc9_phase3_baseline(self):
+        if not self.tc9_p1.satisfiable:
+            self.skipTest("TC9 Phase 1 was UNSAT")
         from dse_tool.agents.phase3_agent import Phase3Agent
         agent = Phase3Agent(
             clingo_dir=CLINGO_DIR, testcase_lp="",
@@ -1395,6 +1439,8 @@ class TestPhase3Integration(unittest.TestCase):
         self.assertGreater(len(results[0].blast_radii), 0, "Should have blast radii")
 
     def test_tc9_phase3_auto_scenarios(self):
+        if not self.tc9_p1.satisfiable:
+            self.skipTest("TC9 Phase 1 was UNSAT")
         from dse_tool.agents.phase3_agent import Phase3Agent
         scenarios = generate_scenarios(self.tc9_model, full=False)
         agent = Phase3Agent(
@@ -1410,6 +1456,8 @@ class TestPhase3Integration(unittest.TestCase):
 
     def test_tc9_phase3_capability_assessment(self):
         """Verify capability assessment atoms are parsed."""
+        if not self.tc9_p1.satisfiable:
+            self.skipTest("TC9 Phase 1 was UNSAT")
         from dse_tool.agents.phase3_agent import Phase3Agent
         agent = Phase3Agent(
             clingo_dir=CLINGO_DIR, testcase_lp="",
@@ -1592,6 +1640,47 @@ class TestFullPipeline(_ClingoLpAvailabilityMixin, unittest.TestCase):
             progress_queue=q,
             full_phase3=False,
             phase_timeout=90,
+        )
+        orch.run()
+        self.assertTrue(orch.done, "Pixhawk orchestrator should be done")
+        self.assertEqual(orch.error, "", f"Pixhawk orchestrator error: {orch.error}")
+        self.assertEqual(len(orch.solutions), 3, "Pixhawk should produce 3 strategy results")
+
+    def test_tc9_full_pipeline_python_phase3(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+        model = make_tc9_network()
+        q = queue.Queue()
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=q,
+            full_phase3=False,
+            phase_timeout=60,
+            solver_config={"phase3_backend": "python", "clingo_threads": 1, "cpsat_threads": 1},
+        )
+        orch.run()
+        self.assertTrue(orch.done, "Orchestrator should be done")
+        self.assertEqual(orch.error, "", f"Orchestrator error: {orch.error}")
+        self.assertEqual(len(orch.solutions), 3, "Should have 3 solutions")
+        for sol in orch.solutions:
+            self.assertIsNotNone(sol.phase1)
+            self.assertTrue(sol.phase1.satisfiable, f"Phase 1 should be SAT for {sol.strategy}")
+            self.assertIsNotNone(sol.phase2)
+            self.assertGreater(len(sol.scenarios), 0, f"Should have scenarios for {sol.strategy}")
+
+    def test_pixhawk6x_uav_full_pipeline_python_phase3(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+        model = make_pixhawk6x_uav_network()
+        q = queue.Queue()
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=q,
+            full_phase3=False,
+            phase_timeout=90,
+            solver_config={"phase3_backend": "python", "clingo_threads": 1, "cpsat_threads": 1},
         )
         orch.run()
         self.assertTrue(orch.done, "Pixhawk orchestrator should be done")
@@ -1806,13 +1895,14 @@ class TestRefSoCFullPipeline(unittest.TestCase):
         """RefSoC max_security: Phase 1+2+3 all SAT."""
         if not self.has_clingo or not self.has_lp:
             self.skipTest("clingo or LP files not available")
-        from dse_tool.agents.phase1_agent import Phase1Agent
         from dse_tool.agents.phase2_agent import Phase2Agent
         from dse_tool.agents.phase3_agent import Phase3Agent, generate_scenarios
 
-        p1 = Phase1Agent(clingo_dir=CLINGO_DIR, testcase_lp="",
-                         strategy="max_security",
-                         extra_instance_facts=self.facts, timeout=60).run()
+        # Use CP-SAT for Phase 1 — ASP cannot solve RefSoC within test timeouts
+        p1 = Phase1MathOptAgent(
+            network_model=self.model, strategy="max_security",
+            timeout=60, solver_config={"cpsat_threads": 1},
+        ).run()
         self.assertTrue(p1.satisfiable, "RefSoC Phase 1 should be SAT")
 
         p2 = Phase2Agent(clingo_dir=CLINGO_DIR, testcase_lp="",

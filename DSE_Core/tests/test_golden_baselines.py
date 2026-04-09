@@ -68,13 +68,12 @@ def _load_fixture(name: str) -> dict:
 
 
 def _run_tc9_pipeline(strategy: str, timeout: int):
-    p1 = Phase1Agent(
-        clingo_dir=CLINGO_DIR,
-        testcase_lp=TESTCASE_LP,
+    # Use CP-SAT for Phase 1 — ASP cannot prove optimality within test timeouts
+    p1 = Phase1MathOptAgent(
+        network_model=_TC9_MODEL,
         strategy=strategy,
-        extra_instance_facts=_TC9_FACTS,
         timeout=timeout,
-        solver_config=DETERMINISTIC_CLINGO,
+        solver_config=DETERMINISTIC_MATHOPT,
     ).run()
 
     p2 = Phase2Agent(

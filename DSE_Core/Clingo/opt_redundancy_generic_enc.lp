@@ -225,9 +225,6 @@ weighted_risk(C, Asset, Action, Risk) :-
 
 #minimize { WR, C, Asset, Action : weighted_risk(C, Asset, Action, WR) }.
 
-#show exploit_mod/2.
-#show exploit_factor/2.
-
 % --- Output ---
 #show original_register_risk/4.
 #show original_prob/2.
@@ -240,5 +237,6 @@ weighted_risk(C, Asset, Action, Risk) :-
 #show combined_prob_norm/2.
 #show domain_bonus/2.
 #show exploit_mod/2.
+#show exploit_factor/2.
 #show risk_weight/2.
 #show weighted_risk/4.

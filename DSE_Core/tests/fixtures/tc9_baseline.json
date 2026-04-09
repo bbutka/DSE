@@ -3,8 +3,8 @@
   "max_security": {
     "satisfiable": true,
     "total_risk": 106,
-    "total_luts": 12280,
-    "total_power": 248,
+    "total_luts": 7260,
+    "total_power": 148,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_group",
@@ -13,7 +13,7 @@
     "placed_ps": [
       "ps0"
     ],
-    "phase3_scenario_count": 29,
+    "phase3_scenario_count": 31,
     "phase3_worst_case_risk_scaled": 2650
   },
   "min_resources": {

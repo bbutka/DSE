@@ -238,13 +238,30 @@ class Phase2Agent:
                 "cover all candidate firewalls that must be placed."
             )
 
+        # Test 4: Check for zero policy server candidates
+        relax_ps = (
+            all_extra + "\n"
+            "% DIAG: inject a dummy PS to bypass zero-cand_ps constraint\n"
+            "cand_ps(ps_diag). ps_cost(ps_diag, 0).\n"
+            "governs(ps_diag, FW) :- cand_fw(FW).\n"
+            "ps_governs_pep(ps_diag, FW) :- policy_enforcement_point(FW).\n"
+            "signed_policy(ps_diag).\n"
+        )
+        r4 = runner.solve(lp_files=lp_files, extra_facts=relax_ps,
+                          num_solutions=1, opt_mode="opt")
+        if r4["status"] == "SAT":
+            issues.append(
+                "zero policy server candidates: the encoding requires at "
+                "least one cand_ps fact. Add a policy server to the topology."
+            )
+
         if issues:
             return "UNSAT root cause(s): " + " | ".join(issues)
 
         return (
             "Policy encoding is unsatisfiable. Possible causes: "
             "missing allow/access_need facts, contradictory domain assignments, "
-            "incompatible Phase 1 feature selections, or structural topology gap. "
+            "or structural topology gap. "
             "Use 'Show ASP Facts' to dump instance facts and run clingo manually."
         )
 

@@ -1,8 +1,19 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% zta_policy_enc.lp
 %% Purpose: Zero-Trust Architecture policy synthesis.
-%% Phase 2 — expects Phase 1 injected facts and the active integrated
-%% instance schema (for example tgt_system_tc9_inst.lp or generated facts).
+%% Phase 2 — operates on TOPOLOGY-LEVEL facts only.
+%%
+%% DESIGN NOTE: Phase 2 is intentionally decoupled from Phase 1 security
+%% feature assignments. Phase 1 facts (p1_security, p1_realtime, p1_risk)
+%% are injected by the agent but NOT consumed by this encoding. The ZTA
+%% policy (firewall placement, trust gaps, least-privilege) is determined
+%% by the architecture topology, domain assignments, and access needs —
+%% not by which security features were selected. Phase 1 protection levels
+%% are consumed by Phase 3 (resilience_enc.lp) where they affect scenario
+%% risk amplification via protection_discount.
+%%
+%% Expects the active integrated instance schema (for example
+%% tgt_system_tc9_inst.lp or generated facts).
 %%
 %% Sections:
 %%  1. Reachability and ACL synthesis
@@ -42,8 +53,9 @@ high_trust_domain(N) :- domain(N, root).
 %% 1. REACHABILITY AND ACL SYNTHESIS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-reachable(X, Y) :- link(X, Y).
-reachable(X, Y) :- reachable(X, Z), link(Z, Y).
+% reachable/2 is pre-computed by ASPGenerator for master->receiver pairs.
+% Keeping this relation as static facts avoids grounding a recursive
+% transitive closure in Phase 2.
 
 accessible_component(M, C) :-
     master(M), receiver(C), reachable(M, C).
@@ -86,6 +98,12 @@ excess_privilege(M, C, Op) :-
 missing_privilege(M, C, Op) :-
     access_need(M, C, Op),
     not accessible_component(M, C).
+
+% Missing privilege: topology reachable but operation not supported by any asset
+missing_privilege(M, C, Op) :-
+    access_need(M, C, Op),
+    accessible_component(M, C),
+    not asset(C, _, Op).
 
 % Count excess grants per master
 excess_grant_count(M, N) :-

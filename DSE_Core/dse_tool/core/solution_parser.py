@@ -87,9 +87,20 @@ class Phase1Result:
         }
 
     def risk_by_component(self) -> Dict[str, int]:
-        """Aggregate total risk contribution per component (sum over all assets/actions)."""
+        """Aggregate total risk contribution per component.
+
+        Uses max-risk-per-asset then sum across assets (same semantics as
+        total_risk / max_risk_per_asset).  This avoids double-counting when
+        multiple CIA actions exist for the same asset.
+        """
+        # Build per-component, per-asset max risk
+        comp_asset_max: Dict[Tuple[str, str], int] = {}
+        for comp, asset, _op, risk in self.new_risk:
+            key = (comp, asset)
+            comp_asset_max[key] = max(comp_asset_max.get(key, 0), risk)
+        # Sum the per-asset maxima per component
         result: Dict[str, int] = {}
-        for comp, _asset, _op, risk in self.new_risk:
+        for (comp, _asset), risk in comp_asset_max.items():
             result[comp] = result.get(comp, 0) + risk
         return result
 
@@ -158,6 +169,8 @@ class Phase2Result:
     total_cost:             int  = 0
     unplaced_safety_fw_penalty: int = 0
     control_plane_concentration_penalty: int = 0
+    closed_loop_score:      Tuple[int, ...] = field(default_factory=tuple)
+    closed_loop_candidates_evaluated: int = 0
     satisfiable:            bool = False
     optimal:                bool = False
     unsat_reason:           str  = ""
@@ -169,8 +182,12 @@ class Phase2Result:
             lines.append(f"deployed_pep({fw}).")
         for ps in sorted(set(self.placed_ps)):
             lines.append(f"deployed_ps({ps}).")
-        for master, ip, op in sorted(set(self.final_allows)):
-            lines.append(f"p2_allow({master}, {ip}, {op}).")
+        # Emit final_allow as p2_mode_allow(master, ip, mode) — the third arg
+        # is a security mode (normal/attack_suspected/attack_confirmed), NOT an
+        # operation (read/write).  Previously emitted as p2_allow which caused a
+        # semantic mismatch with runtime_adaptive_tc9_enc.lp.
+        for master, ip, mode in sorted(set(self.final_allows)):
+            lines.append(f"p2_mode_allow({master}, {ip}, {mode}).")
         return "\n".join(lines)
 
     def avg_policy_tightness(self) -> float:
@@ -208,6 +225,14 @@ class ScenarioResult:
     scenario_action_risks: Dict[Tuple[str, str], int] = field(default_factory=dict)
     total_risk_scaled: int             = 0
     blast_radii:       Dict[str, int]  = field(default_factory=dict)
+    # Amplification factors per asset (diagnostic: shows protection effectiveness)
+    amp_factors:       Dict[str, int]  = field(default_factory=dict)
+    # Assets confirmed available in this scenario
+    assets_available:  List[str]       = field(default_factory=list)
+    # Protection-aware exposure (diagnostic: shows discount impact)
+    protected_cross_exp: List[Tuple[str, str, int]] = field(default_factory=list)
+    protected_same_exp:  List[Tuple[str, str, int]] = field(default_factory=list)
+    stale_policy_exp:    List[Tuple[str, int]]      = field(default_factory=list)
     unavailable:       List[str]       = field(default_factory=list)
     assets_compromised: List[str]      = field(default_factory=list)
     cut_off:           List[str]       = field(default_factory=list)
@@ -525,6 +550,16 @@ class SolutionParser:
                 res.same_exp.append((str(a[0]), str(a[1]), a[2].number))
             elif n == "unmediated_exposure"  and len(a) == 3:
                 res.unmediated_exp.append((str(a[0]), str(a[1]), a[2].number))
+            elif n == "max_amp_factor"      and len(a) == 2:
+                res.amp_factors[str(a[0])] = a[1].number
+            elif n == "asset_available"     and len(a) == 1:
+                res.assets_available.append(str(a[0]))
+            elif n == "protected_indirect_cross" and len(a) == 3:
+                res.protected_cross_exp.append((str(a[0]), str(a[1]), a[2].number))
+            elif n == "protected_indirect_same" and len(a) == 3:
+                res.protected_same_exp.append((str(a[0]), str(a[1]), a[2].number))
+            elif n == "stale_policy_exposure" and len(a) == 2:
+                res.stale_policy_exp.append((str(a[0]), a[1].number))
             # Effective blast radius (WP4)
             elif n == "effective_blast_radius" and len(a) == 2:
                 res.effective_blast_radii[str(a[0])] = a[1].number
@@ -775,8 +810,9 @@ class JointPhase2RuntimeResult:
             lines.append(f"deployed_ps({ps}).")
         for monitor in sorted(set(self.placed_monitors)):
             lines.append(f"deployed_monitor({monitor}).")
-        # Inject p2_allow facts — required by runtime_adaptive_tc9_enc.lp
+        # Inject p2_mode_allow facts — the third arg is a security mode
+        # (normal/attack_suspected/attack_confirmed), not an operation.
         if self._phase2_result is not None:
-            for master, ip, op in sorted(set(self._phase2_result.final_allows)):
-                lines.append(f"p2_allow({master}, {ip}, {op}).")
+            for master, ip, mode in sorted(set(self._phase2_result.final_allows)):
+                lines.append(f"p2_mode_allow({master}, {ip}, {mode}).")
         return "\n".join(lines)

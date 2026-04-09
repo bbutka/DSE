@@ -92,10 +92,12 @@ class ExecutiveSummaryAnalyser:
         solutions: List[SolutionResult],
         max_luts: int = 53200,
         max_power: int = 15000,
+        max_security_risk: int = 50,
     ) -> None:
         self.solutions = solutions
         self._max_luts  = max_luts  if max_luts  > 0 else 53200
         self._max_power = max_power if max_power > 0 else 15000
+        self._max_security_risk = max_security_risk if max_security_risk > 0 else 50
 
     def analyse(self) -> ExecutiveSummary:
         """Run the full analysis and return an ExecutiveSummary."""
@@ -150,7 +152,11 @@ class ExecutiveSummaryAnalyser:
             if sol.phase1:
                 per_asset = sol.phase1.max_risk_per_asset()
                 # Find assets with risk > 3 (non-trivial)
-                high = {a for a, r in per_asset.items() if r > 3}
+                # Threshold: assets above 20% of the security risk cap are "high-risk".
+                # Avoids hardcoded constant that may not match the risk scale.
+                risk_cap = self._max_security_risk if self._max_security_risk > 0 else 50
+                threshold = max(1, risk_cap * 0.2)
+                high = {a for a, r in per_asset.items() if r > threshold}
                 risk_sets.append(high)
 
         if risk_sets:
@@ -362,7 +368,7 @@ class ExecutiveSummaryAnalyser:
                                 "segmentation"
                             ),
                         ))
-                break  # one strategy suffices for blast analysis
+                # Analyse all strategies, not just first (removed break)
 
         # Check control plane vulnerability
         for sol in sols:
@@ -375,7 +381,6 @@ class ExecutiveSummaryAnalyser:
                     f"{cp_comp_count} scenario(s) compromise the control plane "
                     f"in {sol.label} — all policy enforcement is bypassed"
                 )
-            break
 
     def _analyse_capabilities(
         self, s: ExecutiveSummary, sols: List[SolutionResult],

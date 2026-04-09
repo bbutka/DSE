@@ -60,6 +60,7 @@ class IPResourceEstimate:
     lutrams: int = 0
     brams: int = 0
     dsps: int = 0
+    bufg: int = 0
     power_mw: float = 0.0
     latency: int = 1       # pipeline depth in cycles
     fmax_mhz: float = 0.0

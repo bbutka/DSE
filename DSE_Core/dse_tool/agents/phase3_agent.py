@@ -151,6 +151,21 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
         for c in high_exploit[:3]:
             _add(f"{c.name}_exploit_compromise", [c.name], [])
 
+        # Dual-master compromise (if multiple masters)
+        if len(masters) >= 2:
+            for i, m1 in enumerate(masters):
+                for m2 in masters[i + 1:]:
+                    _add(f"{m1.name}_{m2.name}_dual_compromise",
+                         [m1.name, m2.name], [])
+
+        # Dual-bus failure (if multiple buses)
+        bus_list = list(model.buses)
+        if len(bus_list) >= 2:
+            # Only generate for pairs of buses on the same master to limit count
+            for i, b1 in enumerate(bus_list[:10]):  # cap at first 10 buses
+                for b2 in bus_list[i + 1:i + 4]:    # up to 3 neighbours
+                    _add(f"{b1}_{b2}_dual_fail", [], [b1, b2])
+
     return scenarios
 
 

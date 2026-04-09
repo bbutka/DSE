@@ -141,6 +141,7 @@ domain(mag, normal).
 domain(se050, root).
 
 % Exploitability: 1=hard, 3=neutral, 5=trivial (default 3 when omitted)
+exploitability(fmu_h753, 3).  % explicit: USB/serial/MAVLink parsing attack surface
 exploitability(io_mcu, 2).
 exploitability(imu_1, 2).
 exploitability(imu_2, 2).
@@ -272,7 +273,9 @@ role_need(flight_controller, C, read)  :- receiver(C), domain(C, root).
 
 % Static risk weights for amplification-aware Phase 1 objective
 % risk_weight(Asset, W): W in [10,50]; higher = amplified more in Phase 3
-risk_weight(fmu_h753r1, 50).
+% Note: fmu_h753 is a master with no asset facts in Phase 1.
+% Its risk is captured via Phase 3 scenario compromise, not Phase 1 risk weights.
+% risk_weight(fmu_h753r1, 50) removed — the asset fmu_h753r1 does not exist.
 risk_weight(px4io_status, 35).
 risk_weight(imu1_data, 45).
 risk_weight(imu2_data, 45).
@@ -286,11 +289,12 @@ risk_weight(se050_ctrl, 25).
 capability(flight_stabilization_base).
 capability_criticality(flight_stabilization_base, essential).
 % flight_stabilization_base: On-board inertial and barometric sensing for flight stabilization
+% Capability depends on SERVICES (with quorum), not specific sensor instances.
+% attitude_sensor_svc requires 2-of-3 IMUs; altitude_sensor_svc requires 1-of-2 baros.
+% Previous version pinned to imu_1/baro_1 specifically, inflating capability loss count.
 capability_requires_service(flight_stabilization_base, attitude_sensor_svc).
 capability_requires_service(flight_stabilization_base, altitude_sensor_svc).
 capability_requires_component(flight_stabilization_base, fmu_h753).
-capability_requires_access(flight_stabilization_base, fmu_h753, imu_1, read).
-capability_requires_access(flight_stabilization_base, fmu_h753, baro_1, read).
 capability_phase(flight_stabilization_base, operational).
 capability_phase(flight_stabilization_base, emergency).
 capability(failsafe_io).

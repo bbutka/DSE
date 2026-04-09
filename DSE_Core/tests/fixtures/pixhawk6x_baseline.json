@@ -2,9 +2,9 @@
   "description": "Pixhawk 6X UAV non-runtime golden baselines captured from the current integrated DSE_Core solver path.",
   "max_security": {
     "satisfiable": true,
-    "total_risk": 243,
-    "total_luts": 25180,
-    "total_power": 507,
+    "total_risk": 236,
+    "total_luts": 22110,
+    "total_power": 446,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_telem1"
@@ -12,8 +12,8 @@
     "placed_ps": [
       "ps_fmu"
     ],
-    "phase3_scenario_count": 87,
-    "phase3_worst_case_risk_scaled": 3469
+    "phase3_scenario_count": 118,
+    "phase3_worst_case_risk_scaled": 3247
   },
   "min_resources": {
     "satisfiable": true,
@@ -27,14 +27,14 @@
     "placed_ps": [
       "ps_fmu"
     ],
-    "phase3_scenario_count": 87,
+    "phase3_scenario_count": 118,
     "phase3_worst_case_risk_scaled": 9380
   },
   "balanced": {
     "satisfiable": true,
-    "total_risk": 243,
-    "total_luts": 24460,
-    "total_power": 493,
+    "total_risk": 236,
+    "total_luts": 21390,
+    "total_power": 432,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_telem1"
@@ -42,7 +42,7 @@
     "placed_ps": [
       "ps_fmu"
     ],
-    "phase3_scenario_count": 87,
-    "phase3_worst_case_risk_scaled": 3520
+    "phase3_scenario_count": 118,
+    "phase3_worst_case_risk_scaled": 3280
   }
 }

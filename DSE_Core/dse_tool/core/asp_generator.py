@@ -10,6 +10,7 @@ active Phase 1/2/3 encodings work without handwritten testcase files.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from collections import deque
 from typing import List, Dict, Tuple, Optional
 
 
@@ -229,6 +230,39 @@ class ASPGenerator:
     def __init__(self, model: NetworkModel) -> None:
         self.model = model
 
+    def _precompute_phase2_reachability(self) -> List[Tuple[str, str]]:
+        """
+        Pre-compute the directed master->receiver reachability facts used by
+        Phase 2. This avoids grounding the recursive transitive closure in
+        zta_policy_enc.lp while preserving the existing directed link
+        semantics exactly.
+        """
+        adjacency: Dict[str, List[str]] = {}
+        for src, dst in self.model.links:
+            adjacency.setdefault(src, []).append(dst)
+
+        receivers = {
+            c.name for c in self.model.components
+            if c.comp_type not in ("bus", "policy_server", "firewall") and not c.is_master
+        }
+        masters = [c.name for c in self.model.components if c.is_master]
+
+        reachable_pairs: List[Tuple[str, str]] = []
+        for master in masters:
+            seen = set()
+            q = deque(adjacency.get(master, []))
+            while q:
+                node = q.popleft()
+                if node in seen:
+                    continue
+                seen.add(node)
+                if node in receivers:
+                    reachable_pairs.append((master, node))
+                for nbr in adjacency.get(node, []):
+                    if nbr not in seen:
+                        q.append(nbr)
+        return sorted(reachable_pairs)
+
     @staticmethod
     def _audit_capability(component: Component) -> str:
         if component.comp_type in {"policy_server", "firewall"}:
@@ -347,6 +381,11 @@ class ASPGenerator:
             lines.append(f"link({src}, {dst}).")
         lines.append("")
 
+        lines.append("% Pre-computed master-to-receiver reachability for Phase 2")
+        for master, receiver in self._precompute_phase2_reachability():
+            lines.append(f"reachable({master}, {receiver}).")
+        lines.append("")
+
         # â”€â”€ Trust domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         lines.append("% Trust domains (untrusted=0 | low=0 | normal=1 | privileged=2 | high=3 | root=3)")
         for c in m.components:
@@ -356,6 +395,7 @@ class ASPGenerator:
 
         # â”€â”€ Exploitability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         lines.append("% Exploitability: 1=hard, 3=neutral, 5=trivial (default 3 when omitted)")
+        lines.append("% Phase 1 emits receiver-side exploitability only; masters drive scenarios but do not carry Phase 1 assets.")
         for c in ip_comps:
             if c.comp_type not in ("policy_server", "firewall", "bus"):
                 if c.exploitability != 3:   # only emit non-default values
@@ -568,14 +608,13 @@ class ASPGenerator:
             reach      = min(bfs_count(c.name), 5)   # cap reachability bonus at 5
             weight     = min(50, base + safety_add + master_add + domain_add + reach)
 
-            # Emit one weight per asset of this component
-            # Asset ids may come from explicit list or auto-generated
-            comp_assets = [a for a in (m.assets or []) if a.component == c.name]
+            # Emit one weight per generated asset of this component.
+            # Using asset_list avoids synthesizing dead fallback weights for
+            # components that do not actually own Phase 1 assets.
+            comp_assets = [a for a in asset_list if a.component == c.name]
             if comp_assets:
                 for a in comp_assets:
                     lines.append(f"risk_weight({a.asset_id}, {weight}).")
-            else:
-                lines.append(f"risk_weight({c.name}r1, {weight}).")
         lines.append("")
 
         # â”€â”€ Mission capabilities (functional resilience) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1631,10 +1670,9 @@ def make_pixhawk6x_platform() -> NetworkModel:
             description="On-board inertial and barometric sensing for flight stabilization",
             required_services=["attitude_sensor_svc", "altitude_sensor_svc"],
             required_components=["fmu_h753"],
-            required_access=[
-                ("fmu_h753", "imu_1", "read"),
-                ("fmu_h753", "baro_1", "read"),
-            ],
+            # Preserve quorum semantics from the backing services instead of
+            # pinning this capability to one IMU and one barometer member.
+            required_access=[],
             criticality="essential",
             mission_phases=["operational", "emergency"],
         ),
@@ -1840,10 +1878,9 @@ def make_pixhawk6x_uav_network() -> NetworkModel:
             description="Stabilized flight using inertial sensing and actuator command paths",
             required_services=["attitude_svc", "motor_svc"],
             required_components=["fmu_h753"],
-            required_access=[
-                ("fmu_h753", "imu_1", "read"),
-                ("fmu_h753", "esc_bus_1", "write"),
-            ],
+            # Preserve redundant sensor/actuator quorum semantics rather than
+            # forcing one specific IMU and one specific motor bus.
+            required_access=[],
             criticality="essential",
             mission_phases=["operational", "emergency"],
         ),
@@ -1852,10 +1889,9 @@ def make_pixhawk6x_uav_network() -> NetworkModel:
             description="Position and altitude estimation using dual GPS and barometric sensing",
             required_services=["navigation_svc", "altitude_svc"],
             required_components=[],
-            required_access=[
-                ("fmu_h753", "gps_1", "read"),
-                ("fmu_h753", "baro_1", "read"),
-            ],
+            # Navigation should track service-level sensor availability rather
+            # than requiring one named GPS and one named barometer.
+            required_access=[],
             criticality="essential",
             mission_phases=["operational"],
         ),

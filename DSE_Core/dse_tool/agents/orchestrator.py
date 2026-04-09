@@ -36,7 +36,9 @@ from ..core.comparison import generate_report_text
 from .phase1_mathopt_agent import Phase1MathOptAgent
 from .phase1_agent import Phase1Agent
 from .phase2_agent import Phase2Agent
+from .closed_loop_phase2_agent import ClosedLoopPhase2Agent
 from .phase3_agent import Phase3Agent, generate_scenarios
+from .phase3_fast_agent import Phase3FastAgent
 from .runtime_agent import RuntimeAgent, RUNTIME_SCENARIOS
 
 
@@ -102,6 +104,7 @@ def _default_solver_threads() -> int:
 DEFAULT_SOLVER_CONFIG = {
     "phase1_backend": "cpsat",
     "ilp_solver": "cpsat",
+    "phase3_backend": "python",
     "cpsat_threads": _default_solver_threads(),
     "cbc_threads": _default_solver_threads(),
     "clingo_threads": _default_solver_threads(),
@@ -238,6 +241,11 @@ class DSEOrchestrator:
         """Run Phases 1, 2, 3 (and optionally runtime) for one strategy."""
         label = STRATEGY_LABELS.get(strategy, strategy)
         sol   = SolutionResult(strategy=strategy, label=label)
+        model_scenarios = getattr(self.network_model, "scenarios", None) or []
+        if not model_scenarios:
+            model_scenarios = generate_scenarios(
+                self.network_model, full=self.full_phase3
+            )
 
         # â”€â”€ Phase 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 1 starting for {strategy}...")
@@ -267,6 +275,7 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 2 (or Joint Runtime replacing Phase 2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         extra_runtime_facts = ""
+        closed_loop_scenarios = None
         if self.run_joint_runtime:
             self._post("INFO", f"[Orchestrator] Joint runtime starting for {strategy}...")
             joint = rt_agent.solve_joint(p1)
@@ -300,17 +309,34 @@ class DSEOrchestrator:
                 p2 = p2_agent.run()
         else:
             self._post("INFO", f"[Orchestrator] Phase 2 starting for {strategy}...")
-            p2_agent = Phase2Agent(
-                clingo_dir=self.clingo_dir,
-                testcase_lp=self.testcase_lp,
-                phase1_result=p1,
-                strategy=strategy,
-                progress_queue=self.progress_queue,
-                timeout=self.phase_timeout,
-                extra_instance_facts=instance_facts,
-                solver_config=self.solver_config,
-            )
-            p2 = p2_agent.run()
+            if (self.solver_config.get("phase2_objective") or "").lower() == "phase3_closed_loop":
+                p2_agent = ClosedLoopPhase2Agent(
+                    network_model=self.network_model,
+                    clingo_dir=self.clingo_dir,
+                    testcase_lp=self.testcase_lp,
+                    phase1_result=p1,
+                    strategy=strategy,
+                    progress_queue=self.progress_queue,
+                    timeout=self.phase_timeout,
+                    full_scenarios=self.full_phase3,
+                    extra_instance_facts=instance_facts,
+                    solver_config=self.solver_config,
+                )
+                closed_loop = p2_agent.run(model_scenarios=model_scenarios)
+                p2 = closed_loop.phase2_result
+                closed_loop_scenarios = closed_loop.scenarios
+            else:
+                p2_agent = Phase2Agent(
+                    clingo_dir=self.clingo_dir,
+                    testcase_lp=self.testcase_lp,
+                    phase1_result=p1,
+                    strategy=strategy,
+                    progress_queue=self.progress_queue,
+                    timeout=self.phase_timeout,
+                    extra_instance_facts=instance_facts,
+                    solver_config=self.solver_config,
+                )
+                p2 = p2_agent.run()
 
         sol.phase2 = p2
 
@@ -330,25 +356,40 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
-        p3_agent = Phase3Agent(
-            clingo_dir=self.clingo_dir,
-            testcase_lp=self.testcase_lp,
-            phase1_result=p1,
-            phase2_result=p2,
-            strategy=strategy,
-            progress_queue=self.progress_queue,
-            full_scenarios=self.full_phase3,
-            timeout=self.phase_timeout,
-            extra_instance_facts=instance_facts,
-            solver_config=self.solver_config,
-        )
-        # Use model-attached scenarios if present, otherwise auto-generate
-        model_scenarios = getattr(self.network_model, "scenarios", None) or []
-        if not model_scenarios:
-            model_scenarios = generate_scenarios(
-                self.network_model, full=self.full_phase3
+        phase3_backend = (self.solver_config.get("phase3_backend") or "python").lower()
+        if phase3_backend == "python":
+            p3_agent = Phase3FastAgent(
+                network_model=self.network_model,
+                phase1_result=p1,
+                phase2_result=p2,
+                strategy=strategy,
+                progress_queue=self.progress_queue,
+                full_scenarios=self.full_phase3,
+                timeout=self.phase_timeout,
+                extra_instance_facts=instance_facts,
+                solver_config=self.solver_config,
             )
-        sol.scenarios = p3_agent.run(model_scenarios=model_scenarios)
+        else:
+            p3_agent = Phase3Agent(
+                clingo_dir=self.clingo_dir,
+                testcase_lp=self.testcase_lp,
+                phase1_result=p1,
+                phase2_result=p2,
+                strategy=strategy,
+                progress_queue=self.progress_queue,
+                full_scenarios=self.full_phase3,
+                timeout=self.phase_timeout,
+                extra_instance_facts=instance_facts,
+                solver_config=self.solver_config,
+            )
+        if closed_loop_scenarios is not None and p2.satisfiable:
+            self._post(
+                "INFO",
+                f"[Orchestrator] Phase 3 reused closed-loop evaluation for {strategy}..."
+            )
+            sol.scenarios = closed_loop_scenarios
+        else:
+            sol.scenarios = p3_agent.run(model_scenarios=model_scenarios)
         sol.complete  = True
 
         return sol

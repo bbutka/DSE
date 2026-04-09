@@ -517,8 +517,6 @@ capability_criticality(flight_control, essential).
 capability_requires_service(flight_control, attitude_svc).
 capability_requires_service(flight_control, motor_svc).
 capability_requires_component(flight_control, fmu_h753).
-capability_requires_access(flight_control, fmu_h753, imu_1, read).
-capability_requires_access(flight_control, fmu_h753, esc_bus_1, write).
 capability_phase(flight_control, operational).
 capability_phase(flight_control, emergency).
 capability(navigation).
@@ -526,8 +524,6 @@ capability_criticality(navigation, essential).
 % navigation: Position and altitude estimation using dual GPS and barometric sensing
 capability_requires_service(navigation, navigation_svc).
 capability_requires_service(navigation, altitude_svc).
-capability_requires_access(navigation, fmu_h753, gps_1, read).
-capability_requires_access(navigation, fmu_h753, baro_1, read).
 capability_phase(navigation, operational).
 capability(ground_comms).
 capability_criticality(ground_comms, essential).

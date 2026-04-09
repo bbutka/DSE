@@ -165,6 +165,8 @@ class ResultsPanel(ttk.Frame):
                     parts.append(f"FWs: {', '.join(p2.placed_fws)}")
                 if p2.placed_ps:
                     parts.append(f"PSs: {', '.join(p2.placed_ps)}")
+                if getattr(p2, "closed_loop_score", ()):
+                    parts.append(f"Closed-loop: {p2.closed_loop_candidates_evaluated} cand")
                 phase2_lbl.config(text=", ".join(parts) if parts else "—")
             else:
                 phase2_lbl.config(text="—")
@@ -603,6 +605,15 @@ class _Phase2DetailDialog(tk.Toplevel):
         lines.append("")
         cost = getattr(p2, "total_cost", None)
         lines.append(f"Total FW+PS deployment cost: {cost if cost is not None else 'N/A'}")
+        if getattr(p2, "closed_loop_score", ()):
+            lines.append(
+                f"Closed-loop score: {tuple(p2.closed_loop_score)} "
+                f"(candidates evaluated: {p2.closed_loop_candidates_evaluated})"
+            )
+        elif p2.resilience_objective_penalty():
+            lines.append(
+                f"Heuristic resilience penalty: {p2.resilience_objective_penalty()}"
+            )
         if p2.unsat_reason:
             lines.append(f"\nUNSAT reason: {p2.unsat_reason}")
         self._write(t, "\n".join(lines))

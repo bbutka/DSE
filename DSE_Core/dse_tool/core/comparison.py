@@ -390,6 +390,17 @@ def generate_report_text(
             if p2.satisfiable:
                 lines.append(f"    Firewalls placed:  {sorted(set(p2.placed_fws))}")
                 lines.append(f"    Policy servers:    {sorted(set(p2.placed_ps))}")
+                if getattr(p2, "closed_loop_score", ()):
+                    lines.append(f"    Phase 2 mode:      exact closed-loop")
+                    lines.append(f"    Closed-loop score: {tuple(p2.closed_loop_score)}")
+                    lines.append(
+                        f"    Candidates eval:   {p2.closed_loop_candidates_evaluated}"
+                    )
+                elif p2.resilience_objective_penalty() > 0:
+                    lines.append(f"    Phase 2 mode:      heuristic control-plane")
+                    lines.append(
+                        f"    Resilience proxy:  {p2.resilience_objective_penalty()}"
+                    )
                 lines.append(f"    Excess privileges: {len(p2.excess_privileges)}")
                 lines.append(f"    Missing privileges:{len(p2.missing_privileges)}")
                 if p2.trust_gap_rot:

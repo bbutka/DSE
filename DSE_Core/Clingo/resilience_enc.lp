@@ -33,11 +33,11 @@ adjacent(X, Y) :- link(Y, X).
 
 active_adjacent(X, Y) :- adjacent(X, Y), not failed(X), not failed(Y).
 
-reachable(X, Y) :- adjacent(X, Y).
-reachable(X, Z) :- reachable(X, Y), adjacent(Y, Z).
+reachable(X, Y) :- adjacent(X, Y), Y != X.
+reachable(X, Z) :- reachable(X, Y), adjacent(Y, Z), Z != X.
 
-active_reachable(X, Y) :- active_adjacent(X, Y).
-active_reachable(X, Z) :- active_reachable(X, Y), active_adjacent(Y, Z).
+active_reachable(X, Y) :- active_adjacent(X, Y), Y != X.
+active_reachable(X, Z) :- active_reachable(X, Y), active_adjacent(Y, Z), Z != X.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -246,8 +246,22 @@ protected_indirect_same(A, N, AdjFactor) :-
 %% 6. MAXIMUM AMPLIFICATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Amplification factor: max of all active exposure sources.
+% Baseline (no compromise/failure) = AMP_DENOM = 10 (1.0x).
+% Protection-aware factors CAN go below 10 when discounts apply,
+% allowing well-protected assets to show reduced scenario risk.
+% The sentinel only fires when NO exposure source is active.
+has_exposure(A) :- direct_exposure(A, _, _).
+has_exposure(A) :- protected_indirect_cross(A, _, _).
+has_exposure(A) :- protected_indirect_same(A, _, _).
+has_exposure(A) :- unmediated_exposure(A, _, _).
+has_exposure(A) :- stale_policy_exposure(A, _).
+has_exposure(A) :- unsigned_only_exposure(A, _).
+has_exposure(A) :- ps_conflict_exposure(A, _).
+
 max_amp_factor(A, Factor) :-
     asset(_, A, _),
+    has_exposure(A),
     Factor = #max {
         F    : direct_exposure(A, _, F)          ;
         F    : protected_indirect_cross(A, _, F) ;
@@ -255,9 +269,13 @@ max_amp_factor(A, Factor) :-
         F    : unmediated_exposure(A, _, F)       ;
         F    : stale_policy_exposure(A, F)        ;
         F    : unsigned_only_exposure(A, F)       ;
-        F    : ps_conflict_exposure(A, F)         ;
-        10   : asset(_, A, _)                     % baseline sentinel
+        F    : ps_conflict_exposure(A, F)
     }.
+
+% Baseline sentinel: no exposure sources active = 1.0x (10)
+max_amp_factor(A, 10) :-
+    asset(_, A, _),
+    not has_exposure(A).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -565,6 +565,11 @@ class _SolverConfigDialog(tk.Toplevel):
     """
 
     STRATEGIES = ["max_security", "min_resources", "balanced"]
+    PHASE2_OBJECTIVES = [
+        ("Default Cost Only", ""),
+        ("Heuristic Control Plane", "control_plane"),
+        ("Exact Closed Loop (Phase 3)", "phase3_closed_loop"),
+    ]
 
     def __init__(self, parent: tk.Widget, config: dict) -> None:
         super().__init__(parent)
@@ -574,6 +579,7 @@ class _SolverConfigDialog(tk.Toplevel):
         self.result: dict | None = None
 
         overrides: dict = dict(config.get("strategy_overrides", {}))
+        self._base_config = dict(config)
 
         frm = ttk.Frame(self, padding=12)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -581,6 +587,31 @@ class _SolverConfigDialog(tk.Toplevel):
         ttk.Label(frm,
                   text="Override per-strategy ASP objectives (leave blank to use defaults):",
                   wraplength=500).pack(anchor="w", pady=(0, 6))
+
+        phase2_row = ttk.Frame(frm)
+        phase2_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(phase2_row, text="Phase 2 objective:", width=18).pack(side=tk.LEFT)
+        phase2_current = str(config.get("phase2_objective", "") or "")
+        self._phase2_var = tk.StringVar()
+        phase2_labels = [label for label, _ in self.PHASE2_OBJECTIVES]
+        reverse_map = {value: label for label, value in self.PHASE2_OBJECTIVES}
+        self._phase2_var.set(reverse_map.get(phase2_current, phase2_labels[0]))
+        self._phase2_combo = ttk.Combobox(
+            phase2_row,
+            textvariable=self._phase2_var,
+            values=phase2_labels,
+            state="readonly",
+            width=28,
+        )
+        self._phase2_combo.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(
+            frm,
+            text=(
+                "Phase 2 modes: default cost-only, heuristic control-plane proxy, "
+                "or exact closed-loop evaluation using actual Phase 3 scenarios."
+            ),
+            wraplength=500,
+        ).pack(anchor="w", pady=(0, 8))
 
         self._text_widgets: dict = {}
         nb = ttk.Notebook(frm)
@@ -617,7 +648,18 @@ class _SolverConfigDialog(tk.Toplevel):
             text = tw.get("1.0", tk.END).strip()
             if text:
                 new_overrides[strategy] = text + "\n"
-        self.result = {"strategy_overrides": new_overrides} if new_overrides else {}
+        objective_map = {label: value for label, value in self.PHASE2_OBJECTIVES}
+        phase2_objective = objective_map.get(self._phase2_var.get(), "")
+        result = dict(self._base_config)
+        if new_overrides:
+            result["strategy_overrides"] = new_overrides
+        else:
+            result.pop("strategy_overrides", None)
+        if phase2_objective:
+            result["phase2_objective"] = phase2_objective
+        else:
+            result.pop("phase2_objective", None)
+        self.result = result
         self.destroy()
 
     def _reset(self) -> None:
