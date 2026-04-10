@@ -62,10 +62,10 @@ class ResultsPanel(ttk.Frame):
         metrics_frame = ttk.Frame(card)
         metrics_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
         for lbl_text, attr_name in [("LUTs:", "lut"), ("FFs:", "ff"),
-                                     ("Power:", "power"), ("Risk:", "risk")]:
+                                     ("Power:", "power"), ("Risk Score:", "risk")]:
             row = ttk.Frame(metrics_frame)
             row.pack(fill=tk.X)
-            ttk.Label(row, text=lbl_text, width=10).pack(side=tk.LEFT)
+            ttk.Label(row, text=lbl_text, width=12).pack(side=tk.LEFT)
             val = ttk.Label(row, text="—", font=("TkDefaultFont", 9, "bold"))
             val.pack(side=tk.LEFT)
             setattr(self, f"_{attr_name}_{skey}", val)
@@ -166,7 +166,9 @@ class ResultsPanel(ttk.Frame):
                 if p2.placed_ps:
                     parts.append(f"PSs: {', '.join(p2.placed_ps)}")
                 if getattr(p2, "closed_loop_score", ()):
-                    parts.append(f"Closed-loop: {p2.closed_loop_candidates_evaluated} cand")
+                    parts.append(f"Mode: closed-loop ({p2.closed_loop_candidates_evaluated} cand)")
+                elif p2.satisfiable:
+                    parts.append(f"Mode: {sol.phase2_mode_label()}")
                 phase2_lbl.config(text=", ".join(parts) if parts else "—")
             else:
                 phase2_lbl.config(text="—")
@@ -180,7 +182,7 @@ class ResultsPanel(ttk.Frame):
                 for sc in sol.scenarios[:3]:
                     compromised_str = ",".join(sc.compromised) if sc.compromised else "none"
                     scenario_parts.append(
-                        f"{sc.name}({compromised_str})={sc.total_risk:.0f}"
+                        f"{sc.name}({compromised_str}) score={sc.total_risk:.0f}"
                     )
                 if len(sol.scenarios) > 3:
                     scenario_parts.append(f"+{len(sol.scenarios) - 3} more")
@@ -529,13 +531,16 @@ class _Phase2DetailDialog(tk.Toplevel):
 
     def _add_tightness_tab(self, nb, p2) -> None:
         tab = ttk.Frame(nb)
-        nb.add(tab, text="  Policy Tightness  ")
+        nb.add(tab, text="  Policy Precision  ")
         t = self._make_text(tab)
         lines = []
         tightness = p2.policy_tightness  # dict master -> int 0-100
         over = set(p2.over_privileged)
         avg  = p2.avg_policy_tightness()
-        lines.append(f"Average tightness: {avg:.1f}/100  (100=fully tight, 0=permissive)")
+        coverage = p2.avg_effective_policy_tightness(mode="normal")
+        lines.append(f"Average policy precision: {avg:.1f}/100  (100=tight, 0=permissive)")
+        lines.append(f"Average normal-mode coverage: {coverage:.1f}/100  (100=all needed accesses satisfied)")
+        lines.append("Precision measures grant selectivity; coverage measures post-firewall access satisfaction.")
         lines.append("─" * 50)
         if tightness:
             lines.append(f"  {'Master':<25} {'Score':>6}  {'Status'}")
@@ -544,7 +549,7 @@ class _Phase2DetailDialog(tk.Toplevel):
                 status = "OVER-PRIVILEGED" if master in over else ("tight" if score >= 80 else "loose")
                 lines.append(f"  {master:<25} {score:>6}  {status}")
         else:
-            lines.append("  (no tightness data)")
+            lines.append("  (no policy precision data)")
         self._write(t, "\n".join(lines))
 
     def _add_trust_tab(self, nb, p2) -> None:
@@ -614,6 +619,14 @@ class _Phase2DetailDialog(tk.Toplevel):
             lines.append(
                 f"Heuristic resilience penalty: {p2.resilience_objective_penalty()}"
             )
+            lines.append(
+                "Guidance: exact closed-loop Phase 2 is recommended for high-assurance studies."
+            )
+        else:
+            lines.append("Phase 2 mode: cost-only heuristic")
+            lines.append(
+                "Guidance: exact closed-loop Phase 2 is recommended for high-assurance studies."
+            )
         if p2.unsat_reason:
             lines.append(f"\nUNSAT reason: {p2.unsat_reason}")
         self._write(t, "\n".join(lines))
@@ -653,7 +666,7 @@ class _Phase3DetailDialog(tk.Toplevel):
         self._listbox.pack(fill=tk.BOTH, expand=True)
         for i, sc in enumerate(scenarios):
             risk = sc.total_risk
-            self._listbox.insert(tk.END, f"{sc.name}  [risk={risk:.0f}]")
+            self._listbox.insert(tk.END, f"{sc.name}  [score={risk:.0f}]")
         self._listbox.bind("<<ListboxSelect>>", self._on_select)
 
         # Right: detail text
@@ -685,7 +698,7 @@ class _Phase3DetailDialog(tk.Toplevel):
         lines.append("=" * 56)
         lines.append(f"Compromised  : {', '.join(sc.compromised) or '—'}")
         lines.append(f"Failed       : {', '.join(sc.failed) or '—'}")
-        lines.append(f"Total risk   : {sc.total_risk:.2f}")
+        lines.append(f"Total score  : {sc.total_risk:.2f}")
         lines.append("")
 
         # Blast radii — structural and effective
@@ -866,7 +879,7 @@ class _Phase1DetailDialog(tk.Toplevel):
     def __init__(self, parent, p1) -> None:
         super().__init__(parent)
         self.transient(parent)
-        self.title("Phase 1 — Security & Resource Details")
+        self.title("Phase 1 — Security Score & Resource Details")
         self.geometry("720x500")
         self.grab_set()
 
@@ -953,7 +966,7 @@ class _Phase1DetailDialog(tk.Toplevel):
 
     def _add_risk_tab(self, nb, p1) -> None:
         tab = ttk.Frame(nb)
-        nb.add(tab, text="  Risk Breakdown  ")
+        nb.add(tab, text="  Score Breakdown  ")
         t = self._make_text(tab)
         lines = []
 
@@ -962,8 +975,8 @@ class _Phase1DetailDialog(tk.Toplevel):
 
         # ── Section 1: Non-redundant components (multiplicative security risk) ──
         sec_risks = p1.security_risk or []
-        lines.append("NON-REDUNDANT COMPONENTS  —  Multiplicative Security Risk")
-        lines.append("  Risk = Impact x Exposure x Detection x ExploitFactor / 100")
+        lines.append("NON-REDUNDANT COMPONENTS  —  Multiplicative Security Score")
+        lines.append("  Score = Impact x Exposure x Detection x ExploitFactor / 100")
         lines.append(SEP)
         if sec_risks:
             lines.append(HDR)
@@ -978,8 +991,8 @@ class _Phase1DetailDialog(tk.Toplevel):
         # ── Section 2: Redundant group members (probabilistic avail risk) ──
         lines.append("")
         avail_risks = p1.avail_risk or []
-        lines.append("REDUNDANT GROUP MEMBERS  —  Probabilistic Availability Risk")
-        lines.append("  Risk = Impact x denorm_combined_prob x ExploitFactor / 1000  (floor set by Mu x 10)")
+        lines.append("REDUNDANT GROUP MEMBERS  —  Probabilistic Availability Score")
+        lines.append("  Score = Impact x denorm_combined_prob x ExploitFactor / 1000  (floor set by Mu x 10)")
         lines.append(SEP)
         if avail_risks:
             lines.append(HDR)
@@ -993,11 +1006,11 @@ class _Phase1DetailDialog(tk.Toplevel):
 
         # ── Section 3: Per-component totals (risk budget contribution) ──
         lines.append("")
-        lines.append("PER-COMPONENT RISK TOTALS  (sum over all assets and actions)")
+        lines.append("PER-COMPONENT SCORE TOTALS  (sum over all assets and actions)")
         lines.append(SEP)
         by_comp = p1.risk_by_component()
         if by_comp:
-            lines.append(f"  {'Component':<12} {'Total Risk':>10}  Bar")
+            lines.append(f"  {'Component':<12} {'Total Score':>10}  Bar")
             lines.append(SEP)
             for comp, r in sorted(by_comp.items(), key=lambda x: -x[1]):
                 bar = "█" * min(r // max(1, max(by_comp.values()) // 20), 20)
@@ -1007,12 +1020,12 @@ class _Phase1DetailDialog(tk.Toplevel):
 
         # ── Section 4: Per-asset-register max risk ──
         lines.append("")
-        lines.append("MAX RISK PER ASSET REGISTER  (max over read/write operations)")
+        lines.append("MAX SCORE PER ASSET REGISTER  (max over read/write operations)")
         lines.append(SEP)
         per_asset = p1.max_risk_per_asset()
         if per_asset:
             max_v = max(per_asset.values()) if per_asset else 1
-            lines.append(f"  {'Register':<12} {'Max Risk':>8}  Bar")
+            lines.append(f"  {'Register':<12} {'Max Score':>8}  Bar")
             lines.append(SEP)
             for asset, r in sorted(per_asset.items(), key=lambda x: -x[1]):
                 bar = "█" * min(r * 20 // max(max_v, 1), 20)
@@ -1021,8 +1034,8 @@ class _Phase1DetailDialog(tk.Toplevel):
             lines.append("  (no asset risk data)")
 
         lines.append("")
-        lines.append(f"WEIGHTED OBJECTIVE RISK: {p1.total_risk()}")
-        lines.append(f"SUMMARY MAX-PER-ASSET RISK: {p1.summary_total_risk()}")
+        lines.append(f"WEIGHTED OBJECTIVE SCORE: {p1.total_risk()}")
+        lines.append(f"SUMMARY MAX-PER-ASSET SCORE: {p1.summary_total_risk()}")
 
         # ── Section 5: CIA dimension summary ──
         lines.append("")
@@ -1050,13 +1063,19 @@ class _Phase1DetailDialog(tk.Toplevel):
         # Risk weights (amplification proxy)
         if p1.risk_weights:
             lines.append("")
-            lines.append("TOPOLOGY RISK WEIGHTS  (amplification proxy per asset)")
+            lines.append("TOPOLOGY PRIORITY WEIGHTS  (amplification proxy per asset)")
             lines.append(SEP)
             lines.append(f"  {'Asset':<14} {'Weight':>6}  (higher = prioritised by Phase 1 solver)")
             lines.append(SEP)
             for asset, w in sorted(p1.risk_weights.items(), key=lambda x: -x[1]):
                 bar = "█" * (w // 5)
                 lines.append(f"  {asset:<14} {w:>6}  {bar}")
+
+        lines.append("")
+        lines.append("INTERPRETATION NOTES")
+        lines.append(SEP)
+        lines.append("  - Phase 1 values are ordinal security scores used for ranking, not calibrated probabilities.")
+        lines.append("  - Weighted objective score is the value optimized by the solver.")
 
         self._write(t, "\n".join(lines))
 
@@ -1164,7 +1183,7 @@ class _StrategyComparisonDialog(tk.Toplevel):
                          [fmt(get(s, "phase1", attr)) for s in solutions],
                          lib))
         # Risk
-        rows.append(("Objective Risk",
+        rows.append(("Objective Score",
                       [fmt(s.phase1.total_risk() if (s and s.phase1) else None)
                        for s in solutions],
                       True))
@@ -1188,8 +1207,12 @@ class _StrategyComparisonDialog(tk.Toplevel):
         rows.append(("P2 Cost",
                       [fmt(get(s, "phase2", "total_cost")) for s in solutions],
                       True))
-        rows.append(("Avg Tightness",
+        rows.append(("Policy Precision",
                       [fmt(s.phase2.avg_policy_tightness() if (s and s.phase2) else None)
+                       for s in solutions],
+                      False))
+        rows.append(("Policy Coverage",
+                      [fmt(s.phase2.avg_effective_policy_tightness(mode="normal") if (s and s.phase2) else None)
                        for s in solutions],
                       False))
         # Phase 3
@@ -1197,7 +1220,7 @@ class _StrategyComparisonDialog(tk.Toplevel):
                       [str(len(s.scenarios)) if (s and s.scenarios) else "—"
                        for s in solutions],
                       False))
-        rows.append(("Worst Risk",
+        rows.append(("Worst Scenario Score",
                       [fmt(s.worst_scenario().total_risk if (s and s.worst_scenario()) else None)
                        for s in solutions],
                       True))

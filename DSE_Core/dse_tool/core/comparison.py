@@ -74,11 +74,11 @@ class ComparisonEngine:
             risk = p1.total_risk()
             if self._rank(idx, "security_score") == 0:
                 pros.append(
-                    f"Best security posture — lowest overall risk score ({risk})"
+                    f"Best security posture — lowest overall security score ({risk})"
                 )
             elif self._rank(idx, "security_score") == n - 1:
                 cons.append(
-                    f"Weakest security posture — highest overall risk score ({risk})"
+                    f"Weakest security posture — highest overall security score ({risk})"
                 )
 
             # Feature quality commentary
@@ -190,15 +190,15 @@ class ComparisonEngine:
                 worst = sol.worst_scenario()
                 w_risk = f"{worst.total_risk:.1f}" if worst else "N/A"
                 pros.append(
-                    f"Best resilience — lowest worst-case scenario risk "
-                    f"(worst: {w_risk})"
+                    f"Best resilience — lowest worst-case scenario score "
+                    f"within the modeled scenario set (worst: {w_risk})"
                 )
             elif self._rank(idx, "resilience_score") == n - 1:
                 worst = sol.worst_scenario()
                 w_risk = f"{worst.total_risk:.1f}" if worst else "N/A"
                 cons.append(
-                    f"Poorest resilience — highest worst-case scenario risk "
-                    f"(worst: {w_risk})"
+                    f"Poorest resilience — highest worst-case scenario score "
+                    f"within the modeled scenario set (worst: {w_risk})"
                 )
             avg_br = sol.avg_blast_radius()
             if avg_br > 5:
@@ -312,11 +312,16 @@ def generate_report_text(
     if best_sol and best_sol.phase1 and best_sol.phase1.satisfiable:
         lut_pct = best_sol.phase1.total_luts / max_luts * 100 if max_luts else 0
         lines.append(
-            f"  Key Finding: Objective risk {best_sol.phase1.total_risk()}, "
+            f"  Key Finding: Objective security score {best_sol.phase1.total_risk()}, "
             f"LUTs {best_sol.phase1.total_luts:,} "
             f"({lut_pct:.1f}% of {max_luts:,})"
         )
     lines.append("")
+    if best_sol:
+        lines.append("  Analysis Notes:")
+        for note in best_sol.analysis_notes():
+            lines.append(f"    - {note}")
+        lines.append("")
 
     # ── Per-solution details ────────────────────────────────────────────────
     strategy_labels = ["Maximum Security", "Minimum Footprint", "Balanced Trade-off"]
@@ -337,14 +342,14 @@ def generate_report_text(
 
         # Risk profile
         lines.append("")
-        lines.append("  RISK PROFILE")
+        lines.append("  SECURITY SCORE PROFILE")
         lines.append(SEP2)
         lines.append(
-            f"    Objective risk:   {p1.total_risk()}"
+            f"    Objective score:  {p1.total_risk()}"
         )
         per_asset = p1.max_risk_per_asset()
         for asset, risk in sorted(per_asset.items()):
-            lines.append(f"    {asset:<12}  risk = {risk}")
+            lines.append(f"    {asset:<12}  score = {risk}")
         lines.append("")
 
         # Resource usage
@@ -410,8 +415,13 @@ def generate_report_text(
                 if p2.trust_gap_attest:
                     lines.append(f"    Trust gaps (attest):{sorted(p2.trust_gap_attest)}")
                 avg_t = p2.avg_policy_tightness()
+                avg_cov = p2.avg_effective_policy_tightness(mode="normal")
                 if avg_t > 0:
-                    lines.append(f"    Avg tightness:     {avg_t:.1f}/100")
+                    lines.append(f"    Policy precision:  {avg_t:.1f}/100")
+                if avg_cov > 0:
+                    lines.append(f"    Policy coverage:   {avg_cov:.1f}/100")
+                if not getattr(p2, "closed_loop_score", ()):
+                    lines.append("    Guidance:          exact closed-loop Phase 2 is recommended for high-assurance studies")
             else:
                 lines.append(f"    UNSAT: {p2.unsat_reason or 'over-constrained policy'}")
             lines.append("")
@@ -441,7 +451,7 @@ def generate_report_text(
                 elif sc.system_functional:
                     cap_tag = " [FUNCTIONAL]"
                 lines.append(
-                    f"    {sc.name:<35}  risk={sc.total_risk:.1f}"
+                    f"    {sc.name:<35}  score={sc.total_risk:.1f}"
                     f"  blast={sc.max_blast_radius}{cp_tag}{svc_tag}{cap_tag}"
                 )
             lines.append("")
@@ -501,7 +511,7 @@ def generate_report_text(
     lines.append("  " + "-" * 64)
 
     metrics_rows = [
-        ("Objective Risk",      [str(s.phase1.total_risk()) if s.phase1 and s.phase1.satisfiable else "N/A"
+        ("Objective Score",      [str(s.phase1.total_risk()) if s.phase1 and s.phase1.satisfiable else "N/A"
                                   for s in solutions]),
         ("LUTs Used",           [f"{s.phase1.total_luts:,}" if s.phase1 and s.phase1.satisfiable else "N/A"
                                   for s in solutions]),

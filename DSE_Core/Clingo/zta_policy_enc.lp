@@ -589,10 +589,6 @@ total_zta_cost(C) :-
 #show trust_gap_keys/1.
 #show trust_level/2.
 
-% Mission context
-#show mission_final_allow/4.
-#show mission_final_deny/4.
-
 % Mode transition triggers (pass-through from instance facts)
 #show transition_trigger/3.
 

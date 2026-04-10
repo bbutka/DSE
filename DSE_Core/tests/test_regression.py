@@ -802,6 +802,23 @@ class TestSolutionResult(unittest.TestCase):
         sol = self._make_sol()
         self.assertEqual(sol.latency_violations(), 0)
 
+    def test_phase2_mode_label(self):
+        sol = self._make_sol()
+        sol.phase2 = Phase2Result(satisfiable=True)
+        self.assertEqual(sol.phase2_mode_label(), "cost-only heuristic")
+        sol.phase2.unplaced_safety_fw_penalty = 1
+        self.assertEqual(sol.phase2_mode_label(), "heuristic control-plane proxy")
+        sol.phase2.closed_loop_score = (1, 2, 3)
+        self.assertEqual(sol.phase2_mode_label(), "exact closed-loop")
+
+    def test_analysis_notes_include_core_limitations(self):
+        sol = self._make_sol()
+        sol.phase2 = Phase2Result(satisfiable=True)
+        notes = sol.analysis_notes()
+        self.assertTrue(any("ordinal residual-risk scores" in note for note in notes))
+        self.assertTrue(any("enumerated scenario set" in note for note in notes))
+        self.assertTrue(any("exact closed-loop Phase 2 mode" in note for note in notes))
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. Solution Ranker Tests

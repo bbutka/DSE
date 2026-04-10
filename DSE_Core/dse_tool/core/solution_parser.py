@@ -236,7 +236,7 @@ class Phase2Result:
         return "\n".join(lines)
 
     def avg_policy_tightness(self) -> float:
-        """Return average policy tightness score across all masters (0-100)."""
+        """Return average policy precision across all masters (0-100)."""
         if not self.policy_tightness:
             return 0.0
         return sum(self.policy_tightness.values()) / len(self.policy_tightness)
@@ -377,6 +377,39 @@ class SolutionResult:
     policy_score:     float = 0.0
     # CIA-disaggregated risk sub-scores (populated by solution_ranker)
     cia_scores: Dict[str, float] = field(default_factory=lambda: {"C": 0.0, "I": 0.0, "A": 0.0})
+
+    def phase2_mode_label(self) -> str:
+        """Return a user-facing label for the Phase 2 synthesis mode."""
+        p2 = self.phase2
+        if not p2 or not p2.satisfiable:
+            return "unavailable"
+        if getattr(p2, "closed_loop_score", ()):
+            return "exact closed-loop"
+        if p2.resilience_objective_penalty() > 0:
+            return "heuristic control-plane proxy"
+        return "cost-only heuristic"
+
+    def analysis_notes(self) -> List[str]:
+        """Return user-facing caveats for interpreting this solution."""
+        notes: List[str] = []
+        if self.phase1 and self.phase1.satisfiable:
+            notes.append(
+                "Phase 1 security values are ordinal residual-risk scores used for "
+                "ranking and optimisation, not calibrated probabilities."
+            )
+        if self.scenarios:
+            notes.append(
+                "Phase 3 evaluates an enumerated scenario set. Worst-case results are "
+                "worst among modeled scenarios, not an adversarial optimum or proof "
+                "of security."
+            )
+        if self.phase2 and self.phase2.satisfiable and not getattr(self.phase2, "closed_loop_score", ()):
+            notes.append(
+                "Phase 2 used a heuristic objective. For safety-critical or "
+                "high-assurance studies, use the exact closed-loop Phase 2 mode "
+                "to score placements against actual Phase 3 outcomes."
+            )
+        return notes
 
     def avg_blast_radius(self) -> float:
         """Average max blast radius across all scenarios."""

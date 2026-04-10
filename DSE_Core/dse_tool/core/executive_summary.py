@@ -592,7 +592,7 @@ class ExecutiveSummaryAnalyser:
             s.verdict = (
                 f"The current architecture is ADEQUATE for the security requirements. "
                 f"The recommended strategy ({s.best_strategy}) achieves a total "
-                f"risk of {s.best_risk} using {s.best_luts:,} LUTs "
+                f"security score of {s.best_risk} using {s.best_luts:,} LUTs "
                 f"({s.best_lut_pct:.1f}% of budget). "
             )
             if s.long_pole:
@@ -656,9 +656,12 @@ def format_executive_summary(summary: ExecutiveSummary) -> str:
     lines.append("HEADLINE METRICS (Best Strategy)")
     lines.append(SEP2)
     lines.append(f"  Strategy   : {summary.best_strategy}")
-    lines.append(f"  Total Risk : {summary.best_risk}")
+    lines.append(f"  Total Score: {summary.best_risk}")
     lines.append(f"  Resilience : {summary.best_resilience:.1f}/100")
     lines.append(f"  LUTs       : {summary.best_luts:,} ({summary.best_lut_pct:.1f}% of budget)")
+    lines.append("")
+    lines.append("  Notes      : Phase 1 / Phase 3 values are design-time proxy scores;")
+    lines.append("               Phase 3 covers the modeled scenario set only.")
     lines.append("")
 
     # ── Key Findings ──────────────────────────────────────────────
@@ -724,4 +727,3 @@ def format_executive_summary(summary: ExecutiveSummary) -> str:
     lines.append(SEP)
 
     return "\n".join(lines)
-

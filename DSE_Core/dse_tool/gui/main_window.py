@@ -533,7 +533,10 @@ class MainWindow(tk.Tk):
             "DSE Security Analysis Tool\n\n"
             "Design Space Exploration for Security-enabled SoC Topologies.\n\n"
             "Coordinates Phase 1 (security/power), Phase 2 (ZTA policy), "
-            "and Phase 3 (resilience) analysis across three strategy variants.",
+            "and Phase 3 (resilience) analysis across three strategy variants.\n\n"
+            "Phase 1 and Phase 3 values are design-time proxy scores, not calibrated "
+            "probabilities. Phase 3 covers the modeled scenario set, not all possible "
+            "attacks. Exact closed-loop Phase 2 is recommended for high-assurance studies.",
         )
 
     # ------------------------------------------------------------------
@@ -608,7 +611,8 @@ class _SolverConfigDialog(tk.Toplevel):
             frm,
             text=(
                 "Phase 2 modes: default cost-only, heuristic control-plane proxy, "
-                "or exact closed-loop evaluation using actual Phase 3 scenarios."
+                "or exact closed-loop evaluation using actual Phase 3 scenarios. "
+                "Use exact closed-loop for safety-critical or high-assurance studies."
             ),
             wraplength=500,
         ).pack(anchor="w", pady=(0, 8))

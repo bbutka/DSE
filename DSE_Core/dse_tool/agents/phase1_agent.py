@@ -198,7 +198,7 @@ class Phase1Agent:
             result.optimal = False
             self._post(
                 f"[Phase 1/{self.strategy}] Best-so-far - "
-                f"Objective risk: {result.total_risk()}, "
+                f"Objective score: {result.total_risk()}, "
                 f"LUTs: {result.total_luts:,}, "
                 f"Power: {result.total_power:,} mW"
             )
@@ -214,7 +214,7 @@ class Phase1Agent:
 
         self._post(
             f"[Phase 1/{self.strategy}] Done - "
-            f"Objective risk: {result.total_risk()}, "
+                f"Objective score: {result.total_risk()}, "
             f"LUTs: {result.total_luts:,}, "
             f"Power: {result.total_power:,} mW"
         )

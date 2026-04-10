@@ -119,7 +119,7 @@ class Phase1MathOptAgent:
         if result.satisfiable:
             self._post(
                 f"[Phase 1/{self.strategy}/MATHOPT] Done - "
-                f"Objective risk: {result.total_risk()}, "
+            f"Objective score: {result.total_risk()}, "
                 f"LUTs: {result.total_luts:,}, "
                 f"Power: {result.total_power:,} mW"
             )

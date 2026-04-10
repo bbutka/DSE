@@ -141,7 +141,7 @@ class Phase3FastAgent:
             self._post(
                 f"[Phase 3/{self.strategy}] Python done — "
                 f"Worst blast radius: {max(r.max_blast_radius for r in sat_results)}, "
-                f"Worst scenario: {worst.name} (risk={worst.total_risk:.1f})"
+                f"Worst scenario: {worst.name} (score={worst.total_risk:.1f})"
             )
         else:
             self._post(f"[Phase 3/{self.strategy}] Python done — all scenarios UNSAT")
