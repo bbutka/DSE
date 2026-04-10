@@ -124,12 +124,9 @@ latency_cost(zero_trust_logger, 2).
 latency_cost(some_logging, 1).
 latency_cost(no_logging, 1).
 
-% Additive risk model: protection scores for opt_redundancy_generic_enc.lp
-% security_protect_val(Feature, Score): cardinal reduction in residual risk
-% log_protect_val(Feature, Score):      forensic deterrence reduction
-security_protect_val(zero_trust, 8).
-security_protect_val(mac, 4).
-security_protect_val(dynamic_mac, 6).
-log_protect_val(zero_trust_logger, 3).
-log_protect_val(some_logging, 1).
-log_protect_val(no_logging, 0).
+% Exploitability factor map (1=hard to exploit, 5=trivial)
+exploit_factor_map(1, 5).
+exploit_factor_map(2, 7).
+exploit_factor_map(3, 10).
+exploit_factor_map(4, 14).
+exploit_factor_map(5, 20).
