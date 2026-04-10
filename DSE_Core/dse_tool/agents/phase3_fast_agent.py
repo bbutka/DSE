@@ -283,7 +283,7 @@ class Phase3FastAgent:
             for node in compromised:
                 if owner == node:
                     disc = self._protection_discount(owner)
-                    factor = max(10, 30 - disc) if disc is not None else 30
+                    factor = max(10, 30 - disc)
                     factor_candidates.append(factor)
                     direct_exp.append((asset.asset_id, node, factor))
                     continue
@@ -293,10 +293,10 @@ class Phase3FastAgent:
                 node_domain = self._domains.get(node, "normal")
                 owner_domain = self._domains.get(owner, "normal")
                 if _DOMAIN_LEVEL.get(node_domain, 1) < _DOMAIN_LEVEL.get(owner_domain, 1):
-                    factor = max(10, 20 - disc) if disc is not None else 20
+                    factor = max(10, 20 - disc)
                     cross_exp.append((asset.asset_id, node, factor))
                 else:
-                    factor = max(10, 15 - disc) if disc is not None else 15
+                    factor = max(10, 15 - disc)
                     same_exp.append((asset.asset_id, node, factor))
                 factor_candidates.append(factor)
 
@@ -313,7 +313,7 @@ class Phase3FastAgent:
                             mode_denied_accesses.append((master, owner))
                             continue
                         disc = self._protection_discount(owner)
-                        factor = max(10, 25 - disc) if disc is not None else 25
+                        factor = max(10, 25 - disc)
                         factor_candidates.append(factor)
                         unmediated_exp.append((asset.asset_id, master, factor))
 
@@ -528,13 +528,17 @@ class Phase3FastAgent:
             return set(self.phase2_result.placed_ps), set(self.phase2_result.placed_fws)
         return set(), set()
 
-    def _protection_discount(self, component: str) -> Optional[int]:
+    def _protection_discount(self, component: str) -> int:
+        """Compute combined protection discount matching ASP resilience_enc.lp.
+
+        Always returns an int (0-10).  The ASP encoding assigns
+        audit_discount(C, 0) for components without audit_capability,
+        so the Python backend must do the same — never return None.
+        """
         security = self.phase1_result.security.get(component, "no_security")
         realtime = self.phase1_result.realtime.get(component, "no_realtime")
         comp_obj = self._components.get(component)
         audit = ASPGenerator._audit_capability(comp_obj) if comp_obj else "no_audit"
-        if audit == "no_audit":
-            return None
         return min(
             10,
             _SECURITY_DISCOUNT.get(security, 0)

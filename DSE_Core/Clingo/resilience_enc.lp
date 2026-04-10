@@ -133,21 +133,14 @@ direct_exposure(A, N, 30) :-
     compromised(N), asset(N, A, _),
     not protection_discount(N, _).
 
-indirect_exposure_cross(A, N, 20) :-
-    compromised(N), domain(N, DN),
-    effective_asset_reachable(N, A), asset_owner(A, Owner),
-    domain(Owner, DO),
-    cross_trust_boundary(DN, DO),
-    not asset(N, A, _),
-    not protection_discount(Owner, _).
-
-indirect_exposure_same(A, N, 15) :-
-    compromised(N), domain(N, DN),
-    effective_asset_reachable(N, A), asset_owner(A, Owner),
-    domain(Owner, DO),
-    not cross_trust_boundary(DN, DO),
-    not asset(N, A, _),
-    not protection_discount(Owner, _).
+% NOTE: indirect_exposure_cross/same are superseded by
+% protected_indirect_cross/same (Section 5b) which apply protection
+% discount.  These unprotected variants are retained ONLY as fallback
+% for components that genuinely have no protection_discount derivation
+% (e.g. non-receiver components with no Phase 1 facts).
+% The protected variants fire for all receivers because protection_discount
+% always derives (even if discount=0) via the security/realtime/audit
+% fallback rules in Section 5b.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -163,17 +156,10 @@ indirect_exposure_same(A, N, 15) :-
 has_mode_policy :- p2_mode_allow(_, _, _).
 
 % Infer the effective security mode from scenario state.
-% Any compromise → at least attack_suspected.
-% PS compromise or safety-critical compromise → attack_confirmed.
-scenario_mode(normal) :-
-    has_mode_policy,
-    not compromised(_).
-
-scenario_mode(attack_suspected) :-
-    has_mode_policy,
-    compromised(_),
-    not ps_compromised_in_scenario,
-    not safety_critical_compromised.
+% Mutually exclusive: exactly one mode per scenario.
+% Priority: attack_confirmed > attack_suspected > normal.
+ps_compromised_in_scenario :- compromised(PS), policy_server(PS).
+safety_critical_compromised :- compromised(C), safety_critical(C).
 
 scenario_mode(attack_confirmed) :-
     has_mode_policy,
@@ -182,8 +168,14 @@ scenario_mode(attack_confirmed) :-
     has_mode_policy,
     safety_critical_compromised.
 
-ps_compromised_in_scenario :- compromised(PS), policy_server(PS).
-safety_critical_compromised :- compromised(C), safety_critical(C).
+scenario_mode(attack_suspected) :-
+    has_mode_policy,
+    compromised(_),
+    not scenario_mode(attack_confirmed).
+
+scenario_mode(normal) :-
+    has_mode_policy,
+    not compromised(_).
 
 % Access that is denied by the active mode policy.
 % If p2_mode_allow(M, C, Mode) is absent for the current mode,
@@ -201,7 +193,7 @@ mode_denied_access(M, C) :-
 mode_blocked_unmediated(A, M) :-
     has_mode_policy,
     master(M), asset(C, A, _),
-    reachable(M, C),
+    effective_reachable(M, C),
     mode_denied_access(M, C).
 
 
@@ -209,14 +201,25 @@ mode_blocked_unmediated(A, M) :-
 %% 5. CONTROL PLANE COMPROMISE (generalized)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% SEMANTICS: when Phase 2 deployed_pep/deployed_ps facts are present,
+% only those elements are active.  When absent, NO control plane is
+% active (matching the Python fast backend's behavior).  This means
+% standalone Phase 3 runs without Phase 2 see zero firewall protection
+% and zero PS governance — a conservative "no deployment" baseline.
+%
+% To get the legacy "all candidates active" behavior for standalone
+% analysis, inject: system_capability(assume_all_cp_active, 1).
 phase2_context_present :- deployed_pep(_).
 phase2_context_present :- deployed_ps(_).
 
+assume_all_cp :- system_capability(assume_all_cp_active, 1),
+                 not phase2_context_present.
+
 active_policy_server(PS) :- deployed_ps(PS).
-active_policy_server(PS) :- policy_server(PS), not phase2_context_present.
+active_policy_server(PS) :- policy_server(PS), assume_all_cp.
 
 active_policy_enforcement_point(FWL) :- deployed_pep(FWL).
-active_policy_enforcement_point(FWL) :- policy_enforcement_point(FWL), not phase2_context_present.
+active_policy_enforcement_point(FWL) :- policy_enforcement_point(FWL), assume_all_cp.
 
 active_pep_guards(FWL, C) :-
     active_policy_enforcement_point(FWL),
@@ -256,10 +259,22 @@ unmediated_exposure(A, M, 25) :-
     not mode_blocked_unmediated(A, M),
     not protection_discount(C, _).
 
-% PS failure -> stale policy (factor 12 = 1.2x)
+% PS failure -> stale policy (factor 12 = 1.2x).
+% A failed PS that was governing a PEP means the PEP runs on stale
+% cached policy.  Uses ps_governs_pep directly (not active_ps_governs_pep)
+% because active_policy_server excludes failed PSes by construction.
 stale_policy_exposure(A, 12) :-
-    failed(PS), active_policy_server(PS),
-    active_ps_governs_pep(PS, FWL), not failed(FWL),
+    failed(PS), deployed_ps(PS),
+    ps_governs_pep(PS, FWL),
+    active_policy_enforcement_point(FWL), not failed(FWL),
+    active_pep_guards(FWL, C), asset(C, A, _),
+    not pep_bypassed(FWL).
+
+% Fallback for no-Phase-2 context: use raw policy_server facts.
+stale_policy_exposure(A, 12) :-
+    failed(PS), policy_server(PS), not phase2_context_present,
+    ps_governs_pep(PS, FWL),
+    active_policy_enforcement_point(FWL), not failed(FWL),
     active_pep_guards(FWL, C), asset(C, A, _),
     not pep_bypassed(FWL).
 
@@ -274,13 +289,17 @@ unsigned_only_exposure(A, 11) :-
                        signed_policy(PS2) },
     active_pep_guards(_, C), asset(C, A, _).
 
-% PS conflict: at least one PS compromised while another is alive
-% (factor 13 = 1.3x)
+% PS conflict: a compromised PS and a live PS both govern the same PEP,
+% creating conflicting policy states (factor 13 = 1.3x).
+% Only fires when both PSes actually share governance — two PSes
+% governing disjoint PEPs do not create a conflict.
 ps_conflict_exposure(A, 13) :-
     ps_compromised(SomePS),
     active_policy_server(OtherPS), OtherPS != SomePS,
     not failed(OtherPS), not compromised(OtherPS),
-    active_pep_guards(_, C), asset(C, A, _).
+    active_ps_governs_pep(SomePS, PEP),
+    active_ps_governs_pep(OtherPS, PEP),
+    active_pep_guards(PEP, C), asset(C, A, _).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -351,8 +370,6 @@ protected_indirect_same(A, N, AdjFactor) :-
 % allowing well-protected assets to show reduced scenario risk.
 % The sentinel only fires when NO exposure source is active.
 has_exposure(A) :- direct_exposure(A, _, _).
-has_exposure(A) :- indirect_exposure_cross(A, _, _).
-has_exposure(A) :- indirect_exposure_same(A, _, _).
 has_exposure(A) :- protected_indirect_cross(A, _, _).
 has_exposure(A) :- protected_indirect_same(A, _, _).
 has_exposure(A) :- unmediated_exposure(A, _, _).
@@ -365,8 +382,6 @@ max_amp_factor(A, Factor) :-
     has_exposure(A),
     Factor = #max {
         F    : direct_exposure(A, _, F)          ;
-        F    : indirect_exposure_cross(A, _, F)  ;
-        F    : indirect_exposure_same(A, _, F)   ;
         F    : protected_indirect_cross(A, _, F) ;
         F    : protected_indirect_same(A, _, F)  ;
         F    : unmediated_exposure(A, _, F)       ;
@@ -446,9 +461,13 @@ asset_compromised(A) :- asset(Owner, A, _), compromised(Owner).
 % A receiver is cut off only when no master can reach it.
 % Previous rule used any node; this is more precise — if at least
 % one master can still access C, the node is not operationally cut off.
+% A receiver is cut off when no healthy (non-failed, non-compromised)
+% master can reach it.  A compromised master reaching a receiver does
+% not make it "operationally available" — it means the access is hostile.
 node_cut_off(C) :-
     receiver(C), not failed(C),
-    0 = #count { M : master(M), not failed(M), active_reachable(M, C) }.
+    0 = #count { M : master(M), not failed(M), not compromised(M),
+                      active_reachable(M, C) }.
 
 service_live_count(S, N) :-
     service_quorum(S, _),

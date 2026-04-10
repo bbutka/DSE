@@ -257,11 +257,17 @@ class Phase2Agent:
                 "least one cand_ps fact. Add a policy server to the topology."
             )
 
-        # Test 5: Check for insufficient PS candidates vs min_ps_count
+        # Test 5: Check for insufficient PS candidates vs min_ps_count.
+        # Override system_capability to remove the min_ps_count cap entirely,
+        # then inject a permissive min_ps_required(1) with dummy PS candidates.
         relax_min_ps = (
             all_extra + "\n"
-            "% DIAG: override min_ps_count to 1\n"
-            "min_ps_required(1).\n"
+            "% DIAG: override min_ps_count constraint\n"
+            "% Remove the hard constraint on PS count\n"
+            "#external system_capability(min_ps_count, 1). [false]\n"
+            "cand_ps(ps_diag_min). ps_cost(ps_diag_min, 0).\n"
+            "governs(ps_diag_min, FW) :- cand_fw(FW).\n"
+            "signed_policy(ps_diag_min).\n"
         )
         r5 = runner.solve(lp_files=lp_files, extra_facts=relax_min_ps,
                           num_solutions=1, opt_mode="opt")

@@ -242,7 +242,10 @@ min_ps_required(1) :- not system_capability(min_ps_count, _).
 
 N { place_ps(PS) : cand_ps(PS) } :- min_ps_required(N).
 
-% Diagnostic: min_ps_count exceeds available candidates.
+% Hard constraint: insufficient PS candidates must cause UNSAT.
+:- min_ps_required(N), N > #count { PS : cand_ps(PS) }.
+
+% Diagnostic (also emitted when the hard constraint fires, for reporting).
 insufficient_ps_candidates :- min_ps_required(N),
     N > #count { PS : cand_ps(PS) }.
 

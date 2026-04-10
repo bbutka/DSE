@@ -127,7 +127,16 @@ class Phase1MathOptAgent:
     def _solve(self) -> Phase1Result:
         protected_components = self._protected_components()
         if not protected_components:
-            return Phase1Result(strategy=self.strategy, satisfiable=False)
+            # No components need protection — valid zero-overhead baseline.
+            # Return a satisfiable result so downstream phases can still run
+            # on topology/control-plane data.
+            self._post(
+                f"[Phase 1/{self.strategy}/MATHOPT] No protected components — "
+                f"zero-overhead baseline."
+            )
+            return Phase1Result(
+                strategy=self.strategy, satisfiable=True, optimal=True,
+            )
         self._post(
             f"[Phase 1/{self.strategy}/MATHOPT] Modeling {len(protected_components)} protected components."
         )
