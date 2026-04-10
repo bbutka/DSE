@@ -440,6 +440,12 @@ class Phase1MathOptAgent:
             exploit_mod_diag[comp] = exp - 3
             exploit_factor_diag[comp] = EXPLOIT_FACTOR_MAP.get(exp, 10)
 
+        if status == cp_model.FEASIBLE:
+            self._post(
+                f"[Phase 1/{self.strategy}/MATHOPT] WARNING: returning a FEASIBLE "
+                f"incumbent; optimality was not proven before timeout."
+            )
+
         return Phase1Result(
             security=security,
             realtime=realtime,

@@ -172,34 +172,40 @@ class SolutionRanker:
 
         # ── Policy coverage score ──────────────────────────────────────────
         if p2 and p2.satisfiable:
-            avg_tight = p2.avg_policy_tightness()
-            # policy_tightness from ASP is already a 0-100 type metric;
-            # treat it directly (or fall back to composite heuristic).
-            if avg_tight > 0:
-                sol.policy_score = min(100.0, float(avg_tight))
+            if p2.effective_policy_tightness:
+                sol.policy_score = min(
+                    100.0,
+                    float(p2.avg_effective_policy_tightness(mode="normal")),
+                )
             else:
-                # Composite heuristic when tightness atoms are absent:
-                #   - FW coverage: proportion of placed vs total candidate FWs
-                #   - Excess penalty: each excess privilege costs 2 points
-                #   - Trust gap penalty: each missing anchor costs 3 points
-                placed = len(set(p2.placed_fws))
-                # Estimate total candidates from the union of all placed FWs
-                # across all solutions (the superset approximates cand_fws)
-                all_fws: set = set()
-                for other in self.solutions:
-                    if other.phase2 and other.phase2.satisfiable:
-                        all_fws.update(other.phase2.placed_fws)
-                total_cands = max(len(all_fws), placed, 1)
-                fw_ratio = placed / total_cands if total_cands > 0 else 0
-                excess_penalty = min(30.0, len(p2.excess_privileges) * 2.0)
-                gap_penalty = min(20.0, (
-                    len(p2.trust_gap_rot)
-                    + len(p2.trust_gap_sboot)
-                    + len(p2.trust_gap_attest)
-                ) * 3.0)
-                sol.policy_score = max(0.0, min(100.0,
-                    fw_ratio * 50.0 + 50.0 - excess_penalty - gap_penalty
-                ))
+                avg_tight = p2.avg_policy_tightness()
+                # policy_tightness from ASP is already a 0-100 type metric;
+                # treat it directly (or fall back to composite heuristic).
+                if avg_tight > 0:
+                    sol.policy_score = min(100.0, float(avg_tight))
+                else:
+                    # Composite heuristic when tightness atoms are absent:
+                    #   - FW coverage: proportion of placed vs total candidate FWs
+                    #   - Excess penalty: each excess privilege costs 2 points
+                    #   - Trust gap penalty: each missing anchor costs 3 points
+                    placed = len(set(p2.placed_fws))
+                    # Estimate total candidates from the union of all placed FWs
+                    # across all solutions (the superset approximates cand_fws)
+                    all_fws: set = set()
+                    for other in self.solutions:
+                        if other.phase2 and other.phase2.satisfiable:
+                            all_fws.update(other.phase2.placed_fws)
+                    total_cands = max(len(all_fws), placed, 1)
+                    fw_ratio = placed / total_cands if total_cands > 0 else 0
+                    excess_penalty = min(30.0, len(p2.excess_privileges) * 2.0)
+                    gap_penalty = min(20.0, (
+                        len(p2.trust_gap_rot)
+                        + len(p2.trust_gap_sboot)
+                        + len(p2.trust_gap_attest)
+                    ) * 3.0)
+                    sol.policy_score = max(0.0, min(100.0,
+                        fw_ratio * 50.0 + 50.0 - excess_penalty - gap_penalty
+                    ))
         else:
             sol.policy_score = 0.0
 

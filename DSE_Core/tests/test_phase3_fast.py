@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import unittest
 
@@ -100,6 +101,64 @@ class TestPhase3FastParity(unittest.TestCase):
     def test_ps_compromise_parity(self) -> None:
         asp, fast = self._run_pair({"name": "ps0_compromise", "compromised": ["ps0"], "failed": []})
         self._assert_core_parity(asp, fast)
+
+    def test_python_direct_run_auto_generates_scenarios(self) -> None:
+        results = Phase3FastAgent(
+            network_model=self.model,
+            phase1_result=self.p1,
+            phase2_result=self.p2,
+            strategy="max_security",
+            timeout=30,
+            extra_instance_facts=self.instance_facts,
+            solver_config={"phase3_backend": "python"},
+        ).run()
+        self.assertGreater(len(results), 1)
+
+    def test_asp_direct_run_auto_generates_scenarios(self) -> None:
+        results = Phase3Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=self.p1,
+            phase2_result=self.p2,
+            network_model=self.model,
+            strategy="max_security",
+            timeout=30,
+            extra_instance_facts=self.instance_facts,
+            solver_config={"clingo_threads": 1},
+        ).run()
+        self.assertGreater(len(results), 1)
+
+    def test_assume_all_cp_active_matches_asp(self) -> None:
+        model = copy.deepcopy(self.model)
+        model.system_caps["assume_all_cp_active"] = 1
+        facts = ASPGenerator(model).generate()
+        empty_p2 = Phase2Result(satisfiable=False)
+        scenario = {"name": "baseline", "compromised": [], "failed": []}
+
+        asp = Phase3Agent(
+            clingo_dir=CLINGO_DIR,
+            testcase_lp="",
+            phase1_result=self.p1,
+            phase2_result=empty_p2,
+            network_model=model,
+            strategy="max_security",
+            timeout=30,
+            extra_instance_facts=facts,
+            solver_config={"clingo_threads": 1},
+        ).run(model_scenarios=[scenario])[0]
+
+        fast = Phase3FastAgent(
+            network_model=model,
+            phase1_result=self.p1,
+            phase2_result=empty_p2,
+            strategy="max_security",
+            timeout=30,
+            extra_instance_facts=facts,
+            solver_config={"phase3_backend": "python"},
+        ).run(model_scenarios=[scenario])[0]
+
+        self.assertEqual(fast.active_ps_count, asp.active_ps_count)
+        self.assertEqual(sorted(fast.ungoverned_peps), sorted(asp.ungoverned_peps))
 
 
 class TestPhase3FastPixhawkParity(unittest.TestCase):

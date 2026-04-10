@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import queue
+import re
 from typing import Optional
 
 from ..core.clingo_runner import ClingoRunner
@@ -258,20 +259,19 @@ class Phase2Agent:
             )
 
         # Test 5: Check for insufficient PS candidates vs min_ps_count.
-        # Override system_capability to remove the min_ps_count cap entirely,
-        # then inject a permissive min_ps_required(1) with dummy PS candidates.
-        relax_min_ps = (
-            all_extra + "\n"
-            "% DIAG: override min_ps_count constraint\n"
-            "% Remove the hard constraint on PS count\n"
-            "#external system_capability(min_ps_count, 1). [false]\n"
-            "cand_ps(ps_diag_min). ps_cost(ps_diag_min, 0).\n"
-            "governs(ps_diag_min, FW) :- cand_fw(FW).\n"
-            "signed_policy(ps_diag_min).\n"
-        )
-        r5 = runner.solve(lp_files=lp_files, extra_facts=relax_min_ps,
-                          num_solutions=1, opt_mode="opt")
-        if r5["status"] == "SAT":
+        # Diagnose directly from the emitted instance facts because the active
+        # min_ps_required/1 is derived from system_capability(min_ps_count, N)
+        # in the encoding, so injecting a new min_ps_required/1 does not
+        # override the real cause.
+        cand_ps = {
+            match.group(1).strip()
+            for match in re.finditer(r"cand_ps\(([^)]+)\)\.", all_extra)
+        }
+        min_ps_values = {
+            int(match.group(1))
+            for match in re.finditer(r"system_capability\(min_ps_count,\s*(\d+)\)\.", all_extra)
+        }
+        if min_ps_values and max(min_ps_values) > len(cand_ps):
             issues.append(
                 "min_ps_count constraint: fewer policy server candidates than "
                 "the required minimum. Reduce min_ps_count in system_caps or "

@@ -221,7 +221,7 @@ class Phase2Result:
     unsat_reason:           str  = ""
 
     def as_phase3_facts(self) -> str:
-        """Serialise as ASP facts for injection into Phase 3."""
+        """Serialise the currently consumed Phase 2 facts for Phase 3."""
         lines: List[str] = []
         for fw in sorted(set(self.placed_fws)):
             lines.append(f"deployed_pep({fw}).")
@@ -233,18 +233,6 @@ class Phase2Result:
         # semantic mismatch with runtime_adaptive_tc9_enc.lp.
         for master, ip, mode in sorted(set(self.final_allows)):
             lines.append(f"p2_mode_allow({master}, {ip}, {mode}).")
-        # Pass trust levels to Phase 3 for scenario risk amplification.
-        # A compromised trust_level(C, low) component should amplify risk
-        # more than a trust_level(C, high) component.
-        for comp, level in sorted(self.trust_levels.items()):
-            lines.append(f"p2_trust_level({comp}, {level}).")
-        # Pass excess privilege findings — unneeded access paths are
-        # exploitable attack surface in scenarios.
-        for tup in sorted(set(self.excess_privileges)):
-            lines.append(f"p2_excess_privilege({', '.join(tup)}).")
-        # Pass transition triggers — complete operational policy spec.
-        for cond, from_mode, to_mode in sorted(set(self.transition_triggers)):
-            lines.append(f"transition_trigger({cond}, {from_mode}, {to_mode}).")
         return "\n".join(lines)
 
     def avg_policy_tightness(self) -> float:
@@ -252,6 +240,18 @@ class Phase2Result:
         if not self.policy_tightness:
             return 0.0
         return sum(self.policy_tightness.values()) / len(self.policy_tightness)
+
+    def avg_effective_policy_tightness(self, mode: str = "normal") -> float:
+        """Return average post-firewall coverage score for a given mode."""
+        if not self.effective_policy_tightness:
+            return 0.0
+        mode_values = [
+            value
+            for (_master, entry_mode), value in self.effective_policy_tightness.items()
+            if entry_mode == mode
+        ]
+        values = mode_values or list(self.effective_policy_tightness.values())
+        return sum(values) / len(values)
 
     def zta_overhead_cost(self) -> int:
         """Return the abstract Phase 2 placement cost.

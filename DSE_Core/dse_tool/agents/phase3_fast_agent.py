@@ -122,7 +122,12 @@ class Phase3FastAgent:
         self._attack_depth = int(network_model.system_caps.get("max_attack_depth", 5) or 5)
 
     def run(self, model_scenarios: Optional[List[dict]] = None) -> List[ScenarioResult]:
-        scenarios = model_scenarios or [{"name": "baseline", "compromised": [], "failed": []}]
+        if model_scenarios:
+            scenarios = model_scenarios
+        else:
+            from .phase3_agent import generate_scenarios
+
+            scenarios = generate_scenarios(self.network_model, full=self.full_scenarios)
         self._post(f"[Phase 3/{self.strategy}] Python evaluator running {len(scenarios)} scenario(s)...")
 
         results: List[ScenarioResult] = []
@@ -193,6 +198,11 @@ class Phase3FastAgent:
             for master in self._masters
             if master not in failed
         }
+        healthy_master_reachable = {
+            master: reachable
+            for master, reachable in active_reachable.items()
+            if master not in compromised
+        }
         effective_reachable = {
             node: self._bfs_reachable(node, lambda n: self._neighbors_effective(n, failed, fw_blocked))
             for node in self._all_nodes()
@@ -212,7 +222,7 @@ class Phase3FastAgent:
         cut_off = sorted(
             comp for comp in self._receivers
             if comp not in failed
-            and all(comp not in reachable for reachable in active_reachable.values())
+            and all(comp not in reachable for reachable in healthy_master_reachable.values())
         )
 
         service_counts: Dict[str, int] = {}
@@ -526,6 +536,14 @@ class Phase3FastAgent:
     def _active_control_plane(self) -> Tuple[Set[str], Set[str]]:
         if self.phase2_result.satisfiable and (self.phase2_result.placed_fws or self.phase2_result.placed_ps):
             return set(self.phase2_result.placed_ps), set(self.phase2_result.placed_fws)
+        phase2_context_present = bool(
+            self.phase2_result.placed_fws
+            or self.phase2_result.placed_ps
+            or self.phase2_result.final_allows
+        )
+        assume_all_cp = int(self.network_model.system_caps.get("assume_all_cp_active", 0)) == 1
+        if assume_all_cp and not phase2_context_present:
+            return set(self.network_model.cand_ps), set(self.network_model.cand_fws)
         return set(), set()
 
     def _protection_discount(self, component: str) -> int:
@@ -581,7 +599,20 @@ class Phase3FastAgent:
         healthy_ps = [ps for ps in active_ps if ps not in failed and ps not in compromised]
         if not compromised_ps or not healthy_ps:
             return False
-        return any(owner in guards for guards in self._pep_guards.values())
+        owner_peps = {
+            pep for pep, guards in self._pep_guards.items()
+            if owner in guards
+        }
+        if not owner_peps:
+            return False
+        for bad_ps in compromised_ps:
+            bad_peps = ps_to_peps.get(bad_ps, set())
+            if not bad_peps:
+                continue
+            for good_ps in healthy_ps:
+                if owner_peps.intersection(bad_peps, ps_to_peps.get(good_ps, set())):
+                    return True
+        return False
 
     def _guards_by_pep(self) -> Dict[str, Set[str]]:
         guards: Dict[str, Set[str]] = defaultdict(set)

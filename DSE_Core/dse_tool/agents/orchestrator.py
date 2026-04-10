@@ -375,6 +375,7 @@ class DSEOrchestrator:
                 testcase_lp=self.testcase_lp,
                 phase1_result=p1,
                 phase2_result=p2,
+                network_model=self.network_model,
                 strategy=strategy,
                 progress_queue=self.progress_queue,
                 full_scenarios=self.full_phase3,

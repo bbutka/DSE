@@ -688,10 +688,16 @@ class TestPhase2Result(unittest.TestCase):
         p2.placed_fws = ["fw1", "fw2"]
         p2.placed_ps = ["ps0"]
         p2.final_allows = [("cpu", "ip1", "read")]
+        p2.trust_levels = {"ip1": "low"}
+        p2.excess_privileges = [("cpu", "ip1", "write")]
+        p2.transition_triggers = [("compromise_detected", "normal", "attack_suspected")]
         facts = p2.as_phase3_facts()
         self.assertIn("deployed_pep(fw1).", facts)
         self.assertIn("deployed_ps(ps0).", facts)
         self.assertIn("p2_mode_allow(cpu, ip1, read).", facts)
+        self.assertNotIn("p2_trust_level", facts)
+        self.assertNotIn("p2_excess_privilege", facts)
+        self.assertNotIn("transition_trigger", facts)
 
     def test_avg_policy_tightness(self):
         p2 = Phase2Result(satisfiable=True)
@@ -701,6 +707,23 @@ class TestPhase2Result(unittest.TestCase):
     def test_avg_policy_tightness_empty(self):
         p2 = Phase2Result(satisfiable=True)
         self.assertEqual(p2.avg_policy_tightness(), 0.0)
+
+    def test_avg_effective_policy_tightness(self):
+        p2 = Phase2Result(satisfiable=True)
+        p2.effective_policy_tightness = {
+            ("cpu", "normal"): 80,
+            ("dma", "normal"): 60,
+            ("cpu", "attack_confirmed"): 0,
+        }
+        self.assertAlmostEqual(p2.avg_effective_policy_tightness(), 70.0)
+
+    def test_avg_effective_policy_tightness_fallback_all_modes(self):
+        p2 = Phase2Result(satisfiable=True)
+        p2.effective_policy_tightness = {
+            ("cpu", "attack_confirmed"): 10,
+            ("dma", "attack_confirmed"): 30,
+        }
+        self.assertAlmostEqual(p2.avg_effective_policy_tightness(), 20.0)
 
     def test_zta_overhead_cost(self):
         p2 = Phase2Result(satisfiable=True, total_cost=275)
@@ -861,6 +884,19 @@ class TestSolutionRanker(unittest.TestCase):
         self.assertEqual(CIA_WEIGHTS["read"], 1.0)
         self.assertEqual(CIA_WEIGHTS["write"], 1.5)
         self.assertEqual(CIA_WEIGHTS["avail"], 2.0)
+
+    def test_policy_score_prefers_effective_tightness(self):
+        p1 = Phase1Result(strategy="test", satisfiable=True)
+        p1.new_risk = [("c1", "c1r1", "read", 5)]
+        p2 = Phase2Result(satisfiable=True)
+        p2.policy_tightness = {"cpu": 100}
+        p2.effective_policy_tightness = {
+            ("cpu", "normal"): 40,
+            ("dma", "normal"): 60,
+        }
+        sol = SolutionResult(strategy="test", phase1=p1, phase2=p2)
+        SolutionRanker([sol]).rank()
+        self.assertEqual(sol.policy_score, 50.0)
 
     def test_unsatisfiable_scores_zero(self):
         p1 = Phase1Result(strategy="test", satisfiable=False)
@@ -1935,4 +1971,3 @@ class TestRefSoCFullPipeline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-

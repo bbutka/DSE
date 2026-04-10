@@ -244,6 +244,7 @@ unmediated_exposure(A, M, Factor) :-
     master(M), pep_bypassed(PEP),
     active_pep_guards(PEP, C), asset(C, A, _),
     not compromised(M),
+    reachable(M, C),
     not failed(C), not failed(M),
     not mode_blocked_unmediated(A, M),
     protection_discount(C, Disc),
@@ -255,6 +256,7 @@ unmediated_exposure(A, M, 25) :-
     master(M), pep_bypassed(PEP),
     active_pep_guards(PEP, C), asset(C, A, _),
     not compromised(M),
+    reachable(M, C),
     not failed(C), not failed(M),
     not mode_blocked_unmediated(A, M),
     not protection_discount(C, _).

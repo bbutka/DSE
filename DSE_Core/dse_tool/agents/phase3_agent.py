@@ -229,6 +229,7 @@ class Phase3Agent:
         testcase_lp: str,
         phase1_result: Phase1Result,
         phase2_result: Phase2Result,
+        network_model: Optional["NetworkModel"] = None,
         strategy: str = "max_security",
         progress_queue: Optional[queue.Queue] = None,
         full_scenarios: bool = False,
@@ -240,6 +241,7 @@ class Phase3Agent:
         self.testcase_lp          = testcase_lp
         self.phase1_result        = phase1_result
         self.extra_instance_facts = extra_instance_facts
+        self.network_model        = network_model
         self.phase2_result  = phase2_result
         self.strategy       = strategy
         self.progress_queue = progress_queue
@@ -263,6 +265,8 @@ class Phase3Agent:
         """
         if model_scenarios:
             scenarios = model_scenarios
+        elif self.network_model is not None:
+            scenarios = generate_scenarios(self.network_model, full=self.full_scenarios)
         else:
             scenarios = [{"name": "baseline", "compromised": [], "failed": []}]
 
@@ -371,4 +375,3 @@ class Phase3Agent:
                 self.progress_queue.put_nowait(("INFO", msg))
             except queue.Full:
                 pass
-
