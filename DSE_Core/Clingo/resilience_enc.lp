@@ -56,11 +56,15 @@ blast_radius(N, Count) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % A firewall blocks traversal to a guarded component when the
-% PEP is active and not bypassed.
+% PEP is active, not bypassed, and the source node is OUTSIDE
+% the perimeter (not itself guarded by the same PEP).
+% Two nodes inside the same perimeter segment can still reach
+% each other — the PEP guards the boundary, not internal traffic.
 fw_blocked(X, Y) :-
     active_policy_enforcement_point(FWL),
     not pep_bypassed(FWL),
     active_pep_guards(FWL, Y),
+    not active_pep_guards(FWL, X),
     adjacent(X, Y),
     X != Y.
 
@@ -125,7 +129,10 @@ cross_trust_boundary(DN, DO) :-
 trust_amp(C, 3)  :- p2_trust_level(C, low).       % weak anchors: +0.3x
 trust_amp(C, 0)  :- p2_trust_level(C, medium).    % moderate: no change
 trust_amp(C, -2) :- p2_trust_level(C, high).      % strong anchors: -0.2x
-trust_amp(C, 0)  :- component(C), not p2_trust_level(C, _).  % no Phase 2 data
+% Masters participate in compromise scenarios but are not emitted as
+% component/1 facts, so the default trust-amplification fallback must key off
+% domain/2 rather than component/1.
+trust_amp(C, 0)  :- domain(C, _), not p2_trust_level(C, _).  % no Phase 2 data
 
 % Direct exposure: asset on compromised node (base 30 = 3.0x).
 % Protection discount and trust-level modifier applied.
