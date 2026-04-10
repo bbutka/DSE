@@ -118,6 +118,22 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
     for grp in model.redundancy_groups:
         _add(f"group_{grp.group_id}_compromise", list(grp.members), [])
 
+    # Partial redundancy degradation: single-member and multi-member failures.
+    # Uses failed (not compromised) — these are fault-loss scenarios, not
+    # adversarial compromise.  A failed member is inert (unavailable) rather
+    # than an active threat contributing to blast radius.
+    for grp in model.redundancy_groups:
+        if len(grp.members) >= 2:
+            for member in grp.members:
+                _add(f"group_{grp.group_id}_{member}_fail",
+                     [], [member])
+            # 2-of-N failure (if group has 3+ members)
+            if len(grp.members) >= 3:
+                from itertools import combinations
+                for pair in combinations(grp.members, 2):
+                    _add(f"group_{grp.group_id}_{'_'.join(pair)}_fail",
+                         [], list(pair))
+
     if full:
         # Single-receiver compromises
         for r in receivers:

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import deque
 from typing import List, Dict, Tuple, Optional
+import re
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +291,12 @@ class ASPGenerator:
             return "minimal_audit"
         return "no_audit"
 
+    @staticmethod
+    def _asp_identifier(value: str) -> str:
+        """Normalize free-form labels into safe lowercase ASP constants."""
+        ident = re.sub(r"[^a-zA-Z0-9_]+", "_", str(value).strip()).strip("_").lower()
+        return ident or "unknown"
+
     def generate(self) -> str:
         """Return a complete .lp facts string for the network model."""
         m = self.model
@@ -539,7 +546,10 @@ class ASPGenerator:
             lines.append("% Mode transition triggers")
             for tt in m.transition_triggers:
                 lines.append(
-                    f"transition_trigger({tt.condition}, {tt.from_mode}, {tt.to_mode})."
+                    "transition_trigger("
+                    f"{self._asp_identifier(tt.condition)}, "
+                    f"{self._asp_identifier(tt.from_mode)}, "
+                    f"{self._asp_identifier(tt.to_mode)})."
                 )
             lines.append("")
 

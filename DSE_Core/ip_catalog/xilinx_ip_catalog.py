@@ -100,7 +100,7 @@ IP_CATALOG: Dict[str, IPResourceEstimate] = {
         notes="Zero-cost wire/bypass. No logic used.",
     ),
 
-    "no_security": IPResourceEstimate(
+    "no_security_passthrough": IPResourceEstimate(
         luts=0, ffs=0,
         notes="Same as passthrough — no security logic instantiated.",
     ),
@@ -329,6 +329,8 @@ EXPLOIT_FACTOR_MAP = {1: 5, 2: 7, 3: 10, 4: 14, 5: 20}
 
 PHASE1_INTERNAL_RISK_SCALE = 1000
 PHASE1_SECURITY_RISK_DIVISOR = 100
+# Non-redundant Phase 1 risk is stored in milli-risk units to preserve
+# the legacy "/100" relative scale without solver-side truncation.
 PHASE1_SECURITY_RISK_MULTIPLIER = PHASE1_INTERNAL_RISK_SCALE // PHASE1_SECURITY_RISK_DIVISOR
 # Preserve the legacy redundancy normalization floor for model compatibility.
 # The internal precision fix below is independent from this baseline shift.

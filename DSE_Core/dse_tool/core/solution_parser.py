@@ -136,9 +136,14 @@ class Phase1Result:
     def as_p1_facts(self, extra: str = "") -> str:
         """Serialise as ASP facts for injection into Phase 2/3.
 
-        Emits both:
+        Emits:
+          p1_security(Comp, Feature)    — selected security feature
+          p1_realtime(Comp, Feature)    — selected realtime feature
           p1_risk(Asset, Action, Risk)  — 3-arg: preserves CIA action dimension
           p1_risk(Asset, Risk)          — 2-arg: backward compat (max over actions)
+          p1_risk_weight(Asset, Weight) — topology-derived asset criticality weight
+          p1_security_risk(C, A, Op, R) — standalone component risk breakdown
+          p1_avail_risk(C, A, Op, R)    — redundancy group availability risk
         """
         lines: List[str] = []
         for comp, feat in self.security.items():
@@ -151,6 +156,14 @@ class Phase1Result:
         # 2-arg form: backward compat max per asset
         for asset, risk in sorted(self.max_risk_per_asset().items()):
             lines.append(f"p1_risk({asset}, {risk}).")
+        # Risk weights: topology-derived criticality per asset
+        for asset, weight in sorted(self.risk_weights.items()):
+            lines.append(f"p1_risk_weight({asset}, {weight}).")
+        # Typed risk breakdown (when available from ASP backend)
+        for comp, asset, action, risk in self.security_risk:
+            lines.append(f"p1_security_risk({comp}, {asset}, {action}, {risk}).")
+        for comp, asset, action, risk in self.avail_risk:
+            lines.append(f"p1_avail_risk({comp}, {asset}, {action}, {risk}).")
         if extra:
             lines.append(extra)
         return "\n".join(lines)
@@ -194,6 +207,10 @@ class Phase2Result:
     lateral_paths:          List[Tuple[str, str, str]]  = field(default_factory=list)
     lateral_path_counts:    Dict[str, int]             = field(default_factory=dict)
     transition_triggers:    List[Tuple[str, str, str]]  = field(default_factory=list)
+    no_attested_masters:    bool = False
+    insufficient_ps_candidates: bool = False
+    stale_on_paths:         List[Tuple[str, str, str]] = field(default_factory=list)
+    stale_ip_locs:          List[Tuple[str, str]] = field(default_factory=list)
     total_cost:             int  = 0
     unplaced_safety_fw_penalty: int = 0
     control_plane_concentration_penalty: int = 0
@@ -261,12 +278,16 @@ class ScenarioResult:
     compromised:       List[str]
     failed:            List[str]
     scenario_risks:    Dict[str, int]  = field(default_factory=dict)
+    scenario_asset_max_risks: Dict[str, int] = field(default_factory=dict)
     # CIA-disaggregated scenario risk: (asset, action) → risk
     scenario_action_risks: Dict[Tuple[str, str], int] = field(default_factory=dict)
     total_risk_scaled: int             = 0
     blast_radii:       Dict[str, int]  = field(default_factory=dict)
     # Amplification factors per asset (diagnostic: shows protection effectiveness)
     amp_factors:       Dict[str, int]  = field(default_factory=dict)
+    effective_risk_weights: Dict[str, int] = field(default_factory=dict)
+    scenario_modes:    List[str]       = field(default_factory=list)
+    mode_denied_accesses: List[Tuple[str, str]] = field(default_factory=list)
     # Assets confirmed available in this scenario
     assets_available:  List[str]       = field(default_factory=list)
     # Protection-aware exposure (diagnostic: shows discount impact)
@@ -276,6 +297,7 @@ class ScenarioResult:
     unavailable:       List[str]       = field(default_factory=list)
     assets_compromised: List[str]      = field(default_factory=list)
     cut_off:           List[str]       = field(default_factory=list)
+    component_bus_cut: List[str]       = field(default_factory=list)
     services_ok:       List[str]       = field(default_factory=list)
     services_degraded: List[str]       = field(default_factory=list)
     services_unavail:  List[str]       = field(default_factory=list)
@@ -308,6 +330,10 @@ class ScenarioResult:
     system_functional:     bool            = False
     system_degraded:       bool            = False
     system_non_functional: bool            = False
+    has_capabilities:      bool            = False
+    capability_ok_count:       int         = 0
+    capability_degraded_count: int         = 0
+    capability_lost_count:     int         = 0
 
     @property
     def total_risk(self) -> float:
@@ -525,6 +551,14 @@ class SolutionParser:
                 r.lateral_path_counts[str(a[0])] = a[1].number
             elif n == "transition_trigger" and len(a) == 3:
                 r.transition_triggers.append((str(a[0]), str(a[1]), str(a[2])))
+            elif n == "no_attested_masters" and len(a) == 0:
+                r.no_attested_masters = True
+            elif n == "insufficient_ps_candidates" and len(a) == 0:
+                r.insufficient_ps_candidates = True
+            elif n == "stale_on_path" and len(a) == 3:
+                r.stale_on_paths.append((str(a[0]), str(a[1]), str(a[2])))
+            elif n == "stale_ip_loc" and len(a) == 2:
+                r.stale_ip_locs.append((str(a[0]), str(a[1])))
             elif n == "total_zta_cost"     and len(a) == 1:
                 r.total_cost = a[0].number
             elif n == "unplaced_safety_fw_penalty" and len(a) == 1:
@@ -562,16 +596,26 @@ class SolutionParser:
                 res.scenario_action_risks[(str(a[0]), str(a[1]))] = a[2].number
             elif n == "scenario_asset_risk"  and len(a) == 2:
                 res.scenario_risks[str(a[0])] = a[1].number
+            elif n == "scenario_asset_max_risk" and len(a) == 2:
+                res.scenario_asset_max_risks[str(a[0])] = a[1].number
             elif n == "scenario_total_risk"  and len(a) == 1:
                 res.total_risk_scaled = a[0].number
             elif n == "blast_radius"         and len(a) == 2:
                 res.blast_radii[str(a[0])] = a[1].number
+            elif n == "effective_risk_weight" and len(a) == 2:
+                res.effective_risk_weights[str(a[0])] = a[1].number
+            elif n == "scenario_mode" and len(a) == 1:
+                res.scenario_modes.append(str(a[0]))
+            elif n == "mode_denied_access" and len(a) == 2:
+                res.mode_denied_accesses.append((str(a[0]), str(a[1])))
             elif n == "asset_unavailable"    and len(a) == 1:
                 res.unavailable.append(str(a[0]))
             elif n == "asset_compromised"   and len(a) == 1:
                 res.assets_compromised.append(str(a[0]))
             elif n == "node_cut_off"         and len(a) == 1:
                 res.cut_off.append(str(a[0]))
+            elif n == "component_bus_cut"    and len(a) == 1:
+                res.component_bus_cut.append(str(a[0]))
             elif n == "service_ok"           and len(a) == 1:
                 res.services_ok.append(str(a[0]))
             elif n == "service_degraded"     and len(a) == 1:
@@ -662,6 +706,14 @@ class SolutionParser:
             elif n == "system_non_functional"   and len(a) == 0:
                 res.system_non_functional = True
                 res.system_functional = False
+            elif n == "has_capabilities"        and len(a) == 0:
+                res.has_capabilities = True
+            elif n == "capability_ok_count"     and len(a) == 1:
+                res.capability_ok_count = a[0].number
+            elif n == "capability_degraded_count" and len(a) == 1:
+                res.capability_degraded_count = a[0].number
+            elif n == "capability_lost_count" and len(a) == 1:
+                res.capability_lost_count = a[0].number
         return res
 
     # ------------------------------------------------------------------

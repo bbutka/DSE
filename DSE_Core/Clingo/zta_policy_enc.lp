@@ -110,24 +110,37 @@ excess_grant_count(M, N) :-
     master(M),
     N = #count { C, Op : excess_privilege(M, C, Op) }.
 
-% Policy tightness score: 0 = fully excess, 100 = perfectly tight.
-% PRE-FIREWALL metric: measures topology-level access grants before
-% firewall filtering.  See effective_policy_tightness/3 for the
-% post-firewall, per-mode metric.
-% tightness = 100 * |needed ∩ reachable| / |granted|
+% --- policy_tightness: PRECISION metric (pre-firewall) ---
+% Measures what fraction of granted access is actually needed.
+% 100% = every grant is needed (perfectly tight).
+%  50% = half of granted access is excess.
+%   0% = nothing granted (or master has no grants).
+% Formula: 100 * |needed ∩ reachable| / |granted|
 policy_tightness(M, Tightness) :-
     master(M),
     Needed  = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
     Granted = #count { C, Op : granted_op(M, C, Op) },
     Granted > 0,
-    Tightness = Needed * 100 / Granted.
+    RawTightness = Needed * 100 / Granted,
+    Tightness = #min { RawTightness; 100 }.
+
+% Zero-grant case: undefined precision becomes 100 only when there are
+% also no reachable needs; otherwise it is fully unsatisfied (0).
+policy_tightness(M, 100) :-
+    master(M),
+    0 = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
+    0 = #count { C, Op : granted_op(M, C, Op) }.
+policy_tightness(M, 0) :-
+    master(M),
+    0 < #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
+    0 = #count { C, Op : granted_op(M, C, Op) }.
 
 % Flag: masters with tightness below 50% are over-privileged
 over_privileged(M) :- policy_tightness(M, T), T < 50.
 
-% --- Effective (post-firewall) policy tightness per mode ---
+% --- Effective grants (post-firewall) ---
 % A grant is "blocked by firewall" when the IP sits behind a placed FW
-% but the master→IP path is NOT protected (no on-path FW for that pair).
+% but the master's path does NOT pass through the FW.
 blocked_by_fw(M, C) :-
     master(M), receiver(C),
     place_fw(FW), ip_loc(C, FW),
@@ -142,16 +155,26 @@ effective_granted_op(M, C, Op) :-
     granted_op(M, C, Op),
     protected(M, C).
 
-% Per-mode tightness accounting for firewall filtering and mode-aware ACLs.
-% POST-FIREWALL metric: = |needed ∩ (effective_granted ∩ mode_allowed)| / |needed|
-% Expected to be lower than policy_tightness in elevated modes — that is
-% correct ZTA tightening, not a deficiency.
+% --- effective_policy_tightness: COVERAGE metric (post-firewall, per-mode) ---
+% Measures what fraction of needed access is effectively available.
+% 100% = all needed access is granted and allowed in this mode.
+%  50% = half of needed access is blocked by FW or mode restriction.
+%   0% = no needed access available (fully locked down).
+% Formula: 100 * |effective_granted ∩ mode_allowed ∩ needed| / |needed|
 effective_policy_tightness(M, Mode, Tightness) :-
     master(M), mode(Mode),
-    Needed  = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
-    Granted = #count { C, Op : effective_granted_op(M, C, Op), final_allow(M, C, Mode) },
-    Granted > 0,
-    Tightness = Needed * 100 / Granted.
+    Needed = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
+    Needed > 0,
+    Satisfied = #count { C, Op : access_need(M, C, Op),
+                                  effective_granted_op(M, C, Op),
+                                  final_allow(M, C, Mode) },
+    Tightness = Satisfied * 100 / Needed.
+
+% Zero-output case: no needs declared, or attack_confirmed lockdown.
+% Emit 0 so the metric exists for all (master, mode) pairs.
+effective_policy_tightness(M, Mode, 0) :-
+    master(M), mode(Mode),
+    0 = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) }.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -213,7 +236,15 @@ mission_final_deny(M, C, Op, Phase) :-
 min_ps_required(N) :- system_capability(min_ps_count, N).
 min_ps_required(1) :- not system_capability(min_ps_count, _).
 
+:- system_capability(min_ps_count, N1),
+   system_capability(min_ps_count, N2),
+   N1 != N2.
+
 N { place_ps(PS) : cand_ps(PS) } :- min_ps_required(N).
+
+% Diagnostic: min_ps_count exceeds available candidates.
+insufficient_ps_candidates :- min_ps_required(N),
+    N > #count { PS : cand_ps(PS) }.
 
 protected(M, IP) :- place_fw(FWL), on_path(FWL, M, IP).
 
@@ -229,13 +260,12 @@ governs_ip(PS, IP) :-
 
 :- place_fw(FWL), ip_loc(IP, FWL), not governs_ip(_, IP).
 
-% --- on_path validity assertion ---
-% Verify that pre-computed on_path facts are consistent with topology.
-% An on_path(FW, M, IP) fact is stale if the master can no longer reach
-% the IP through the topology, or the IP is not behind the FW.
-% This catches topology editing errors in the GUI.
-:- on_path(FW, M, IP), not reachable(M, IP).
-:- on_path(FW, _, IP), not ip_loc(IP, FW).
+% --- on_path validity diagnostics ---
+% Detect stale on_path facts after topology editing.
+% Demoted to diagnostics (not hard constraints) so that GUI topology
+% edits produce warnings rather than silent UNSAT.
+stale_on_path(FW, M, IP) :- on_path(FW, M, IP), not reachable(M, IP).
+stale_ip_loc(FW, IP)     :- on_path(FW, _, IP), not ip_loc(IP, FW).
 
 % --- Survivable control plane ---
 % Limit how many critical IPs any single PS can govern.
@@ -258,35 +288,45 @@ ps_critical_ip_count(PS, N) :-
 
 mode(normal). mode(attack_suspected). mode(attack_confirmed).
 
-% Normal mode: use explicit allow rules from the integrated instance facts
+% --- Normal mode ---
+% Use explicit allow rules from the integrated instance facts.
 final_allow(M, IP, normal) :- allow(M, IP, normal), not deny(M, IP, normal).
 
-% attack_suspected: attested masters MAY still access non-critical IPs
-%  → preserves monitoring capability even under elevated threat
-% Auxiliary: safe = attested master accessing a non-critical IP
-safe_in_suspected(M, C) :- master(M), receiver(C), attested(M), not critical(C).
+% --- attack_suspected mode ---
+% Attested masters MAY access non-critical IPs (preserves monitoring).
+% Safety-critical IPs denied unconditionally in elevated modes.
+% All other (master, IP) pairs denied.
+safe_in_suspected(M, C) :- master(M), receiver(C), attested(M),
+                            not critical(C), not safety_critical(C).
+
+% Positive grant: attested master accessing non-critical, non-safety IP.
+final_allow(M, C, attack_suspected) :- safe_in_suspected(M, C).
+
+% Deny everything else in attack_suspected.
 deny(M, C, attack_suspected) :- master(M), receiver(C), not safe_in_suspected(M, C).
 
-% attack_confirmed: blanket deny ALL (full isolation)
+% --- attack_confirmed mode ---
+% Blanket deny ALL (full isolation, unconditional lockdown).
 deny(M, C, attack_confirmed) :- master(M), receiver(C).
 
-% Safety-critical components: isolated in BOTH elevated modes
-deny(M, C, attack_suspected) :- master(M), safety_critical(C).
+% --- Final deny for all modes ---
+final_deny(M, IP, S) :- deny(M, IP, S).
 
-% Can a low/normal/untrusted master still reach an IP in mode S?
-reachable_low(IP, S) :-
+% --- Isolation: based on effective allow, not just absence of deny ---
+% A low-trust master can effectively reach an IP in mode S only if
+% a positive final_allow exists for that pair in that mode.
+effective_reachable_low(IP, S) :-
     mode(S), master(M), low_trust_domain(M),
-    reachable(M, IP), not deny(M, IP, S).
+    reachable(M, IP), final_allow(M, IP, S).
 
-isolated(C, S) :- receiver(C), mode(S), not reachable_low(C, S).
+isolated(C, S) :- receiver(C), mode(S), not effective_reachable_low(C, S).
 
 % Safety requirement: safety-critical RECEIVERS must be isolated in at least one mode.
 % Masters are not subject to isolation (they initiate access, not receive it).
 :- safety_critical(C), receiver(C), not isolated(C, _).
 
-% Final access decisions
-final_allow(M, IP, S) :- allow(M, IP, S), not deny(M, IP, S), mode(S), S != normal.
-final_deny(M, IP, S)  :- deny(M, IP, S).
+% Diagnostic: no attested masters → attack_suspected is fully locked down.
+no_attested_masters :- not attested(_).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -333,9 +373,10 @@ trust_level(C, low)    :- trust_anchor_count(C, 0).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 7b. LATERAL MOVEMENT PATH ANALYSIS
-%%     Identify multi-hop attack paths where an attacker entering
-%%     through a non-critical, unguarded receiver can reach a
-%%     critical IP without traversing a firewall.
+%%     Identify attack paths where an attacker enters through an
+%%     unguarded non-critical receiver and reaches a critical IP
+%%     — either directly (same FW segment) or via multi-hop chains
+%%     through other stepping stones sharing bus segments.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % A receiver is an unguarded stepping stone if it is non-critical and
@@ -345,11 +386,10 @@ stepping_stone(Hop) :-
     master(M), reachable(M, Hop),
     not protected(M, Hop).
 
-% A lateral path exists when a master can reach a stepping stone,
-% and that stepping stone shares a bus segment with a critical IP
-% that the master can also reach — but the critical path IS guarded.
-% The risk: if the stepping stone is compromised, it may be able to
-% bypass the firewall from inside the protected segment.
+% --- Single-hop lateral path (same FW segment) ---
+% A stepping stone and a critical target sit behind the same FW.
+% If the stepping stone is compromised, it can attack the target
+% from inside the protected perimeter.
 lateral_path(M, Hop, Target) :-
     master(M),
     stepping_stone(Hop),
@@ -359,7 +399,42 @@ lateral_path(M, Hop, Target) :-
     reachable(M, Target),
     ip_loc(Hop, FW), ip_loc(Target, FW).
 
-% Count unguarded lateral paths per master
+% --- Multi-hop lateral reachability ---
+% A compromised stepping stone can reach other components on the same
+% bus segment.  Two receivers share a segment if they are co-located
+% behind the same FW, or if they are both on the same bus without
+% any FW between them.
+same_segment(A, B) :- ip_loc(A, FW), ip_loc(B, FW), A != B.
+same_segment(A, B) :-
+    receiver(A), receiver(B), A != B,
+    link(Bus, A), link(Bus, B),
+    not ip_loc(A, _), not ip_loc(B, _).
+
+% Recursive: lateral reachability through stepping stone chains.
+% Depth-bounded by max_lateral_depth (default 3) to keep grounding finite.
+max_lateral_depth(D) :- system_capability(max_lateral_depth, D).
+max_lateral_depth(3) :- not system_capability(max_lateral_depth, _).
+
+lateral_reach(M, Hop, 1) :-
+    master(M), stepping_stone(Hop),
+    reachable(M, Hop), not protected(M, Hop).
+
+lateral_reach(M, Next, D+1) :-
+    lateral_reach(M, Prev, D),
+    stepping_stone(Next),
+    same_segment(Prev, Next),
+    Next != Prev,
+    max_lateral_depth(Max), D < Max.
+
+% Multi-hop lateral path: master can reach a stepping stone chain
+% that ends at a component co-located with a critical target.
+lateral_path(M, LastHop, Target) :-
+    lateral_reach(M, LastHop, _),
+    receiver(Target), critical(Target),
+    same_segment(LastHop, Target),
+    LastHop != Target.
+
+% Count unguarded lateral paths per master (deduplicated)
 lateral_path_count(M, N) :-
     master(M),
     N = #count { Hop, Target : lateral_path(M, Hop, Target) }.
@@ -522,3 +597,7 @@ total_zta_cost(C) :-
 #show unexplained_exception/3.
 #show critical_exception/5.
 #show attack_confirmed_exception_violation/4.
+#show no_attested_masters/0.
+#show insufficient_ps_candidates/0.
+#show stale_on_path/3.
+#show stale_ip_loc/2.

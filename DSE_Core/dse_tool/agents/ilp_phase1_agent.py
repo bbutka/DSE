@@ -441,12 +441,12 @@ class Phase1MathOptAgent:
             domain_bonus=domain_bonus_diag,
             exploit_mod=exploit_mod_diag,
             exploit_factor=exploit_factor_diag,
-            total_luts=int(round(pulp.value(total_luts) or 0)),
-            total_ffs=int(round(pulp.value(totals["ffs"]) or 0)),
-            total_dsps=int(round(pulp.value(totals["dsps"]) or 0)),
-            total_lutram=int(round(pulp.value(totals["lutram"]) or 0)),
-            total_bram=int(round(pulp.value(totals["bram"]) or 0)),
-            total_power=int(round(pulp.value(totals["power_cost"]) or 0)),
+            total_luts=self._coerce_total(pulp.value(total_luts)),
+            total_ffs=self._coerce_total(pulp.value(totals["ffs"])),
+            total_dsps=self._coerce_total(pulp.value(totals["dsps"])),
+            total_lutram=self._coerce_total(pulp.value(totals["lutram"])),
+            total_bram=self._coerce_total(pulp.value(totals["bram"])),
+            total_power=self._coerce_total(pulp.value(totals["power_cost"])),
             optimal=True,
             satisfiable=True,
             strategy=self.strategy,
@@ -645,12 +645,12 @@ class Phase1MathOptAgent:
             domain_bonus=domain_bonus_diag,
             exploit_mod=exploit_mod_diag,
             exploit_factor=exploit_factor_diag,
-            total_luts=int(solver.Value(total_luts)),
-            total_ffs=int(solver.Value(totals["ffs"])),
-            total_dsps=int(solver.Value(totals["dsps"])),
-            total_lutram=int(solver.Value(totals["lutram"])),
-            total_bram=int(solver.Value(totals["bram"])),
-            total_power=int(solver.Value(totals["power_cost"])),
+            total_luts=self._coerce_total(solver.Value(total_luts)),
+            total_ffs=self._coerce_total(solver.Value(totals["ffs"])),
+            total_dsps=self._coerce_total(solver.Value(totals["dsps"])),
+            total_lutram=self._coerce_total(solver.Value(totals["lutram"])),
+            total_bram=self._coerce_total(solver.Value(totals["bram"])),
+            total_power=self._coerce_total(solver.Value(totals["power_cost"])),
             optimal=(status == cp_model.OPTIMAL),
             satisfiable=True,
             strategy=self.strategy,
@@ -863,7 +863,11 @@ class Phase1MathOptAgent:
             component_by_name = {component.name: component for component in self.network_model.components}
             assets = []
             for component_name in protected_components:
-                component = component_by_name[component_name]
+                component = component_by_name.get(component_name)
+                if component is None:
+                    raise RuntimeError(
+                        f"Protected component '{component_name}' is missing from the network model."
+                    )
                 assets.append(
                     Asset(
                         asset_id=f"{component.name}r1",
@@ -1025,12 +1029,10 @@ class Phase1MathOptAgent:
                 for transition in transitions_by_stage[stage_index]
                 if transition.next_state in reachable_next_states
             ]
-            if stage_index > 0:
-                reachable_next_states = {
-                    transition.prev_state
-                    for transition in transitions_by_stage[stage_index]
-                    if transition.prev_state != START_STATE
-                }
+            reachable_next_states = {
+                transition.prev_state
+                for transition in transitions_by_stage[stage_index]
+            }
         return final_state_rows, final_state_totals
 
     def _apply_group_pair_state(self, prev_state: Tuple[int, int], pair: _PairOption) -> Tuple[int, int]:
@@ -1171,7 +1173,7 @@ class Phase1MathOptAgent:
             adjacency.setdefault(src, set()).add(dst)
             adjacency.setdefault(dst, set()).add(src)
 
-        def bfs_count(start: str) -> int:
+        def bfs_reach_count(start: str) -> int:
             visited = {start}
             frontier = [start]
             while frontier:
@@ -1189,11 +1191,17 @@ class Phase1MathOptAgent:
             safety_add = 20 if getattr(component, "is_safety_critical", False) else 0
             master_add = 15 if getattr(component, "is_master", False) else 0
             domain_add = 10 if self._domain_bonus(getattr(component, "domain", "normal")) >= 2 else 0
-            reach = min(bfs_count(component_name), 5)
+            reach = min(bfs_reach_count(component_name), 5)
             weight = min(50, base + safety_add + master_add + domain_add + reach)
             for asset in assets:
                 weights[asset.asset_id] = weight
         return weights
+
+    @staticmethod
+    def _coerce_total(value: object) -> int:
+        if value is None:
+            return 0
+        return int(round(float(value)))
 
     def _domain_bonus(self, domain: str) -> int:
         return {

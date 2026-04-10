@@ -195,7 +195,7 @@ class Phase2Agent:
         relax_fw = (
             all_extra + "\n"
             "% DIAG: override critical-IP FW constraint\n"
-            "protected(M, IP) :- master(M), receiver(IP).\n"
+            "protected(M, IP) :- on_path(_, M, IP).\n"
         )
         r1 = runner.solve(lp_files=lp_files, extra_facts=relax_fw,
                           num_solutions=1, opt_mode="opt")
@@ -247,7 +247,6 @@ class Phase2Agent:
             "% DIAG: inject a dummy PS to bypass zero-cand_ps constraint\n"
             "cand_ps(ps_diag). ps_cost(ps_diag, 0).\n"
             "governs(ps_diag, FW) :- cand_fw(FW).\n"
-            "ps_governs_pep(ps_diag, FW) :- policy_enforcement_point(FW).\n"
             "signed_policy(ps_diag).\n"
         )
         r4 = runner.solve(lp_files=lp_files, extra_facts=relax_ps,

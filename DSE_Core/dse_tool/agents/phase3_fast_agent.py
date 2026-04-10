@@ -142,9 +142,28 @@ class Phase3FastAgent:
             self._post(f"[Phase 3/{self.strategy}] Python done — all scenarios UNSAT")
         return results
 
+    def _scenario_mode(self, compromised: Set[str]) -> Optional[str]:
+        """Mirror ASP scenario_mode/1 when Phase 2 mode-aware policy exists."""
+        if not self.phase2_result.final_allows:
+            return None
+        if not compromised:
+            return "normal"
+        active_ps, _active_peps = self._active_control_plane()
+        if any(node in active_ps for node in compromised):
+            return "attack_confirmed"
+        if any(getattr(self._components.get(node), "is_safety_critical", False) for node in compromised):
+            return "attack_confirmed"
+        return "attack_suspected"
+
+    def _mode_denied_access(self, master: str, component: str, scenario_mode: Optional[str]) -> bool:
+        if scenario_mode is None:
+            return False
+        return (master, component, scenario_mode) not in set(self.phase2_result.final_allows)
+
     def _evaluate_scenario(self, scenario: dict) -> ScenarioResult:
         compromised = set(scenario.get("compromised", []))
         failed = set(scenario.get("failed", []))
+        scenario_mode = self._scenario_mode(compromised)
         active_ps, active_peps = self._active_control_plane()
         pep_to_guards = self._pep_guards
         ps_to_peps = defaultdict(set)
@@ -245,8 +264,13 @@ class Phase3FastAgent:
         cross_exp = []
         same_exp = []
         unmediated_exp = []
+        mode_denied_accesses: List[Tuple[str, str]] = []
         scenario_action_risks: Dict[Tuple[str, str], int] = {}
         scenario_asset_risks: Dict[str, int] = {}
+        scenario_asset_max_risks: Dict[str, int] = {}
+        effective_risk_weights: Dict[str, int] = {}
+        baseline_risks = self.phase1_result.risk_per_asset_action()
+        fallback_asset_risks = self.phase1_result.max_risk_per_asset()
 
         for asset in self._assets:
             owner = asset.component
@@ -258,21 +282,21 @@ class Phase3FastAgent:
             factor_candidates = []  # sentinel removed — only real exposures contribute
             for node in compromised:
                 if owner == node:
-                    factor_candidates.append(30)
-                    direct_exp.append((asset.asset_id, node, 30))
+                    disc = self._protection_discount(owner)
+                    factor = max(10, 30 - disc) if disc is not None else 30
+                    factor_candidates.append(factor)
+                    direct_exp.append((asset.asset_id, node, factor))
                     continue
-                if owner not in self._reachable.get(node, set()):
+                if owner not in effective_reachable.get(node, set()):
                     continue
                 disc = self._protection_discount(owner)
-                if disc is None:
-                    continue
                 node_domain = self._domains.get(node, "normal")
                 owner_domain = self._domains.get(owner, "normal")
                 if _DOMAIN_LEVEL.get(node_domain, 1) < _DOMAIN_LEVEL.get(owner_domain, 1):
-                    factor = 20 - disc
+                    factor = max(10, 20 - disc) if disc is not None else 20
                     cross_exp.append((asset.asset_id, node, factor))
                 else:
-                    factor = 15 - disc
+                    factor = max(10, 15 - disc) if disc is not None else 15
                     same_exp.append((asset.asset_id, node, factor))
                 factor_candidates.append(factor)
 
@@ -283,8 +307,15 @@ class Phase3FastAgent:
                     for master in self._masters:
                         if master in compromised or master in failed or owner in failed:
                             continue
-                        factor_candidates.append(25)
-                        unmediated_exp.append((asset.asset_id, master, 25))
+                        if owner not in self._reachable.get(master, set()):
+                            continue
+                        if self._mode_denied_access(master, owner, scenario_mode):
+                            mode_denied_accesses.append((master, owner))
+                            continue
+                        disc = self._protection_discount(owner)
+                        factor = max(10, 25 - disc) if disc is not None else 25
+                        factor_candidates.append(factor)
+                        unmediated_exp.append((asset.asset_id, master, factor))
 
             if stale_policy:
                 for ps, peps in ps_to_peps.items():
@@ -299,15 +330,26 @@ class Phase3FastAgent:
             if self._ps_conflict_exposure(active_ps, failed, compromised, ps_to_peps, owner):
                 factor_candidates.append(13)
 
-            factor = max(factor_candidates) if factor_candidates else 10  # baseline 1.0x
-            for (asset_id, action), base_risk in self.phase1_result.risk_per_asset_action().items():
+            factor = max(factor_candidates) if factor_candidates else 10
+            weight = self.phase1_result.risk_weights.get(asset.asset_id, 1)
+            effective_risk_weights[asset.asset_id] = weight
+            has_action_risk = False
+            for (asset_id, action), base_risk in baseline_risks.items():
                 if asset_id != asset.asset_id:
                     continue
+                has_action_risk = True
                 scenario_action_risks[(asset_id, action)] = base_risk * factor
-            if factor and any(aid == asset.asset_id for (aid, _op) in scenario_action_risks):
-                scenario_asset_risks[asset.asset_id] = max(
+            if has_action_risk:
+                asset_action_risks = [
                     risk for (aid, _op), risk in scenario_action_risks.items() if aid == asset.asset_id
-                )
+                ]
+                scenario_asset_max_risks[asset.asset_id] = max(asset_action_risks)
+                scenario_asset_risks[asset.asset_id] = weight * sum(asset_action_risks)
+            elif asset.asset_id in fallback_asset_risks:
+                base_risk = fallback_asset_risks[asset.asset_id]
+                scaled_risk = base_risk * factor
+                scenario_asset_max_risks[asset.asset_id] = scaled_risk
+                scenario_asset_risks[asset.asset_id] = weight * scaled_risk
 
         attack_paths, escalation_paths = self._attack_metrics(
             compromised=compromised,
@@ -375,6 +417,7 @@ class Phase3FastAgent:
             unavailable=sorted(asset_unavailable),
             assets_compromised=sorted(asset_compromised),
             cut_off=cut_off,
+            component_bus_cut=cut_off,
             services_ok=sorted(services_ok),
             services_degraded=sorted(services_deg),
             services_unavail=sorted(services_unavail),
@@ -403,7 +446,16 @@ class Phase3FastAgent:
             system_functional=system_functional,
             system_degraded=system_degraded,
             system_non_functional=system_non_functional,
+            has_capabilities=has_capabilities,
+            capability_ok_count=len(capabilities_ok),
+            capability_degraded_count=len(capabilities_degraded),
+            capability_lost_count=len(capabilities_lost),
         )
+        result.scenario_asset_max_risks = scenario_asset_max_risks
+        result.effective_risk_weights = effective_risk_weights
+        if scenario_mode is not None:
+            result.scenario_modes = [scenario_mode]
+        result.mode_denied_accesses = sorted(set(mode_denied_accesses))
         return result
 
     def _resolve_assets(self) -> List[Asset]:
@@ -474,18 +526,14 @@ class Phase3FastAgent:
     def _active_control_plane(self) -> Tuple[Set[str], Set[str]]:
         if self.phase2_result.satisfiable and (self.phase2_result.placed_fws or self.phase2_result.placed_ps):
             return set(self.phase2_result.placed_ps), set(self.phase2_result.placed_fws)
-        return set(self.network_model.cand_ps), set(self.network_model.cand_fws)
+        return set(), set()
 
     def _protection_discount(self, component: str) -> Optional[int]:
         security = self.phase1_result.security.get(component, "no_security")
         realtime = self.phase1_result.realtime.get(component, "no_realtime")
         comp_obj = self._components.get(component)
         audit = ASPGenerator._audit_capability(comp_obj) if comp_obj else "no_audit"
-        # Match current ASP semantics exactly: explicit no_realtime and
-        # explicit no_audit do not derive a protection_discount/2 atom.
-        # Protected indirect exposure then disappears entirely rather than
-        # falling back to a zero discount.
-        if realtime == "no_realtime" or audit == "no_audit":
+        if audit == "no_audit":
             return None
         return min(
             10,

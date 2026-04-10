@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from ip_catalog.xilinx_ip_catalog import PHASE1_INTERNAL_RISK_SCALE
 from .solution_parser import SolutionResult
 
 
@@ -21,10 +22,9 @@ MAX_LUTS          = 53_200
 MAX_FFS           = 106_400
 MAX_POWER_MW      = 15_000
 # Normalisation ceiling for risk score.
-# Under the multiplicative model, non-redundant asset risks are on a much
-# larger scale than the former additive path. Use a wider headroom value so
-# the GUI score does not collapse to zero for every satisfiable solution.
-MAX_RISK_POSSIBLE = 3000
+# Under the multiplicative model, Phase 1 now uses internal milli-risk units.
+# Preserve the pre-scaling GUI headroom by applying the same internal scale.
+MAX_RISK_POSSIBLE = 3000 * PHASE1_INTERNAL_RISK_SCALE
 
 # CIA weighting for the composite security score.
 # Integrity and Availability are weighted higher than Confidentiality

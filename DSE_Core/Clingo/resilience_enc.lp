@@ -86,8 +86,16 @@ effective_blast_radius(N, Count) :-
 
 asset_owner(A, C) :- asset(C, A, _).
 
+% Structural asset reachability (worst-case, ignores FWs/failures).
+% Used for blast_radius and structural attack paths.
 asset_reachable(N, A) :- asset(N, A, _).
 asset_reachable(N, A) :- reachable(N, C), asset(C, A, _), C != N.
+
+% Effective asset reachability (firewall-aware, failure-aware).
+% Used for indirect exposure and amplification — does NOT amplify risk
+% through paths that are blocked by placed PEPs or failed nodes.
+effective_asset_reachable(N, A) :- asset(N, A, _).
+effective_asset_reachable(N, A) :- effective_reachable(N, C), asset(C, A, _), C != N.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -109,22 +117,92 @@ cross_trust_boundary(DN, DO) :-
 %% 4. STANDARD EXPOSURE LEVELS  (amplification x10)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Direct exposure: asset on compromised node (base 30 = 3.0x).
+% Protection discount reduces this — a compromised component with
+% zero_trust + runtime_attestation (discount=7) has factor 30-7=23 (2.3x)
+% vs. no_security (discount=0) at full 30 (3.0x).
+% Floor at 10 (1.0x) — compromise always has non-zero impact.
+direct_exposure(A, N, Factor) :-
+    compromised(N), asset(N, A, _),
+    protection_discount(N, Disc),
+    F0 = 30 - Disc,
+    Factor = #max { F0; 10 }.
+
+% Fallback when no protection discount is available (no Phase 1 facts)
 direct_exposure(A, N, 30) :-
-    compromised(N), asset(N, A, _).
+    compromised(N), asset(N, A, _),
+    not protection_discount(N, _).
 
 indirect_exposure_cross(A, N, 20) :-
     compromised(N), domain(N, DN),
-    asset_reachable(N, A), asset_owner(A, Owner),
+    effective_asset_reachable(N, A), asset_owner(A, Owner),
     domain(Owner, DO),
     cross_trust_boundary(DN, DO),
-    not asset(N, A, _).
+    not asset(N, A, _),
+    not protection_discount(Owner, _).
 
 indirect_exposure_same(A, N, 15) :-
     compromised(N), domain(N, DN),
-    asset_reachable(N, A), asset_owner(A, Owner),
+    effective_asset_reachable(N, A), asset_owner(A, Owner),
     domain(Owner, DO),
     not cross_trust_boundary(DN, DO),
-    not asset(N, A, _).
+    not asset(N, A, _),
+    not protection_discount(Owner, _).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 4b. MODE-AWARE ACCESS RESTRICTION
+%%     When Phase 2 p2_mode_allow facts are present, the system
+%%     can restrict access based on the active security mode.
+%%     If a scenario involves any compromise, the effective mode
+%%     is attack_suspected (attested masters only, non-critical IPs).
+%%     Unmediated exposure is reduced when the mode-aware policy
+%%     would have denied the access even if the PEP were intact.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+has_mode_policy :- p2_mode_allow(_, _, _).
+
+% Infer the effective security mode from scenario state.
+% Any compromise → at least attack_suspected.
+% PS compromise or safety-critical compromise → attack_confirmed.
+scenario_mode(normal) :-
+    has_mode_policy,
+    not compromised(_).
+
+scenario_mode(attack_suspected) :-
+    has_mode_policy,
+    compromised(_),
+    not ps_compromised_in_scenario,
+    not safety_critical_compromised.
+
+scenario_mode(attack_confirmed) :-
+    has_mode_policy,
+    ps_compromised_in_scenario.
+scenario_mode(attack_confirmed) :-
+    has_mode_policy,
+    safety_critical_compromised.
+
+ps_compromised_in_scenario :- compromised(PS), policy_server(PS).
+safety_critical_compromised :- compromised(C), safety_critical(C).
+
+% Access that is denied by the active mode policy.
+% If p2_mode_allow(M, C, Mode) is absent for the current mode,
+% the master M would not have access to C even without the scenario.
+mode_denied_access(M, C) :-
+    has_mode_policy,
+    master(M), receiver(C),
+    scenario_mode(Mode),
+    not p2_mode_allow(M, C, Mode).
+
+% Mode-aware unmediated exposure: when PEP is bypassed, only count
+% exposures where the active mode policy would have allowed access.
+% If mode policy denies the access, the PEP bypass provides no
+% additional attack surface — the attacker gains nothing new.
+mode_blocked_unmediated(A, M) :-
+    has_mode_policy,
+    master(M), asset(C, A, _),
+    reachable(M, C),
+    mode_denied_access(M, C).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -154,12 +232,29 @@ ps_compromised(PS) :- compromised(PS), active_policy_server(PS).
 pep_bypassed(FWL) :- compromised(FWL), active_policy_enforcement_point(FWL).
 pep_bypassed(FWL) :- ps_compromised(PS), active_ps_governs_pep(PS, FWL).
 
-% Unmediated exposure when PEP is bypassed (factor 25 = 2.5x)
+% Unmediated exposure when PEP is bypassed (base 25 = 2.5x).
+% Protection discount applied — well-protected targets behind a bypassed
+% PEP are still harder to exploit than unprotected ones.
+% Mode-aware: only counts exposures the active mode would have allowed.
+% Floor at 10 (1.0x).
+unmediated_exposure(A, M, Factor) :-
+    master(M), pep_bypassed(PEP),
+    active_pep_guards(PEP, C), asset(C, A, _),
+    not compromised(M),
+    not failed(C), not failed(M),
+    not mode_blocked_unmediated(A, M),
+    protection_discount(C, Disc),
+    F0 = 25 - Disc,
+    Factor = #max { F0; 10 }.
+
+% Fallback when no protection discount available
 unmediated_exposure(A, M, 25) :-
     master(M), pep_bypassed(PEP),
     active_pep_guards(PEP, C), asset(C, A, _),
     not compromised(M),
-    not failed(C), not failed(M).
+    not failed(C), not failed(M),
+    not mode_blocked_unmediated(A, M),
+    not protection_discount(C, _).
 
 % PS failure -> stale policy (factor 12 = 1.2x)
 stale_policy_exposure(A, 12) :-
@@ -221,25 +316,29 @@ protection_discount(C, D) :-
     D0 = SD + RD + AD,
     D = #min { D0; 10 }.
 
-% Modified cross-trust indirect exposure with protection factor
+% Modified cross-trust indirect exposure with protection factor.
+% Uses effective_asset_reachable (firewall-aware, failure-aware).
 protected_indirect_cross(A, N, AdjFactor) :-
     compromised(N), domain(N, DN),
-    asset_reachable(N, A), asset_owner(A, Owner),
+    effective_asset_reachable(N, A), asset_owner(A, Owner),
     domain(Owner, DO),
     cross_trust_boundary(DN, DO),
     not asset(N, A, _),
     protection_discount(Owner, Disc),
-    AdjFactor = 20 - Disc.
+    F0 = 20 - Disc,
+    AdjFactor = #max { F0; 10 }.
 
-% Modified same-trust indirect exposure with protection factor
+% Modified same-trust indirect exposure with protection factor.
+% Uses effective_asset_reachable (firewall-aware, failure-aware).
 protected_indirect_same(A, N, AdjFactor) :-
     compromised(N), domain(N, DN),
-    asset_reachable(N, A), asset_owner(A, Owner),
+    effective_asset_reachable(N, A), asset_owner(A, Owner),
     domain(Owner, DO),
     not cross_trust_boundary(DN, DO),
     not asset(N, A, _),
     protection_discount(Owner, Disc),
-    AdjFactor = 15 - Disc.
+    F0 = 15 - Disc,
+    AdjFactor = #max { F0; 10 }.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -252,6 +351,8 @@ protected_indirect_same(A, N, AdjFactor) :-
 % allowing well-protected assets to show reduced scenario risk.
 % The sentinel only fires when NO exposure source is active.
 has_exposure(A) :- direct_exposure(A, _, _).
+has_exposure(A) :- indirect_exposure_cross(A, _, _).
+has_exposure(A) :- indirect_exposure_same(A, _, _).
 has_exposure(A) :- protected_indirect_cross(A, _, _).
 has_exposure(A) :- protected_indirect_same(A, _, _).
 has_exposure(A) :- unmediated_exposure(A, _, _).
@@ -264,6 +365,8 @@ max_amp_factor(A, Factor) :-
     has_exposure(A),
     Factor = #max {
         F    : direct_exposure(A, _, F)          ;
+        F    : indirect_exposure_cross(A, _, F)  ;
+        F    : indirect_exposure_same(A, _, F)   ;
         F    : protected_indirect_cross(A, _, F) ;
         F    : protected_indirect_same(A, _, F)  ;
         F    : unmediated_exposure(A, _, F)       ;
@@ -280,8 +383,18 @@ max_amp_factor(A, 10) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 7. SCENARIO RISK
+%%
+%% Risk semantics: WEIGHTED SUM over all (asset, action) pairs,
+%% matching the Phase 1 objective.  When p1_risk_weight/2 facts
+%% are available (serialized by Phase 1), each risk point is
+%% amplified by the asset's topology-derived criticality weight.
+%% Without weights, each asset counts equally (weight = 1).
+%%
+%% This replaces the previous max-over-actions aggregation,
+%% which could disagree with Phase 1 on which assets matter most.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Per-action scenario risk = baseline risk * amplification factor
 scenario_action_risk(A, Action, ScenRisk) :-
     p1_risk(A, Action, BaseRisk),
     max_amp_factor(A, Factor),
@@ -290,19 +403,33 @@ scenario_action_risk(A, Action, ScenRisk) :-
 % Helper: asset has 3-arg action-level risk data
 has_action_risk(A) :- p1_risk(A, _, _).
 
-% Primary path: aggregate over per-action scenario risks (3-arg p1_risk)
+% Risk weight: use Phase 1 weight when available, else 1 (uniform).
+effective_risk_weight(A, W) :- p1_risk_weight(A, W).
+effective_risk_weight(A, 1) :- asset(_, A, _), not p1_risk_weight(A, _).
+
+% Primary path: weighted sum over all (asset, action) scenario risks.
+% Matches Phase 1's weighted-sum objective semantics.
 scenario_asset_risk(A, ScenRisk) :-
     has_action_risk(A),
     asset(_, A, _),
-    ScenRisk = #max { R : scenario_action_risk(A, _, R) ; 0 : asset(_, A, _) }.
+    effective_risk_weight(A, W),
+    ActionSum = #sum { R, Action : scenario_action_risk(A, Action, R) },
+    ScenRisk = W * ActionSum.
 
 % Fallback path: use 2-arg p1_risk when no action-level risk exists.
-% Fires exclusively — has_action_risk guard prevents double-counting.
+% Fires exclusively -- has_action_risk guard prevents double-counting.
 scenario_asset_risk(A, ScenRisk) :-
     p1_risk(A, BaseRisk),
     not has_action_risk(A),
     max_amp_factor(A, Factor),
-    ScenRisk = BaseRisk * Factor.
+    effective_risk_weight(A, W),
+    ScenRisk = BaseRisk * Factor * W.
+
+% Legacy max-per-asset metric retained for backward-compat diagnostics.
+scenario_asset_max_risk(A, MaxRisk) :-
+    has_action_risk(A),
+    asset(_, A, _),
+    MaxRisk = #max { R : scenario_action_risk(A, _, R) ; 0 : asset(_, A, _) }.
 
 scenario_total_risk(Total) :-
     Total = #sum { R, A : scenario_asset_risk(A, R) }.
@@ -576,6 +703,8 @@ system_non_functional :-
 #show max_amp_factor/2.
 #show scenario_action_risk/3.
 #show scenario_asset_risk/2.
+#show scenario_asset_max_risk/2.
+#show effective_risk_weight/2.
 #show scenario_total_risk/1.
 #show asset_available/1.
 #show asset_unavailable/1.
@@ -597,6 +726,8 @@ system_non_functional :-
 #show indirect_exposure_cross/3.
 #show indirect_exposure_same/3.
 #show unmediated_exposure/3.
+#show scenario_mode/1.
+#show mode_denied_access/2.
 #show stale_policy_exposure/2.
 #show protected_indirect_cross/3.
 #show protected_indirect_same/3.
