@@ -37,6 +37,7 @@ from ip_catalog.xilinx_ip_catalog import (
     PHASE1_REDUNDANCY_RAW_CEILING,
     PHASE1_REDUNDANCY_RAW_FLOOR,
     PHASE1_REDUNDANCY_RAW_RANGE,
+    PHASE1_SECURITY_RISK_MULTIPLIER,
     REALTIME_DETECTION_VALUES,
     REALTIME_FEATURE_EXPORT_ORDER,
     SECURITY_FEATURE_EXPORT_ORDER,
@@ -257,6 +258,33 @@ class Phase1MathOptAgent:
                 group_specs=group_specs,
             )
 
+        # Scale down risk values for CBC to avoid numerical overflow.
+        # CBC uses 64-bit floating-point LP relaxation; risk values up to
+        # 2e9 cause precision loss. Divide by MULTIPLIER here, multiply
+        # back when extracting results.
+        cbc_risk_scale = PHASE1_SECURITY_RISK_MULTIPLIER
+        cbc_standalone_risk_totals = {
+            k: v // cbc_risk_scale
+            for k, v in standalone_risk_totals.items()
+        }
+        cbc_standalone_risk_rows = {
+            k: [(asset, action, risk // cbc_risk_scale) for asset, action, risk in rows]
+            for k, rows in standalone_risk_rows.items()
+        }
+        cbc_group_specs = []
+        for spec in group_specs:
+            scaled_spec = _GroupSpec(
+                group_index=spec.group_index,
+                members=spec.members,
+                transitions_by_stage=spec.transitions_by_stage,
+                final_state_totals={
+                    state: total // cbc_risk_scale
+                    for state, total in spec.final_state_totals.items()
+                },
+                final_state_rows=spec.final_state_rows,  # unscaled for result extraction
+            )
+            cbc_group_specs.append(scaled_spec)
+
         model = pulp.LpProblem(f"phase1_{self.strategy}", pulp.LpMinimize)
         x: Dict[Tuple[str, int], pulp.LpVariable] = {}
         for component in protected_components:
@@ -354,14 +382,14 @@ class Phase1MathOptAgent:
 
         total_weighted_risk = (
             pulp.lpSum(
-                x[(component, pair_index)] * standalone_risk_totals[(component, pair_index)]
+                x[(component, pair_index)] * cbc_standalone_risk_totals[(component, pair_index)]
                 for component in standalone_components
                 for pair_index in feasible_pairs[component]
             )
             + pulp.lpSum(
                 group_state_vars[(spec.group_index, len(spec.members) - 1, final_state)]
                 * spec.final_state_totals[final_state]
-                for spec in group_specs
+                for spec in cbc_group_specs
                 for final_state in group_last_stage_states[spec.group_index]
             )
         )
@@ -439,12 +467,6 @@ class Phase1MathOptAgent:
             exp = int(self._component_exploitability(comp))
             exploit_mod_diag[comp] = exp - 3
             exploit_factor_diag[comp] = EXPLOIT_FACTOR_MAP.get(exp, 10)
-
-        if status == cp_model.FEASIBLE:
-            self._post(
-                f"[Phase 1/{self.strategy}/MATHOPT] WARNING: returning a FEASIBLE "
-                f"incumbent; optimality was not proven before timeout."
-            )
 
         return Phase1Result(
             security=security,

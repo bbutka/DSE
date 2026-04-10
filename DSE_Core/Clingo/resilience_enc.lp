@@ -117,21 +117,33 @@ cross_trust_boundary(DN, DO) :-
 %% 4. STANDARD EXPOSURE LEVELS  (amplification x10)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% --- Trust-level amplification modifier ---
+% When Phase 2 p2_trust_level facts are present, a compromised component
+% with weak trust anchors (low) is more dangerous than one with strong
+% anchors (high).  This closes the feedback gap from Phase 2's trust
+% analysis into Phase 3's risk amplification.
+trust_amp(C, 3)  :- p2_trust_level(C, low).       % weak anchors: +0.3x
+trust_amp(C, 0)  :- p2_trust_level(C, medium).    % moderate: no change
+trust_amp(C, -2) :- p2_trust_level(C, high).      % strong anchors: -0.2x
+trust_amp(C, 0)  :- component(C), not p2_trust_level(C, _).  % no Phase 2 data
+
 % Direct exposure: asset on compromised node (base 30 = 3.0x).
-% Protection discount reduces this — a compromised component with
-% zero_trust + runtime_attestation (discount=7) has factor 30-7=23 (2.3x)
-% vs. no_security (discount=0) at full 30 (3.0x).
+% Protection discount and trust-level modifier applied.
 % Floor at 10 (1.0x) — compromise always has non-zero impact.
 direct_exposure(A, N, Factor) :-
     compromised(N), asset(N, A, _),
     protection_discount(N, Disc),
-    F0 = 30 - Disc,
+    trust_amp(N, TAmp),
+    F0 = 30 - Disc + TAmp,
     Factor = #max { F0; 10 }.
 
 % Fallback when no protection discount is available (no Phase 1 facts)
-direct_exposure(A, N, 30) :-
+direct_exposure(A, N, Factor) :-
     compromised(N), asset(N, A, _),
-    not protection_discount(N, _).
+    not protection_discount(N, _),
+    trust_amp(N, TAmp),
+    F0 = 30 + TAmp,
+    Factor = #max { F0; 10 }.
 
 % NOTE: indirect_exposure_cross/same are superseded by
 % protected_indirect_cross/same (Section 5b) which apply protection
@@ -339,6 +351,8 @@ protection_discount(C, D) :-
 
 % Modified cross-trust indirect exposure with protection factor.
 % Uses effective_asset_reachable (firewall-aware, failure-aware).
+% Trust-level modifier applied to the compromised node (attacker):
+% a low-trust-anchor attacker is more dangerous (harder to detect/contain).
 protected_indirect_cross(A, N, AdjFactor) :-
     compromised(N), domain(N, DN),
     effective_asset_reachable(N, A), asset_owner(A, Owner),
@@ -346,11 +360,11 @@ protected_indirect_cross(A, N, AdjFactor) :-
     cross_trust_boundary(DN, DO),
     not asset(N, A, _),
     protection_discount(Owner, Disc),
-    F0 = 20 - Disc,
+    trust_amp(N, TAmp),
+    F0 = 20 - Disc + TAmp,
     AdjFactor = #max { F0; 10 }.
 
-% Modified same-trust indirect exposure with protection factor.
-% Uses effective_asset_reachable (firewall-aware, failure-aware).
+% Modified same-trust indirect exposure with protection + trust modifiers.
 protected_indirect_same(A, N, AdjFactor) :-
     compromised(N), domain(N, DN),
     effective_asset_reachable(N, A), asset_owner(A, Owner),
@@ -358,7 +372,8 @@ protected_indirect_same(A, N, AdjFactor) :-
     not cross_trust_boundary(DN, DO),
     not asset(N, A, _),
     protection_discount(Owner, Disc),
-    F0 = 15 - Disc,
+    trust_amp(N, TAmp),
+    F0 = 15 - Disc + TAmp,
     AdjFactor = #max { F0; 10 }.
 
 
@@ -411,9 +426,26 @@ max_amp_factor(A, 10) :-
 %% which could disagree with Phase 1 on which assets matter most.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Per-action scenario risk = baseline risk * amplification factor
+% --- Typed risk selection for redundant-group components ---
+% When p1_security_risk is available for a component that is directly
+% compromised, use the multiplicative (non-redundant) baseline instead
+% of the probabilistic (redundant) baseline.  Direct compromise bypasses
+% redundancy — the attacker controls the component regardless of group.
+compromise_base_risk(A, Action, Risk) :-
+    p1_security_risk(C, A, Action, Risk),
+    compromised(C).
+
+% Per-action scenario risk = baseline risk * amplification factor.
+% Use compromise_base_risk when available (direct compromise of
+% redundant-group member); fall back to p1_risk (normal baseline).
+scenario_action_risk(A, Action, ScenRisk) :-
+    compromise_base_risk(A, Action, BaseRisk),
+    max_amp_factor(A, Factor),
+    ScenRisk = BaseRisk * Factor.
+
 scenario_action_risk(A, Action, ScenRisk) :-
     p1_risk(A, Action, BaseRisk),
+    not compromise_base_risk(A, Action, _),
     max_amp_factor(A, Factor),
     ScenRisk = BaseRisk * Factor.
 
@@ -744,6 +776,7 @@ system_non_functional :-
 #show pep_bypassed/1.
 #show ps_compromised/1.
 #show direct_exposure/3.
+#show trust_amp/2.
 #show indirect_exposure_cross/3.
 #show indirect_exposure_same/3.
 #show unmediated_exposure/3.

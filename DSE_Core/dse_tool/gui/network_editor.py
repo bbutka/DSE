@@ -207,6 +207,16 @@ class NetworkEditor(ttk.Frame):
         self.mission_phases: List[str]          = ["operational", "maintenance", "emergency"]
         self.policy_exceptions: List[dict]      = []
         self.scenarios:     List[dict]          = []
+        # ZTA topology overrides must exist even on a fresh blank canvas.
+        # They are later replaced when loading a preset/model, but
+        # get_network_model() always expects these attributes to be present.
+        self.cand_fws:      List[str]           = []
+        self.cand_ps:       List[str]           = []
+        self.on_paths:      List[Tuple[str, str, str]] = []
+        self.ip_locs:       List[Tuple[str, str]] = []
+        self.fw_governs:    List[Tuple[str, str]] = []
+        self.fw_costs:      Dict[str, int]      = {}
+        self.ps_costs:      Dict[str, int]      = {}
 
         # Undo/redo
         self._history:     List[str] = []

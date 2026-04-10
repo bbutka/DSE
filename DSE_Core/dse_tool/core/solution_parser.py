@@ -396,6 +396,85 @@ class SolutionResult:
         # if SAT then 0 violations by definition.
         return 0 if (self.phase1 and self.phase1.satisfiable) else 1
 
+    # --- Cross-scenario aggregation metrics ---
+
+    def resilience_envelope(self) -> Dict[str, float]:
+        """Return min/max/mean/median scenario_total_risk across all scenarios.
+
+        Provides a system-level resilience summary without manual
+        inspection of individual scenarios.
+        """
+        sat = [s for s in self.scenarios if s.satisfiable]
+        if not sat:
+            return {"min": 0.0, "max": 0.0, "mean": 0.0, "median": 0.0}
+        risks = sorted(s.total_risk for s in sat)
+        n = len(risks)
+        median = risks[n // 2] if n % 2 else (risks[n // 2 - 1] + risks[n // 2]) / 2
+        return {
+            "min": risks[0],
+            "max": risks[-1],
+            "mean": sum(risks) / n,
+            "median": median,
+        }
+
+    def critical_component_ranking(self) -> List[Tuple[str, float]]:
+        """Rank components by maximum scenario risk they cause when compromised.
+
+        Returns (component_name, max_total_risk) sorted descending.
+        Identifies the single-point-of-failure components.
+        """
+        comp_risk: Dict[str, float] = {}
+        for s in self.scenarios:
+            if not s.satisfiable:
+                continue
+            for comp in s.compromised:
+                comp_risk[comp] = max(comp_risk.get(comp, 0.0), s.total_risk)
+            for comp in s.failed:
+                comp_risk[comp] = max(comp_risk.get(comp, 0.0), s.total_risk)
+        return sorted(comp_risk.items(), key=lambda x: x[1], reverse=True)
+
+    def phase1_value(self) -> float:
+        """Quantify Phase 1's contribution: ratio of discounted vs undiscounted risk.
+
+        Returns the average protection effectiveness across scenarios.
+        A value of 0.8 means Phase 1 features reduce scenario risk by ~20%.
+        Requires amp_factors in scenario results.
+        """
+        sat = [s for s in self.scenarios if s.satisfiable and s.amp_factors]
+        if not sat:
+            return 1.0
+        ratios = []
+        for s in sat:
+            for asset, factor in s.amp_factors.items():
+                # factor < 30 means discount was applied (30 = no discount)
+                if factor < 30:
+                    ratios.append(factor / 30.0)
+        return sum(ratios) / len(ratios) if ratios else 1.0
+
+    def phase2_value(self) -> float:
+        """Quantify Phase 2's contribution: blast radius reduction from firewalls.
+
+        Returns average (effective_blast / structural_blast) across scenarios.
+        A value of 0.5 means firewalls reduce blast radius by ~50%.
+        """
+        sat = [s for s in self.scenarios if s.satisfiable
+               and s.blast_radii and s.effective_blast_radii]
+        if not sat:
+            return 1.0
+        ratios = []
+        for s in sat:
+            for comp in s.blast_radii:
+                structural = s.blast_radii.get(comp, 0)
+                effective = s.effective_blast_radii.get(comp, structural)
+                if structural > 0:
+                    ratios.append(effective / structural)
+        return sum(ratios) / len(ratios) if ratios else 1.0
+
+    def non_functional_scenario_count(self) -> int:
+        """Count scenarios where essential capabilities are lost."""
+        return sum(1 for s in self.scenarios
+                   if s.satisfiable and s.system_non_functional)
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -696,6 +775,8 @@ class SolutionParser:
                 cap = str(a[0])
                 res.capability_reasons.setdefault(cap, []).append(
                     "PEP bypass — access unmediated")
+            elif n == "attack_reaches_critical" and len(a) == 3:
+                res.attack_paths.append((str(a[0]), str(a[1]), a[2].number))
             elif n == "structural_min_distance" and len(a) == 3:
                 res.structural_attack_paths.append(
                     (str(a[0]), str(a[1]), a[2].number))

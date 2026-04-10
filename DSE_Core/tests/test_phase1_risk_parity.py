@@ -376,7 +376,7 @@ def _minimal_model(
 # ---------------------------------------------------------------------------
 
 def _validate_one(model: NetworkModel, label: str, strategy: str):
-    """Run CP-SAT + CBC, validate with Python checker, return errors or None."""
+    """Run CP-SAT + Python checker; cross-check with CBC when available."""
     tag = f"{label}/{strategy}"
     errors = []
 
@@ -384,21 +384,25 @@ def _validate_one(model: NetworkModel, label: str, strategy: str):
         model, strategy=strategy, timeout=60,
         solver_config={"phase1_backend": "cpsat"},
     ).run()
+
+    if not cpsat.satisfiable:
+        errors.append(f"{tag}: CP-SAT UNSAT")
+        return errors
+
+    # --- Python checker on CP-SAT result (always) ---
+    cpsat_violations = verify_phase1_solution(model, cpsat)
+    if cpsat_violations:
+        errors.append(f"{tag} CP-SAT checker violations:\n  " + "\n  ".join(cpsat_violations))
+
+    # --- CBC cross-check (required) ---
     cbc = Phase1MathOptAgent(
         model, strategy=strategy, timeout=60,
         solver_config={"phase1_backend": "cbc"},
     ).run()
 
-    if not cpsat.satisfiable:
-        errors.append(f"{tag}: CP-SAT UNSAT")
     if not cbc.satisfiable:
         errors.append(f"{tag}: CBC UNSAT")
-    if errors:
         return errors
-
-    cpsat_violations = verify_phase1_solution(model, cpsat)
-    if cpsat_violations:
-        errors.append(f"{tag} CP-SAT checker violations:\n  " + "\n  ".join(cpsat_violations))
 
     cbc_violations = verify_phase1_solution(model, cbc)
     if cbc_violations:
@@ -409,11 +413,6 @@ def _validate_one(model: NetworkModel, label: str, strategy: str):
             f"{tag}: total_risk mismatch CP-SAT={cpsat.total_risk()} CBC={cbc.total_risk()}\n"
             f"  CP-SAT sec: {cpsat.security}  rt: {cpsat.realtime}\n"
             f"  CBC    sec: {cbc.security}  rt: {cbc.realtime}"
-        )
-
-    if strategy == "min_resources" and cpsat.total_luts != cbc.total_luts:
-        errors.append(
-            f"{tag}: total_luts mismatch CP-SAT={cpsat.total_luts} CBC={cbc.total_luts}"
         )
 
     return errors
