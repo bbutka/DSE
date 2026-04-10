@@ -312,7 +312,7 @@ def generate_report_text(
     if best_sol and best_sol.phase1 and best_sol.phase1.satisfiable:
         lut_pct = best_sol.phase1.total_luts / max_luts * 100 if max_luts else 0
         lines.append(
-            f"  Key Finding: Total risk {best_sol.phase1.total_risk()}, "
+            f"  Key Finding: Objective risk {best_sol.phase1.total_risk()}, "
             f"LUTs {best_sol.phase1.total_luts:,} "
             f"({lut_pct:.1f}% of {max_luts:,})"
         )
@@ -340,7 +340,7 @@ def generate_report_text(
         lines.append("  RISK PROFILE")
         lines.append(SEP2)
         lines.append(
-            f"    Total risk:   {p1.total_risk()}"
+            f"    Objective risk:   {p1.total_risk()}"
         )
         per_asset = p1.max_risk_per_asset()
         for asset, risk in sorted(per_asset.items()):
@@ -501,7 +501,7 @@ def generate_report_text(
     lines.append("  " + "-" * 64)
 
     metrics_rows = [
-        ("Total Risk",          [str(s.phase1.total_risk()) if s.phase1 and s.phase1.satisfiable else "N/A"
+        ("Objective Risk",      [str(s.phase1.total_risk()) if s.phase1 and s.phase1.satisfiable else "N/A"
                                   for s in solutions]),
         ("LUTs Used",           [f"{s.phase1.total_luts:,}" if s.phase1 and s.phase1.satisfiable else "N/A"
                                   for s in solutions]),

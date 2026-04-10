@@ -45,7 +45,7 @@ from ..core.solution_parser import Phase1Result
 
 MU = 25
 OMEGA = 1000
-START_STATE = -1
+START_STATE = (-1, -1)
 RESOURCES = ("luts", "ffs", "dsps", "lutram", "bram", "bufg", "power_cost")
 
 
@@ -58,9 +58,9 @@ class _PairOption:
 
 @dataclass(frozen=True)
 class _GroupTransition:
-    prev_state: int
+    prev_state: Tuple[int, int]
     pair_index: int
-    next_state: int
+    next_state: Tuple[int, int]
 
 
 @dataclass
@@ -68,8 +68,8 @@ class _GroupSpec:
     group_index: int
     members: Tuple[str, ...]
     transitions_by_stage: List[List[_GroupTransition]]
-    final_state_rows: Dict[int, Dict[str, List[Tuple[str, str, int]]]]
-    final_state_totals: Dict[int, int]
+    final_state_rows: Dict[Tuple[int, int], Dict[str, List[Tuple[str, str, int]]]]
+    final_state_totals: Dict[Tuple[int, int], int]
 
 
 class Phase1MathOptAgent:
@@ -110,7 +110,7 @@ class Phase1MathOptAgent:
         if result.satisfiable:
             self._post(
                 f"[Phase 1/{self.strategy}/MATHOPT] Done - "
-                f"Risk: {result.total_risk()}, "
+                f"Objective risk: {result.total_risk()}, "
                 f"LUTs: {result.total_luts:,}, "
                 f"Power: {result.total_power:,} mW"
             )
@@ -250,7 +250,7 @@ class Phase1MathOptAgent:
 
         group_transition_vars: Dict[Tuple[int, int, int], pulp.LpVariable] = {}
         group_state_vars: Dict[Tuple[int, int, int], pulp.LpVariable] = {}
-        group_last_stage_states: Dict[int, List[int]] = {}
+        group_last_stage_states: Dict[int, List[Tuple[int, int]]] = {}
 
         for spec in group_specs:
             last_stage = len(spec.members) - 1
@@ -271,8 +271,9 @@ class Phase1MathOptAgent:
 
                 next_states = sorted({transition.next_state for transition in transitions})
                 for state in next_states:
+                    state_token = self._state_token(state)
                     state_var = pulp.LpVariable(
-                        f"gs_{spec.group_index}_{stage_index}_{state}",
+                        f"gs_{spec.group_index}_{stage_index}_{state_token}",
                         lowBound=0,
                         upBound=1,
                         cat=pulp.LpBinary,
@@ -353,19 +354,13 @@ class Phase1MathOptAgent:
                 primary_label="primary LUT objective",
                 secondary_label="secondary weighted-risk objective",
             )
-        elif self.strategy == "balanced":
+        elif self.strategy in {"max_security", "balanced"}:
             self._solve_primary_then_secondary(
                 model,
                 total_weighted_risk,
                 total_luts,
                 primary_label="primary weighted-risk objective",
                 secondary_label="secondary LUT objective",
-            )
-        else:
-            self._solve_with_objective(
-                model,
-                total_weighted_risk,
-                objective_label="weighted-risk objective",
             )
 
         if pulp.LpStatus.get(model.status) != "Optimal":
@@ -472,7 +467,7 @@ class Phase1MathOptAgent:
 
         group_transition_vars: Dict[Tuple[int, int, int], "cp_model.IntVar"] = {}
         group_state_vars: Dict[Tuple[int, int, int], "cp_model.IntVar"] = {}
-        group_last_stage_states: Dict[int, List[int]] = {}
+        group_last_stage_states: Dict[int, List[Tuple[int, int]]] = {}
 
         for spec in group_specs:
             final_states = sorted(spec.final_state_rows)
@@ -487,7 +482,8 @@ class Phase1MathOptAgent:
 
                 next_states = sorted({transition.next_state for transition in transitions})
                 for state in next_states:
-                    state_var = model.NewBoolVar(f"gs_{spec.group_index}_{stage_index}_{state}")
+                    state_token = self._state_token(state)
+                    state_var = model.NewBoolVar(f"gs_{spec.group_index}_{stage_index}_{state_token}")
                     group_state_vars[(spec.group_index, stage_index, state)] = state_var
                     model.Add(
                         state_var
@@ -564,19 +560,13 @@ class Phase1MathOptAgent:
                 primary_label="primary LUT objective",
                 secondary_label="secondary weighted-risk objective",
             )
-        elif self.strategy == "balanced":
+        elif self.strategy in {"max_security", "balanced"}:
             solver, status = self._solve_cp_primary_then_secondary(
                 model,
                 total_weighted_risk,
                 total_luts,
                 primary_label="primary weighted-risk objective",
                 secondary_label="secondary LUT objective",
-            )
-        else:
-            solver, status = self._solve_cp_with_objective(
-                model,
-                total_weighted_risk,
-                objective_label="weighted-risk objective",
             )
 
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
@@ -997,10 +987,10 @@ class Phase1MathOptAgent:
         component_assets: Dict[str, List[Asset]],
         asset_weights: Dict[str, int],
         combo_cap: int,
-    ) -> Tuple[Dict[int, Dict[str, List[Tuple[str, str, int]]]], Dict[int, int]]:
+    ) -> Tuple[Dict[Tuple[int, int], Dict[str, List[Tuple[str, str, int]]]], Dict[Tuple[int, int], int]]:
         candidate_final_states = {transition.next_state for transition in transitions_by_stage[-1]}
-        final_state_rows: Dict[int, Dict[str, List[Tuple[str, str, int]]]] = {}
-        final_state_totals: Dict[int, int] = {}
+        final_state_rows: Dict[Tuple[int, int], Dict[str, List[Tuple[str, str, int]]]] = {}
+        final_state_totals: Dict[Tuple[int, int], int] = {}
         valid_final_states = set()
         for final_state in candidate_final_states:
             rows = self._group_state_rows(members, final_state, component_assets)
@@ -1031,23 +1021,44 @@ class Phase1MathOptAgent:
                 }
         return final_state_rows, final_state_totals
 
-    def _apply_group_pair_state(self, prev_state: int, pair: _PairOption) -> int:
+    def _apply_group_pair_state(self, prev_state: Tuple[int, int], pair: _PairOption) -> Tuple[int, int]:
         normalized = self._pair_normalized_prob(pair)
+        denormalized = self._pair_denormalized_prob(pair)
         if prev_state == START_STATE:
-            return normalized
-        return self._div_trunc_zero(prev_state * normalized, 1000)
+            return (normalized, denormalized)
+        combined_norm = self._div_trunc_zero(prev_state[0] * normalized, 1000)
+        return (combined_norm, max(prev_state[1], denormalized))
 
     def _pair_normalized_prob(self, pair: _PairOption) -> int:
         original_prob = int(EXPOSURE_VALUES[pair.security]) * int(REALTIME_DETECTION_VALUES[pair.realtime])
         return self._div_trunc_zero((original_prob - MU) * 1000, OMEGA - MU)
 
+    def _pair_denormalized_prob(self, pair: _PairOption) -> int:
+        return self._denormalize_prob(self._pair_normalized_prob(pair))
+
+    def _denormalize_prob(self, normalized: int) -> int:
+        return self._div_trunc_zero(normalized * (OMEGA - MU), 1000) + MU * 10
+
+    def _redundancy_beta_pct(self) -> int:
+        raw = int(self.network_model.system_caps.get("redundancy_beta_pct", 0))
+        return max(0, min(100, raw))
+
+    @staticmethod
+    def _state_token(state: Tuple[int, int]) -> str:
+        return f"{state[0]}_{state[1]}"
+
     def _group_state_rows(
         self,
         members: Tuple[str, ...],
-        final_state: int,
+        final_state: Tuple[int, int],
         component_assets: Dict[str, List[Asset]],
     ) -> Dict[str, List[Tuple[str, str, int]]]:
-        denorm = self._div_trunc_zero(final_state * (OMEGA - MU), 1000) + MU * 10
+        independent_denorm = self._denormalize_prob(final_state[0])
+        beta_pct = self._redundancy_beta_pct()
+        denorm = self._div_trunc_zero(
+            ((100 - beta_pct) * independent_denorm) + (beta_pct * final_state[1]),
+            100,
+        )
         rows_by_component: Dict[str, List[Tuple[str, str, int]]] = {}
         for component in members:
             exploit_factor = EXPLOIT_FACTOR_MAP.get(int(self._component_exploitability(component)), 10)
@@ -1097,6 +1108,11 @@ class Phase1MathOptAgent:
                     and (
                         any(o < p for o, p in zip(other_resources, pair_resources))
                         or pair_risk_metric[other_index] < pair_risk_metric[pair_index]
+                        or (
+                            other_resources == pair_resources
+                            and pair_risk_metric[other_index] == pair_risk_metric[pair_index]
+                            and other_index < pair_index
+                        )
                     )
                 ):
                     dominated = True

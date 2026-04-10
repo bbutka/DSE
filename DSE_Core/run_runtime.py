@@ -65,7 +65,7 @@ def run_standard(timeout: int = 60) -> None:
     if not p1.satisfiable:
         print("FATAL: Phase 1 unsatisfiable.")
         sys.exit(1)
-    print(f"[Phase 1] Done -- total_risk={p1.total_risk()}, "
+    print(f"[Phase 1] Done -- objective_risk={p1.total_risk()}, "
           f"luts={p1.total_luts}, power={p1.total_power}")
 
     # Phase 2
@@ -125,7 +125,7 @@ def run_joint(timeout: int = 60) -> None:
     if not p1.satisfiable:
         print("FATAL: Phase 1 unsatisfiable.")
         sys.exit(1)
-    print(f"[Phase 1] Done -- total_risk={p1.total_risk()}, "
+    print(f"[Phase 1] Done -- objective_risk={p1.total_risk()}, "
           f"luts={p1.total_luts}, power={p1.total_power}")
 
     # Joint runtime (replaces Phase 2)

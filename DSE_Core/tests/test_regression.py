@@ -643,12 +643,16 @@ class TestPhase1Result(unittest.TestCase):
 
     def test_total_risk(self):
         p1 = self._make_p1()
-        self.assertEqual(p1.total_risk(), 3 + 5 + 7)
+        self.assertEqual(p1.total_risk(), 2 + 3 + 5 + 4 + 7)
+
+    def test_summary_total_risk(self):
+        p1 = self._make_p1()
+        self.assertEqual(p1.summary_total_risk(), 3 + 5 + 7)
 
     def test_risk_by_component(self):
         p1 = self._make_p1()
         by_comp = p1.risk_by_component()
-        # risk_by_component uses max-per-asset-then-sum (same as total_risk)
+        # risk_by_component uses max-per-asset-then-sum (same as summary_total_risk)
         # c1: max(c1r1 read=2, c1r1 write=3) = 3
         # c2: max(c2r1 read=5, c2r1 write=4) = 5
         # c3: c3r1 read=7
@@ -1931,5 +1935,4 @@ class TestRefSoCFullPipeline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
 

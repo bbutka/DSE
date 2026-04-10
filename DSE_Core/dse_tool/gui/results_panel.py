@@ -1021,7 +1021,8 @@ class _Phase1DetailDialog(tk.Toplevel):
             lines.append("  (no asset risk data)")
 
         lines.append("")
-        lines.append(f"TOTAL RISK (unweighted): {p1.total_risk()}")
+        lines.append(f"WEIGHTED OBJECTIVE RISK: {p1.total_risk()}")
+        lines.append(f"SUMMARY MAX-PER-ASSET RISK: {p1.summary_total_risk()}")
 
         # ── Section 5: CIA dimension summary ──
         lines.append("")
@@ -1163,7 +1164,7 @@ class _StrategyComparisonDialog(tk.Toplevel):
                          [fmt(get(s, "phase1", attr)) for s in solutions],
                          lib))
         # Risk
-        rows.append(("Total Risk",
+        rows.append(("Objective Risk",
                       [fmt(s.phase1.total_risk() if (s and s.phase1) else None)
                        for s in solutions],
                       True))

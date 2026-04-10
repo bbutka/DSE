@@ -27,6 +27,12 @@ class Phase1Result:
     Resource totals on this object are Phase 1-added security/realtime-detection overhead
     only. They are not intended to represent the fixed baseline hardware cost
     of the architecture itself.
+
+    Risk reporting exposes two distinct aggregates:
+    - ``total_risk()``: the weighted per-asset-per-action objective optimized by
+      the solver in Phase 1
+    - ``summary_total_risk()``: the older max-per-asset summary retained for
+      diagnostics and backward-looking comparison
     """
     security:              Dict[str, str]  = field(default_factory=dict)
     realtime:              Dict[str, str]  = field(default_factory=dict)
@@ -60,15 +66,27 @@ class Phase1Result:
         self.realtime = value
 
     def max_risk_per_asset(self) -> Dict[str, int]:
-        """Return max risk value per asset across read/write operations."""
+        """Return max risk value per asset across all modeled CIA actions."""
         result: Dict[str, int] = {}
         for _c, asset, _op, risk in self.new_risk:
             result[asset] = max(result.get(asset, 0), risk)
         return result
 
-    def total_risk(self) -> int:
-        """Sum of max risk values across all assets."""
+    def summary_total_risk(self) -> int:
+        """Return the legacy unweighted max-per-asset summary risk."""
         return sum(self.max_risk_per_asset().values())
+
+    def weighted_risk_entries(self) -> List[Tuple[str, str, str, int]]:
+        """Return the per-action weighted risk rows used by the Phase 1 objective."""
+        entries: List[Tuple[str, str, str, int]] = []
+        for comp, asset, action, risk in self.new_risk:
+            weight = self.risk_weights.get(asset, 1)
+            entries.append((comp, asset, action, risk * weight))
+        return entries
+
+    def total_risk(self) -> int:
+        """Return the weighted Phase 1 objective value (lower is better)."""
+        return sum(weighted_risk for _comp, _asset, _action, weighted_risk in self.weighted_risk_entries())
 
     def security_overhead_summary(self) -> Dict[str, int]:
         """Return the Phase 1-added security/realtime-detection overhead totals.
@@ -87,10 +105,10 @@ class Phase1Result:
         }
 
     def risk_by_component(self) -> Dict[str, int]:
-        """Aggregate total risk contribution per component.
+        """Aggregate legacy max-per-asset summary risk contribution per component.
 
         Uses max-risk-per-asset then sum across assets (same semantics as
-        total_risk / max_risk_per_asset).  This avoids double-counting when
+        summary_total_risk / max_risk_per_asset). This avoids double-counting when
         multiple CIA actions exist for the same asset.
         """
         # Build per-component, per-asset max risk

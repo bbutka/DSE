@@ -188,6 +188,7 @@ class NetworkModel:
         "max_bram":         140,
         "max_security_risk": 50,   # multiplicative cap: non-redundant components
         "max_avail_risk":    20,   # probabilistic cap: redundant groups
+        "redundancy_beta_pct": 0,  # common-cause correction: 0 = independence-only
         "max_attack_depth":   5,   # Phase 3 attack-path search depth
     })
     cand_fws: List[str] = field(default_factory=list)

@@ -76,7 +76,8 @@ class SolutionRanker:
         # ── Security score (CIA-weighted) ──────────────────────────────────
         # Uses per-action risk when available (from security_risk
         # and avail_risk) with CIA_WEIGHTS to reflect impact severity.
-        # Falls back to unweighted total_risk() when action-level data is absent.
+        # Falls back to the weighted Phase 1 objective when action-level data
+        # is absent.
         if p1 and p1.satisfiable:
             cia_risk = self._cia_weighted_risk(p1)
             if cia_risk > 0:

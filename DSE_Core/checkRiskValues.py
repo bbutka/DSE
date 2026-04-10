@@ -1,4 +1,4 @@
-"""Standalone sanity-check script for the current Phase 1 risk model.
+"""Standalone sanity-check script for the current Phase 1 risk-score model.
 
 This mirrors the active exposure/realtime/exploitability formulas used by the
 integrated DSE_Core flow. It is intended for quick manual spot checks only.
@@ -78,10 +78,10 @@ def redundant_risk(component: str, impact: int, denorm_prob: int) -> int:
 def main() -> None:
     grouped = {component for group in REDUNDANT_GROUPS for component in group}
 
-    print("CURRENT PHASE 1 RISK MODEL CHECK")
+    print("CURRENT PHASE 1 RISK-SCORE MODEL CHECK")
     print("=" * 60)
-    print("Standalone formula: Impact * Exposure * Detection * ExploitFactor / 100")
-    print("Redundant formula:  Impact * denorm_combined_prob * ExploitFactor / 1000")
+    print("Standalone score: Impact * ExposureScore * DetectionScore * ExploitFactor / 100")
+    print("Redundant score:  Impact * corrected_group_score * ExploitFactor / 1000")
     print()
 
     for group in REDUNDANT_GROUPS:

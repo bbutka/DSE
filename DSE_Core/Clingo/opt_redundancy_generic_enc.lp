@@ -19,8 +19,10 @@
 % FULL CIA RISK MODEL
 % ===================
 % Risk is computed for all three CIA action types: read (confidentiality),
-% write (integrity), avail (availability / DoS). For non-redundant
-% components the residual-risk model is multiplicative:
+% write (integrity), avail (availability / DoS). Exposure and realtime values
+% are ordinal residual-exposure scores from the feature catalog, not calibrated
+% probabilities. For non-redundant components the residual-risk model is
+% multiplicative:
 %
 %   Risk = Impact * Exposure * Realtime * ExploitFactor / 100
 %
@@ -43,9 +45,9 @@
 %                        non-redundant components:
 %                        Risk = Impact * Exposure * Realtime * ExploitFactor / 100.
 %
-%   max_avail_risk     — caps the PROBABILISTIC availability risk for redundant
+%   max_avail_risk     — caps the corrected availability risk for redundant
 %                        groups.  This is what redundancy architecture controls:
-%                        Risk = Imp * denorm_combined_prob * ExploitFactor / 1000.
+%                        Risk = Imp * corrected_group_score * ExploitFactor / 1000.
 %
 % The two budgets are entirely independent.  A design can violate one, the
 % other, or both.  The solver enforces them as separate hard constraints.
@@ -53,12 +55,17 @@
 % Inputs expected from instance/selected files:
 %   component/1, asset/3, impact/3          (read, write, and/or avail)
 %   exposure/2, realtime_detection/2
-%   selected_security/2, selected_realtime/2
+%   selected_security/2, selected_realtime/2, selected_pair/2 (optional)
 %   redundant_group/2
 %   domain/2  (untrusted | low | normal | privileged | high | root)
 %   exploitability/2  (optional, 1–5; default = 3 neutral)
 %   system_capability(max_security_risk, Cap)
 %   system_capability(max_avail_risk,    Cap)
+%
+% Optional preprocessed redundancy facts from Python:
+%   group_plan_candidate/2
+%   group_plan_member_pair/4
+%   group_plan_final_risk/6
 
 % --- Parameters ---
 mu(25).
@@ -66,6 +73,11 @@ omega(1000).
 
 #show impact/3.
 #show asset/3.
+
+preprocessed_group_plans :- group_plan_candidate(_, _).
+preprocessed_group_transitions :- group_transition(_, _, _, _, _).
+preprocessed_redundancy_groups :- preprocessed_group_plans.
+preprocessed_redundancy_groups :- preprocessed_group_transitions.
 
 % --- Security and realtime scores per component ---
 exposure_score(C, V) :- selected_security(C, S), exposure(S, V).
@@ -106,19 +118,20 @@ original_register_risk(C, R, Action, Risk) :-
     exploit_factor(C, EF),
     Risk = Imp * V * L * EF / 100.
 
-% --- Original combined probability Exposure*Realtime ---
+% --- Precomputed residual-score lookup ---
+% Deterministic score math is emitted by Python as prob_lookup/5 so Clingo
+% does not need to enumerate integer domains through chained arithmetic rules.
 original_prob(C, Prob) :-
-    exposure_score(C, V),
-    realtime_score(C, L),
-    Prob = V * L.
+    not preprocessed_redundancy_groups,
+    selected_security(C, S),
+    selected_realtime(C, L),
+    prob_lookup(S, L, Prob, _, _).
 
-% --- Normalize to [0, 1000] ---
 original_prob_normalized(C, Norm) :-
-    component(C),
-    original_prob(C, P),
-    mu(Mu),
-    omega(Omega),
-    Norm = (P - Mu) * 1000 / (Omega - Mu).
+    not preprocessed_redundancy_groups,
+    selected_security(C, S),
+    selected_realtime(C, L),
+    prob_lookup(S, L, _, Norm, _).
 
 % --- Group membership helpers ---
 in_any_group(C) :- redundant_group(_, C).
@@ -133,35 +146,103 @@ group_rank(G, C, R) :-
     N = #count { C2 : redundant_group(G, C2), C2 < C },
     R = N + 1.
 
-% --- Running normalised partial product ---
-partial_norm(G, 1, C, P) :-
-    group_rank(G, C, 1),
-    original_prob_normalized(C, P).
+% --- Combined normalised score for the group ---
+% Flattened by group size to avoid recursive arithmetic grounding blow-up.
+combined_prob_norm(G, P1) :-
+    not preprocessed_redundancy_groups,
+    group_size(G, 1),
+    group_rank(G, C1, 1),
+    original_prob_normalized(C1, P1).
 
-partial_norm(G, R, C, Norm) :-
-    R > 1,
-    group_rank(G, C, R),
-    original_prob_normalized(C, Pcur),
-    Rprev = R - 1,
-    partial_norm(G, Rprev, _, Pprev),
-    Norm = Pprev * Pcur / 1000.
-
-% --- Combined normalised probability for the group ---
 combined_prob_norm(G, Norm) :-
-    group_size(G, N),
-    partial_norm(G, N, _, Norm).
+    not preprocessed_redundancy_groups,
+    group_size(G, 2),
+    group_rank(G, C1, 1),
+    original_prob_normalized(C1, P1),
+    group_rank(G, C2, 2),
+    original_prob_normalized(C2, P2),
+    Norm = P1 * P2 / 1000.
+
+combined_prob_norm(G, Norm) :-
+    not preprocessed_redundancy_groups,
+    group_size(G, 3),
+    group_rank(G, C1, 1),
+    original_prob_normalized(C1, P1),
+    group_rank(G, C2, 2),
+    original_prob_normalized(C2, P2),
+    group_rank(G, C3, 3),
+    original_prob_normalized(C3, P3),
+    Norm = P1 * P2 / 1000 * P3 / 1000.
+
+combined_prob_norm(G, Norm) :-
+    not preprocessed_redundancy_groups,
+    group_size(G, 4),
+    group_rank(G, C1, 1),
+    original_prob_normalized(C1, P1),
+    group_rank(G, C2, 2),
+    original_prob_normalized(C2, P2),
+    group_rank(G, C3, 3),
+    original_prob_normalized(C3, P3),
+    group_rank(G, C4, 4),
+    original_prob_normalized(C4, P4),
+    Norm = P1 * P2 / 1000 * P3 / 1000 * P4 / 1000.
+
+combined_prob_norm(G, Norm) :-
+    not preprocessed_redundancy_groups,
+    group_size(G, 5),
+    group_rank(G, C1, 1),
+    original_prob_normalized(C1, P1),
+    group_rank(G, C2, 2),
+    original_prob_normalized(C2, P2),
+    group_rank(G, C3, 3),
+    original_prob_normalized(C3, P3),
+    group_rank(G, C4, 4),
+    original_prob_normalized(C4, P4),
+    group_rank(G, C5, 5),
+    original_prob_normalized(C5, P5),
+    Norm = P1 * P2 / 1000 * P3 / 1000 * P4 / 1000 * P5 / 1000.
 
 % --- Map group probability back to each member ---
 new_prob_normalized(C, P) :-
+    not preprocessed_redundancy_groups,
     redundant_group(G, C),
     combined_prob_norm(G, P).
 
 % --- Denormalize ---
 new_prob_denormalized(C, Denorm) :-
+    not preprocessed_redundancy_groups,
     new_prob_normalized(C, P),
     mu(Mu),
     omega(Omega),
     Denorm = (P * (Omega - Mu) / 1000) + Mu * 10.
+
+% --- Single-component denormalized score for common-cause correction ---
+single_prob_denormalized(C, Denorm) :-
+    not preprocessed_redundancy_groups,
+    selected_security(C, S),
+    selected_realtime(C, L),
+    prob_lookup(S, L, _, _, Denorm).
+
+group_max_denorm(G, Max) :-
+    not preprocessed_redundancy_groups,
+    redundant_group(G, _),
+    Max = #max { D : redundant_group(G, C), single_prob_denormalized(C, D) }.
+
+% --- Common-cause beta-factor correction ---
+% redundancy_beta_pct/1 blends the independent group score with the worst
+% single-component score in the group:
+%   corrected = (1 - beta) * independent + beta * worst_member
+% where beta is given as an integer percentage in [0, 100].
+redundancy_beta_pct(B) :- system_capability(redundancy_beta_pct, B).
+redundancy_beta_pct(0) :- not system_capability(redundancy_beta_pct, _).
+
+corrected_prob_denormalized(C, Corrected) :-
+    not preprocessed_redundancy_groups,
+    new_prob_denormalized(C, Indep),
+    redundant_group(G, C),
+    group_max_denorm(G, Common),
+    redundancy_beta_pct(B),
+    Corrected = ((100 - B) * Indep + B * Common) / 100.
 
 % ===========================================================================
 % DUAL-RISK BUDGET — named risk predicates and independent hard constraints
@@ -178,13 +259,50 @@ security_risk(C, R, A, Risk) :-
 % These components benefit from redundancy; their risk floor is set by the
 % group size and the Mu * 10 denormalisation constant, not security features alone.
 avail_risk(C, R, Action, Risk) :-
+    not preprocessed_redundancy_groups,
     component(C),
     in_any_group(C),
     asset(C, R, Action),
     impact(R, Action, Imp),
-    new_prob_denormalized(C, P),
+    corrected_prob_denormalized(C, P),
     exploit_factor(C, EF),
     Risk = Imp * P * EF / 1000.
+
+group_state(G, Stage, State) :-
+    preprocessed_group_transitions,
+    group_start_stage(G, Stage),
+    group_start_state(G, Start),
+    group_stage_member(G, Stage, C),
+    selected_pair(C, Pair),
+    group_transition(G, Stage, Start, Pair, State).
+
+group_state(G, Stage, NextState) :-
+    preprocessed_group_transitions,
+    group_prev_stage(G, Stage, PrevStage),
+    group_state(G, PrevStage, PrevState),
+    group_stage_member(G, Stage, C),
+    selected_pair(C, Pair),
+    group_transition(G, Stage, PrevState, Pair, NextState).
+
+selected_group_final_state(G, State) :-
+    preprocessed_group_transitions,
+    group_last_stage(G, Stage),
+    group_state(G, Stage, State),
+    valid_group_final_state(G, State).
+
+:- preprocessed_group_transitions,
+   redundant_group(G, _),
+   not selected_group_final_state(G, _).
+
+avail_risk(C, R, Action, Risk) :-
+    preprocessed_group_transitions,
+    selected_group_final_state(G, State),
+    group_final_risk(G, State, C, R, Action, Risk).
+
+avail_risk(C, R, Action, Risk) :-
+    preprocessed_group_plans,
+    selected_group_plan(G, Plan),
+    group_plan_final_risk(G, Plan, C, R, Action, Risk).
 
 % Unified new_risk feeds the minimize objective and downstream phases.
 new_risk(C, R, A, Risk) :- security_risk(C, R, A, Risk).
@@ -231,12 +349,15 @@ weighted_risk(C, Asset, Action, Risk) :-
 #show original_prob_normalized/2.
 #show new_prob_normalized/2.
 #show new_prob_denormalized/2.
+#show corrected_prob_denormalized/2.
 #show security_risk/4.
 #show avail_risk/4.
 #show new_risk/4.
 #show combined_prob_norm/2.
+#show group_max_denorm/2.
 #show domain_bonus/2.
 #show exploit_mod/2.
 #show exploit_factor/2.
+#show redundancy_beta_pct/1.
 #show risk_weight/2.
 #show weighted_risk/4.

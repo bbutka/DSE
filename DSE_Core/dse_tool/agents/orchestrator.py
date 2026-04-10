@@ -10,9 +10,9 @@ optional post-Phase-2 extension rather than part of the core RASACC
 assessment flow.
 
 Phase 1 uses CP-SAT by default in this package, with CBC available as an
-optional math backend and the legacy ASP/Clingo solver retained as an
-optional fallback when the math backend is unavailable or returns an
-unsatisfiable result.
+optional math backend. The legacy ASP/Clingo solver remains available as an
+explicit backend for parity/comparison runs, but it is not used as an
+automatic fallback from the math backend.
 
 Runs in a background thread. The GUI polls for completion by checking
 orchestrator.done and orchestrator.solutions.
@@ -397,7 +397,7 @@ class DSEOrchestrator:
     def _run_phase1(self, strategy: str, instance_facts: str) -> Phase1Result:
         """Run Phase 1 with configured backend selection and fallback."""
         phase1_backend = (self.solver_config.get("phase1_backend") or "cpsat").lower()
-        fallback_backend = (self.solver_config.get("phase1_fallback_backend") or "asp").lower()
+        fallback_backend = (self.solver_config.get("phase1_fallback_backend") or "").lower()
 
         if phase1_backend == "asp":
             return self._run_phase1_asp(strategy, instance_facts)
@@ -420,12 +420,9 @@ class DSEOrchestrator:
         if fallback_backend == "asp":
             self._post(
                 "WARNING",
-                f"[Orchestrator] Phase 1 math backend unavailable/UNSAT for {strategy} - falling back to ASP.",
+                f"[Orchestrator] Ignoring Phase 1 ASP fallback request for {strategy}; "
+                "set phase1_backend='asp' to run the ASP model explicitly.",
             )
-            asp_p1 = self._run_phase1_asp(strategy, instance_facts)
-            if asp_p1.satisfiable:
-                return asp_p1
-            return asp_p1
 
         return p1
 

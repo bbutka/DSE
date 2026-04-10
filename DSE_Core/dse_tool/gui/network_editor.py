@@ -74,6 +74,7 @@ PYNQ_Z2_CAPS = {
     "max_bram":         140,
     "max_security_risk": 50,   # multiplicative cap: non-redundant components
     "max_avail_risk":    20,   # probabilistic cap: redundant groups
+    "redundancy_beta_pct": 0,  # common-cause correction: 0 = independence-only
     "max_attack_depth":   5,
 }
 
@@ -3123,6 +3124,7 @@ class _FPGAConfigDialog(tk.Toplevel):
         ("max_power",        "Max Power (mW)"),
         ("max_security_risk", "Max Security Risk"),
         ("max_avail_risk",    "Max Avail Risk"),
+        ("redundancy_beta_pct", "Redundancy Beta (%)"),
         ("max_attack_depth",  "Attack Depth"),
     ]
 

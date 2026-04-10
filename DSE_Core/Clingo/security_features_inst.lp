@@ -38,7 +38,7 @@ power_cost(bus_monitor, base, 8).
 power_cost(watchdog, base, 4).
 power_cost(no_realtime, base, 0).
 
-% Risk calculation values
+% Ordinal residual-risk score values (not calibrated probabilities)
 exposure(zero_trust, 10).
 exposure(authenticated_encryption, 15).
 exposure(dynamic_mac, 20).
@@ -49,6 +49,33 @@ realtime_detection(runtime_attestation, 5).
 realtime_detection(bus_monitor, 8).
 realtime_detection(watchdog, 12).
 realtime_detection(no_realtime, 20).
+
+% Precomputed Phase 1 residual-risk lookup table
+% prob_lookup(Security, Realtime, RawScore, NormalizedScore, DenormalizedScore)
+prob_lookup(zero_trust, runtime_attestation, 50, 25, 274).
+prob_lookup(zero_trust, bus_monitor, 80, 56, 304).
+prob_lookup(zero_trust, watchdog, 120, 97, 344).
+prob_lookup(zero_trust, no_realtime, 200, 179, 424).
+prob_lookup(authenticated_encryption, runtime_attestation, 75, 51, 299).
+prob_lookup(authenticated_encryption, bus_monitor, 120, 97, 344).
+prob_lookup(authenticated_encryption, watchdog, 180, 158, 404).
+prob_lookup(authenticated_encryption, no_realtime, 300, 282, 524).
+prob_lookup(dynamic_mac, runtime_attestation, 100, 76, 324).
+prob_lookup(dynamic_mac, bus_monitor, 160, 138, 384).
+prob_lookup(dynamic_mac, watchdog, 240, 220, 464).
+prob_lookup(dynamic_mac, no_realtime, 400, 384, 624).
+prob_lookup(mac, runtime_attestation, 125, 102, 349).
+prob_lookup(mac, bus_monitor, 200, 179, 424).
+prob_lookup(mac, watchdog, 300, 282, 524).
+prob_lookup(mac, no_realtime, 500, 487, 724).
+prob_lookup(basic_access_control, runtime_attestation, 175, 153, 399).
+prob_lookup(basic_access_control, bus_monitor, 280, 261, 504).
+prob_lookup(basic_access_control, watchdog, 420, 405, 644).
+prob_lookup(basic_access_control, no_realtime, 700, 692, 924).
+prob_lookup(no_security, runtime_attestation, 250, 230, 474).
+prob_lookup(no_security, bus_monitor, 400, 384, 624).
+prob_lookup(no_security, watchdog, 600, 589, 824).
+prob_lookup(no_security, no_realtime, 1000, 1000, 1225).
 exploit_factor_map(1, 5).
 exploit_factor_map(2, 7).
 exploit_factor_map(3, 10).

@@ -305,6 +305,8 @@ REALTIME_FEATURE_EXPORT_ORDER = [
     "no_realtime",
 ]
 
+# Ordinal residual-exposure scores used by Phase 1.
+# Lower is better. These are not calibrated probabilities.
 EXPOSURE_VALUES = {
     "zero_trust": 10,
     "authenticated_encryption": 15,
@@ -314,6 +316,8 @@ EXPOSURE_VALUES = {
     "no_security": 50,
 }
 
+# Ordinal residual-detection scores used by Phase 1.
+# Lower is better. These are not calibrated probabilities.
 REALTIME_DETECTION_VALUES = {
     "runtime_attestation": 5,
     "bus_monitor": 8,
@@ -622,13 +626,28 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
     lines.extend(
         [
             "",
-            "% Risk calculation values",
+            "% Ordinal residual-risk score values (not calibrated probabilities)",
         ]
     )
     for feature in SECURITY_FEATURE_EXPORT_ORDER:
         lines.append(f"exposure({feature}, {EXPOSURE_VALUES[feature]}).")
     for feature in REALTIME_FEATURE_EXPORT_ORDER:
         lines.append(f"realtime_detection({feature}, {REALTIME_DETECTION_VALUES[feature]}).")
+    lines.extend(
+        [
+            "",
+            "% Precomputed Phase 1 residual-risk lookup table",
+            "% prob_lookup(Security, Realtime, RawScore, NormalizedScore, DenormalizedScore)",
+        ]
+    )
+    for security in SECURITY_FEATURE_EXPORT_ORDER:
+        for realtime in REALTIME_FEATURE_EXPORT_ORDER:
+            raw_score = int(EXPOSURE_VALUES[security]) * int(REALTIME_DETECTION_VALUES[realtime])
+            normalized = ((raw_score - 25) * 1000) // 975
+            denormalized = (normalized * 975) // 1000 + 250
+            lines.append(
+                f"prob_lookup({security}, {realtime}, {raw_score}, {normalized}, {denormalized})."
+            )
     for exploitability, factor in EXPLOIT_FACTOR_MAP.items():
         lines.append(f"exploit_factor_map({exploitability}, {factor}).")
 
