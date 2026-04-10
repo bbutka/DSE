@@ -110,8 +110,11 @@ excess_grant_count(M, N) :-
     master(M),
     N = #count { C, Op : excess_privilege(M, C, Op) }.
 
-% Policy tightness score: 0 = fully excess, 100 = perfectly tight
-% tightness = 100 * needed / granted
+% Policy tightness score: 0 = fully excess, 100 = perfectly tight.
+% PRE-FIREWALL metric: measures topology-level access grants before
+% firewall filtering.  See effective_policy_tightness/3 for the
+% post-firewall, per-mode metric.
+% tightness = 100 * |needed ∩ reachable| / |granted|
 policy_tightness(M, Tightness) :-
     master(M),
     Needed  = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
@@ -121,6 +124,34 @@ policy_tightness(M, Tightness) :-
 
 % Flag: masters with tightness below 50% are over-privileged
 over_privileged(M) :- policy_tightness(M, T), T < 50.
+
+% --- Effective (post-firewall) policy tightness per mode ---
+% A grant is "blocked by firewall" when the IP sits behind a placed FW
+% but the master→IP path is NOT protected (no on-path FW for that pair).
+blocked_by_fw(M, C) :-
+    master(M), receiver(C),
+    place_fw(FW), ip_loc(C, FW),
+    not protected(M, C).
+
+% Effective grants: topology-reachable AND either not behind a FW, or
+% the master's path passes through the placed FW.
+effective_granted_op(M, C, Op) :-
+    granted_op(M, C, Op),
+    not blocked_by_fw(M, C).
+effective_granted_op(M, C, Op) :-
+    granted_op(M, C, Op),
+    protected(M, C).
+
+% Per-mode tightness accounting for firewall filtering and mode-aware ACLs.
+% POST-FIREWALL metric: = |needed ∩ (effective_granted ∩ mode_allowed)| / |needed|
+% Expected to be lower than policy_tightness in elevated modes — that is
+% correct ZTA tightening, not a deficiency.
+effective_policy_tightness(M, Mode, Tightness) :-
+    master(M), mode(Mode),
+    Needed  = #count { C, Op : access_need(M, C, Op), accessible_component(M, C) },
+    Granted = #count { C, Op : effective_granted_op(M, C, Op), final_allow(M, C, Mode) },
+    Granted > 0,
+    Tightness = Needed * 100 / Granted.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,7 +207,13 @@ mission_final_deny(M, C, Op, Phase) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 { place_fw(FWL) : cand_fw(FWL) }.
-1 { place_ps(PS) : cand_ps(PS) } N :- N = #count { PS : cand_ps(PS) }.
+
+% Configurable minimum policy server count (default: 1).
+% Set system_capability(min_ps_count, N) to require N-way PS redundancy.
+min_ps_required(N) :- system_capability(min_ps_count, N).
+min_ps_required(1) :- not system_capability(min_ps_count, _).
+
+N { place_ps(PS) : cand_ps(PS) } :- min_ps_required(N).
 
 protected(M, IP) :- place_fw(FWL), on_path(FWL, M, IP).
 
@@ -191,6 +228,26 @@ governs_ip(PS, IP) :-
     governs(PS, FWL).
 
 :- place_fw(FWL), ip_loc(IP, FWL), not governs_ip(_, IP).
+
+% --- on_path validity assertion ---
+% Verify that pre-computed on_path facts are consistent with topology.
+% An on_path(FW, M, IP) fact is stale if the master can no longer reach
+% the IP through the topology, or the IP is not behind the FW.
+% This catches topology editing errors in the GUI.
+:- on_path(FW, M, IP), not reachable(M, IP).
+:- on_path(FW, _, IP), not ip_loc(IP, FW).
+
+% --- Survivable control plane ---
+% Limit how many critical IPs any single PS can govern.
+% Prevents a compromised PS from unlocking the entire protected surface.
+% Set system_capability(max_critical_ips_per_ps, N) to activate.
+ps_critical_ip_count(PS, N) :-
+    place_ps(PS),
+    N = #count { IP : governs_ip(PS, IP), critical(IP) }.
+
+:- ps_critical_ip_count(PS, N),
+   system_capability(max_critical_ips_per_ps, Cap),
+   N > Cap.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -275,6 +332,40 @@ trust_level(C, low)    :- trust_anchor_count(C, 0).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 7b. LATERAL MOVEMENT PATH ANALYSIS
+%%     Identify multi-hop attack paths where an attacker entering
+%%     through a non-critical, unguarded receiver can reach a
+%%     critical IP without traversing a firewall.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% A receiver is an unguarded stepping stone if it is non-critical and
+% reachable by at least one master without firewall mediation.
+stepping_stone(Hop) :-
+    receiver(Hop), not critical(Hop),
+    master(M), reachable(M, Hop),
+    not protected(M, Hop).
+
+% A lateral path exists when a master can reach a stepping stone,
+% and that stepping stone shares a bus segment with a critical IP
+% that the master can also reach — but the critical path IS guarded.
+% The risk: if the stepping stone is compromised, it may be able to
+% bypass the firewall from inside the protected segment.
+lateral_path(M, Hop, Target) :-
+    master(M),
+    stepping_stone(Hop),
+    reachable(M, Hop),
+    not protected(M, Hop),
+    receiver(Target), critical(Target),
+    reachable(M, Target),
+    ip_loc(Hop, FW), ip_loc(Target, FW).
+
+% Count unguarded lateral paths per master
+lateral_path_count(M, N) :-
+    master(M),
+    N = #count { Hop, Target : lateral_path(M, Hop, Target) }.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 8. POLICY EXCEPTIONS
 %%    policy_exception/5 from the integrated instance facts documents
 %%    granted exceptions.  Verify they have justification.
@@ -290,12 +381,31 @@ critical_exception(M, C, Op, Ph, Reason) :-
     policy_exception(M, C, Op, Ph, Reason),
     critical(C).
 
+% Exception mode enforcement: attack_confirmed is unconditional lockdown.
+% Exceptions MUST NOT override the blanket deny in this mode.
+% Flag any exception that attempts to apply in attack_confirmed mode.
+attack_confirmed_exception_violation(M, C, Op, Reason) :-
+    policy_exception(M, C, Op, attack_confirmed, Reason).
+
+% Belt-and-suspenders: hard constraint preventing any allow in attack_confirmed.
+% (Already implied by the blanket deny on line 214, but this makes it explicit.)
+:- final_allow(_, _, attack_confirmed).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 9. COST MINIMISATION
+%% 9. COST MINIMISATION / COVERAGE MAXIMISATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 resilience_objective_enabled :- phase2_resilience_mode(control_plane).
+
+% --- Max-coverage mode ---
+% Maximise the number of firewalled master→IP paths.
+% Cost minimisation remains as the tie-break (lower priority).
+coverage_objective_enabled :- phase2_coverage_mode(max_coverage).
+
+coverage_count(N) :- N = #count { M, IP : protected(M, IP) }.
+
+#maximize { 1@2, M, IP : coverage_objective_enabled, protected(M, IP) }.
 
 safety_fw_penalty_weight(W) :-
     phase2_safety_fw_penalty_weight(W).
@@ -379,9 +489,18 @@ total_zta_cost(C) :-
 #show missing_privilege/3.
 #show excess_grant_count/2.
 #show policy_tightness/2.
+#show effective_policy_tightness/3.
 #show over_privileged/1.
 #show role_excess/3.
 #show operational_excess/3.
+#show coverage_count/1.
+
+% Control plane
+#show ps_critical_ip_count/2.
+
+% Lateral movement
+#show lateral_path/3.
+#show lateral_path_count/2.
 
 % Trust findings
 #show trust_gap_rot/1.
@@ -396,6 +515,10 @@ total_zta_cost(C) :-
 #show mission_final_allow/4.
 #show mission_final_deny/4.
 
+% Mode transition triggers (pass-through from instance facts)
+#show transition_trigger/3.
+
 % Exceptions
 #show unexplained_exception/3.
 #show critical_exception/5.
+#show attack_confirmed_exception_violation/4.

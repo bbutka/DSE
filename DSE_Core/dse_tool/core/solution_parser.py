@@ -28,6 +28,9 @@ class Phase1Result:
     only. They are not intended to represent the fixed baseline hardware cost
     of the architecture itself.
 
+    Phase 1 risk values are reported in internal milli-risk units so the solver
+    can preserve sub-integer precision without floating-point arithmetic.
+
     Risk reporting exposes two distinct aggregates:
     - ``total_risk()``: the weighted per-asset-per-action objective optimized by
       the solver in Phase 1
@@ -66,18 +69,18 @@ class Phase1Result:
         self.realtime = value
 
     def max_risk_per_asset(self) -> Dict[str, int]:
-        """Return max risk value per asset across all modeled CIA actions."""
+        """Return max milli-risk value per asset across all modeled CIA actions."""
         result: Dict[str, int] = {}
         for _c, asset, _op, risk in self.new_risk:
             result[asset] = max(result.get(asset, 0), risk)
         return result
 
     def summary_total_risk(self) -> int:
-        """Return the legacy unweighted max-per-asset summary risk."""
+        """Return the unweighted max-per-asset summary in milli-risk units."""
         return sum(self.max_risk_per_asset().values())
 
     def weighted_risk_entries(self) -> List[Tuple[str, str, str, int]]:
-        """Return the per-action weighted risk rows used by the Phase 1 objective."""
+        """Return the per-action weighted milli-risk rows used by the Phase 1 objective."""
         entries: List[Tuple[str, str, str, int]] = []
         for comp, asset, action, risk in self.new_risk:
             weight = self.risk_weights.get(asset, 1)
@@ -85,7 +88,7 @@ class Phase1Result:
         return entries
 
     def total_risk(self) -> int:
-        """Return the weighted Phase 1 objective value (lower is better)."""
+        """Return the weighted Phase 1 objective in milli-risk units."""
         return sum(weighted_risk for _comp, _asset, _action, weighted_risk in self.weighted_risk_entries())
 
     def security_overhead_summary(self) -> Dict[str, int]:
@@ -184,6 +187,13 @@ class Phase2Result:
     trust_levels:           Dict[str, str]         = field(default_factory=dict)
     unexplained_exceptions: List[Tuple]            = field(default_factory=list)
     critical_exceptions:    List[Tuple]            = field(default_factory=list)
+    attack_confirmed_exception_violations: List[Tuple] = field(default_factory=list)
+    effective_policy_tightness: Dict[Tuple[str, str], int] = field(default_factory=dict)
+    coverage_count:         int  = 0
+    ps_critical_ip_counts:  Dict[str, int]             = field(default_factory=dict)
+    lateral_paths:          List[Tuple[str, str, str]]  = field(default_factory=list)
+    lateral_path_counts:    Dict[str, int]             = field(default_factory=dict)
+    transition_triggers:    List[Tuple[str, str, str]]  = field(default_factory=list)
     total_cost:             int  = 0
     unplaced_safety_fw_penalty: int = 0
     control_plane_concentration_penalty: int = 0
@@ -206,6 +216,18 @@ class Phase2Result:
         # semantic mismatch with runtime_adaptive_tc9_enc.lp.
         for master, ip, mode in sorted(set(self.final_allows)):
             lines.append(f"p2_mode_allow({master}, {ip}, {mode}).")
+        # Pass trust levels to Phase 3 for scenario risk amplification.
+        # A compromised trust_level(C, low) component should amplify risk
+        # more than a trust_level(C, high) component.
+        for comp, level in sorted(self.trust_levels.items()):
+            lines.append(f"p2_trust_level({comp}, {level}).")
+        # Pass excess privilege findings — unneeded access paths are
+        # exploitable attack surface in scenarios.
+        for tup in sorted(set(self.excess_privileges)):
+            lines.append(f"p2_excess_privilege({', '.join(tup)}).")
+        # Pass transition triggers — complete operational policy spec.
+        for cond, from_mode, to_mode in sorted(set(self.transition_triggers)):
+            lines.append(f"transition_trigger({cond}, {from_mode}, {to_mode}).")
         return "\n".join(lines)
 
     def avg_policy_tightness(self) -> float:
@@ -489,6 +511,20 @@ class SolutionParser:
                 r.unexplained_exceptions.append(tuple(str(x) for x in a))
             elif n == "critical_exception" and len(a) == 5:
                 r.critical_exceptions.append(tuple(str(x) for x in a))
+            elif n == "attack_confirmed_exception_violation" and len(a) == 4:
+                r.attack_confirmed_exception_violations.append(tuple(str(x) for x in a))
+            elif n == "effective_policy_tightness" and len(a) == 3:
+                r.effective_policy_tightness[(str(a[0]), str(a[1]))] = a[2].number
+            elif n == "coverage_count"     and len(a) == 1:
+                r.coverage_count = a[0].number
+            elif n == "ps_critical_ip_count" and len(a) == 2:
+                r.ps_critical_ip_counts[str(a[0])] = a[1].number
+            elif n == "lateral_path"       and len(a) == 3:
+                r.lateral_paths.append((str(a[0]), str(a[1]), str(a[2])))
+            elif n == "lateral_path_count" and len(a) == 2:
+                r.lateral_path_counts[str(a[0])] = a[1].number
+            elif n == "transition_trigger" and len(a) == 3:
+                r.transition_triggers.append((str(a[0]), str(a[1]), str(a[2])))
             elif n == "total_zta_cost"     and len(a) == 1:
                 r.total_cost = a[0].number
             elif n == "unplaced_safety_fw_penalty" and len(a) == 1:

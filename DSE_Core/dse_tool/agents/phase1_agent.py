@@ -31,11 +31,18 @@ from ..core.solution_parser import Phase1Result, SolutionParser
 from ip_catalog.xilinx_ip_catalog import (
     EXPLOIT_FACTOR_MAP,
     EXPOSURE_VALUES,
+    PHASE1_REDUNDANCY_NORM_SCALE,
+    PHASE1_REDUNDANCY_RAW_FLOOR,
+    PHASE1_REDUNDANCY_RAW_RANGE,
     REALTIME_DETECTION_VALUES,
     REALTIME_FEATURE_EXPORT_ORDER,
     SECURITY_FEATURE_EXPORT_ORDER,
     export_security_features_to_lp,
+    phase1_prob_lookup_entry,
     get_calibrated_estimate,
+    scale_phase1_availability_risk,
+    scale_phase1_risk_cap,
+    scale_phase1_security_risk,
 )
 
 
@@ -255,6 +262,7 @@ class Phase1Agent:
             "max_security_risk",
             parsed["system_caps"].get("max_asset_risk", 500),
         )
+        security_cap_scaled = scale_phase1_risk_cap(int(security_cap))
 
         pair_options = [
             (
@@ -289,16 +297,15 @@ class Phase1Agent:
                     continue
                 if component not in grouped_components:
                     risk_rows = [
-                        self._div_trunc_zero(
-                            impact
-                            * int(EXPOSURE_VALUES[security])
-                            * int(REALTIME_DETECTION_VALUES[realtime])
-                            * exploit_factor,
-                            100,
+                        scale_phase1_security_risk(
+                            impact,
+                            int(EXPOSURE_VALUES[security]),
+                            int(REALTIME_DETECTION_VALUES[realtime]),
+                            exploit_factor,
                         )
                         for _asset, _action, impact in rows
                     ]
-                    if any(risk > security_cap for risk in risk_rows):
+                    if any(risk > security_cap_scaled for risk in risk_rows):
                         continue
                 feasible.append(pair_index)
 
@@ -357,6 +364,7 @@ class Phase1Agent:
             "max_avail_risk",
             parsed["system_caps"].get("max_asset_risk", 500),  # type: ignore[index]
         )
+        combo_cap_scaled = scale_phase1_risk_cap(int(combo_cap))
         beta_pct = max(0, min(100, parsed["system_caps"].get("redundancy_beta_pct", 0)))  # type: ignore[index]
         risk_weights: Dict[str, int] = parsed["risk_weights"]  # type: ignore[assignment]
         lines = ["% Preprocessed redundancy-group plans for ASP backend parity"]
@@ -382,7 +390,7 @@ class Phase1Agent:
                 if cached is None:
                     rows = self._group_state_rows(members, final_state, parsed, beta_pct)
                     if any(
-                        risk > combo_cap
+                        risk > combo_cap_scaled
                         for component_rows in rows.values()
                         for _asset, _action, risk in component_rows
                     ):
@@ -592,14 +600,16 @@ class Phase1Agent:
 
     def _pair_normalized_prob(self, pair: Tuple[str, str, int]) -> int:
         security, realtime, _latency = pair
-        original_prob = int(EXPOSURE_VALUES[security]) * int(REALTIME_DETECTION_VALUES[realtime])
-        return self._div_trunc_zero((original_prob - 25) * 1000, 975)
+        _raw, normalized, _denormalized = phase1_prob_lookup_entry(security, realtime)
+        return normalized
 
     def _pair_denormalized_prob(self, pair: Tuple[str, str, int]) -> int:
         return self._denormalize_prob(self._pair_normalized_prob(pair))
 
     def _denormalize_prob(self, normalized: int) -> int:
-        return self._div_trunc_zero(normalized * 975, 1000) + 250
+        return self._div_trunc_zero(normalized * PHASE1_REDUNDANCY_RAW_RANGE, PHASE1_REDUNDANCY_NORM_SCALE) + (
+            PHASE1_REDUNDANCY_RAW_FLOOR * 10
+        )
 
     def _group_state_rows(
         self,
@@ -624,7 +634,7 @@ class Phase1Agent:
                     (
                         asset_id,
                         action,
-                        self._div_trunc_zero(impact * denorm * exploit_factor, 1000),
+                        scale_phase1_availability_risk(impact, denorm, exploit_factor),
                     )
                 )
             rows_by_component[component] = rows

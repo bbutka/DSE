@@ -33,18 +33,26 @@ except ImportError:  # pragma: no cover - dependency may be absent locally
 from ip_catalog.xilinx_ip_catalog import (
     EXPLOIT_FACTOR_MAP,
     EXPOSURE_VALUES,
+    PHASE1_REDUNDANCY_NORM_SCALE,
+    PHASE1_REDUNDANCY_RAW_CEILING,
+    PHASE1_REDUNDANCY_RAW_FLOOR,
+    PHASE1_REDUNDANCY_RAW_RANGE,
     REALTIME_DETECTION_VALUES,
     REALTIME_FEATURE_EXPORT_ORDER,
     SECURITY_FEATURE_EXPORT_ORDER,
+    phase1_prob_lookup_entry,
     get_calibrated_estimate,
+    scale_phase1_availability_risk,
+    scale_phase1_risk_cap,
+    scale_phase1_security_risk,
 )
 
 from ..core.asp_generator import Asset, Component, NetworkModel
 from ..core.solution_parser import Phase1Result
 
 
-MU = 25
-OMEGA = 1000
+MU = PHASE1_REDUNDANCY_RAW_FLOOR
+OMEGA = PHASE1_REDUNDANCY_RAW_CEILING
 START_STATE = (-1, -1)
 RESOURCES = ("luts", "ffs", "dsps", "lutram", "bram", "bufg", "power_cost")
 
@@ -131,9 +139,13 @@ class Phase1MathOptAgent:
             "max_security_risk" in self.network_model.system_caps
             or "max_avail_risk" in self.network_model.system_caps
         )
-        max_asset_risk = int(self.network_model.system_caps.get("max_asset_risk", 500))
-        max_security_risk = int(self.network_model.system_caps.get("max_security_risk", max_asset_risk))
-        max_avail_risk = int(self.network_model.system_caps.get("max_avail_risk", max_asset_risk))
+        max_asset_risk = scale_phase1_risk_cap(int(self.network_model.system_caps.get("max_asset_risk", 500)))
+        max_security_risk = scale_phase1_risk_cap(
+            int(self.network_model.system_caps.get("max_security_risk", self.network_model.system_caps.get("max_asset_risk", 500)))
+        )
+        max_avail_risk = scale_phase1_risk_cap(
+            int(self.network_model.system_caps.get("max_avail_risk", self.network_model.system_caps.get("max_asset_risk", 500)))
+        )
         asset_weights = self._asset_weights(component_assets, component_lookup, modern_dual_risk)
 
         pair_options = tuple(
@@ -903,7 +915,7 @@ class Phase1MathOptAgent:
                     (
                         asset.asset_id,
                         action,
-                        self._div_trunc_zero(impact * exposure * realtime_score * exploit_factor, 100),
+                        scale_phase1_security_risk(impact, exposure, realtime_score, exploit_factor),
                     )
                 )
         return rows
@@ -1030,14 +1042,14 @@ class Phase1MathOptAgent:
         return (combined_norm, max(prev_state[1], denormalized))
 
     def _pair_normalized_prob(self, pair: _PairOption) -> int:
-        original_prob = int(EXPOSURE_VALUES[pair.security]) * int(REALTIME_DETECTION_VALUES[pair.realtime])
-        return self._div_trunc_zero((original_prob - MU) * 1000, OMEGA - MU)
+        _raw, normalized, _denormalized = phase1_prob_lookup_entry(pair.security, pair.realtime)
+        return normalized
 
     def _pair_denormalized_prob(self, pair: _PairOption) -> int:
         return self._denormalize_prob(self._pair_normalized_prob(pair))
 
     def _denormalize_prob(self, normalized: int) -> int:
-        return self._div_trunc_zero(normalized * (OMEGA - MU), 1000) + MU * 10
+        return self._div_trunc_zero(normalized * PHASE1_REDUNDANCY_RAW_RANGE, PHASE1_REDUNDANCY_NORM_SCALE) + (MU * 10)
 
     def _redundancy_beta_pct(self) -> int:
         raw = int(self.network_model.system_caps.get("redundancy_beta_pct", 0))
@@ -1072,7 +1084,7 @@ class Phase1MathOptAgent:
                         (
                             asset.asset_id,
                             action,
-                            self._div_trunc_zero(impact * denorm * exploit_factor, 1000),
+                            scale_phase1_availability_risk(impact, denorm, exploit_factor),
                         )
                     )
             rows_by_component[component] = rows

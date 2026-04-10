@@ -327,6 +327,42 @@ REALTIME_DETECTION_VALUES = {
 
 EXPLOIT_FACTOR_MAP = {1: 5, 2: 7, 3: 10, 4: 14, 5: 20}
 
+PHASE1_INTERNAL_RISK_SCALE = 1000
+PHASE1_SECURITY_RISK_DIVISOR = 100
+PHASE1_SECURITY_RISK_MULTIPLIER = PHASE1_INTERNAL_RISK_SCALE // PHASE1_SECURITY_RISK_DIVISOR
+# Preserve the legacy redundancy normalization floor for model compatibility.
+# The internal precision fix below is independent from this baseline shift.
+PHASE1_REDUNDANCY_RAW_FLOOR = 25
+PHASE1_REDUNDANCY_RAW_CEILING = max(EXPOSURE_VALUES.values()) * max(REALTIME_DETECTION_VALUES.values())
+PHASE1_REDUNDANCY_NORM_SCALE = 1000
+PHASE1_REDUNDANCY_RAW_RANGE = PHASE1_REDUNDANCY_RAW_CEILING - PHASE1_REDUNDANCY_RAW_FLOOR
+PHASE1_REDUNDANCY_DENORM_FLOOR = PHASE1_REDUNDANCY_RAW_FLOOR * 10
+
+
+def scale_phase1_risk_cap(cap: int) -> int:
+    """Convert user-facing Phase 1 caps into internal milli-risk units."""
+    return int(cap) * PHASE1_INTERNAL_RISK_SCALE
+
+
+def scale_phase1_security_risk(impact: int, exposure: int, realtime: int, exploit_factor: int) -> int:
+    """Return the Phase 1 non-redundant risk in internal milli-risk units."""
+    return int(impact) * int(exposure) * int(realtime) * int(exploit_factor) * PHASE1_SECURITY_RISK_MULTIPLIER
+
+
+def scale_phase1_availability_risk(impact: int, denormalized_prob: int, exploit_factor: int) -> int:
+    """Return the Phase 1 redundancy risk in internal milli-risk units."""
+    return int(impact) * int(denormalized_prob) * int(exploit_factor)
+
+
+def phase1_prob_lookup_entry(security: str, realtime: str) -> Tuple[int, int, int]:
+    """Return the raw, normalized, and denormalized lookup values for a pair."""
+    raw_score = int(EXPOSURE_VALUES[security]) * int(REALTIME_DETECTION_VALUES[realtime])
+    normalized = ((raw_score - PHASE1_REDUNDANCY_RAW_FLOOR) * PHASE1_REDUNDANCY_NORM_SCALE) // PHASE1_REDUNDANCY_RAW_RANGE
+    denormalized = (
+        (normalized * PHASE1_REDUNDANCY_RAW_RANGE) // PHASE1_REDUNDANCY_NORM_SCALE
+    ) + PHASE1_REDUNDANCY_DENORM_FLOOR
+    return raw_score, normalized, denormalized
+
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # IP Catalog — NoC / interconnect components
@@ -642,9 +678,7 @@ def export_security_features_to_lp(filepath: str | Path) -> Path:
     )
     for security in SECURITY_FEATURE_EXPORT_ORDER:
         for realtime in REALTIME_FEATURE_EXPORT_ORDER:
-            raw_score = int(EXPOSURE_VALUES[security]) * int(REALTIME_DETECTION_VALUES[realtime])
-            normalized = ((raw_score - 25) * 1000) // 975
-            denormalized = (normalized * 975) // 1000 + 250
+            raw_score, normalized, denormalized = phase1_prob_lookup_entry(security, realtime)
             lines.append(
                 f"prob_lookup({security}, {realtime}, {raw_score}, {normalized}, {denormalized})."
             )
@@ -703,9 +737,20 @@ __all__ = [
     "TARGET_DEVICE", "TARGET_LUT", "TARGET_FF", "TARGET_BRAM", "TARGET_DSP",
     "DEFAULT_CLK_NS",
     "EXPOSURE_VALUES",
+    "PHASE1_INTERNAL_RISK_SCALE",
+    "PHASE1_REDUNDANCY_DENORM_FLOOR",
+    "PHASE1_REDUNDANCY_NORM_SCALE",
+    "PHASE1_REDUNDANCY_RAW_CEILING",
+    "PHASE1_REDUNDANCY_RAW_FLOOR",
+    "PHASE1_REDUNDANCY_RAW_RANGE",
+    "PHASE1_SECURITY_RISK_MULTIPLIER",
     "REALTIME_DETECTION_VALUES",
     "REALTIME_FEATURE_EXPORT_ORDER",
     "EXPLOIT_FACTOR_MAP",
+    "phase1_prob_lookup_entry",
+    "scale_phase1_availability_risk",
+    "scale_phase1_risk_cap",
+    "scale_phase1_security_risk",
     "summarize_security_feature",
     "feature_cost_table",
     "get_calibrated_estimate",

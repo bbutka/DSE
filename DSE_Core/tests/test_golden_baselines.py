@@ -67,6 +67,10 @@ def _load_fixture(name: str) -> dict:
         return json.load(handle)
 
 
+def _fixture_payload_keys(fixture: dict) -> set[str]:
+    return {key for key in fixture.keys() if key not in {"description", "risk_units", "generated_by"}}
+
+
 def _run_tc9_pipeline(strategy: str, timeout: int):
     # Use CP-SAT for Phase 1 — ASP cannot prove optimality within test timeouts
     p1 = Phase1MathOptAgent(
@@ -187,25 +191,25 @@ class TestGoldenFixtureShape(unittest.TestCase):
         fixture = _load_fixture("tc9_baseline.json")
         self.assertEqual(
             {"max_security", "min_resources", "balanced"},
-            {key for key in fixture.keys() if key != "description"},
+            _fixture_payload_keys(fixture),
         )
 
     def test_darpa_fixture_has_all_three_strategies(self):
         fixture = _load_fixture("darpa_uav_baseline.json")
         self.assertEqual(
             {"max_security", "min_resources", "balanced"},
-            {key for key in fixture.keys() if key != "description"},
+            _fixture_payload_keys(fixture),
         )
 
     def test_opentitan_fixture_has_all_three_profiles(self):
         fixture = _load_fixture("opentitan_phase1_baseline.json")
-        self.assertEqual({"OT-A", "OT-B", "OT-C"}, {key for key in fixture.keys() if key != "description"})
+        self.assertEqual({"OT-A", "OT-B", "OT-C"}, _fixture_payload_keys(fixture))
 
     def test_pixhawk_fixture_has_all_three_strategies(self):
         fixture = _load_fixture("pixhawk6x_baseline.json")
         self.assertEqual(
             {"max_security", "min_resources", "balanced"},
-            {key for key in fixture.keys() if key != "description"},
+            _fixture_payload_keys(fixture),
         )
 
 

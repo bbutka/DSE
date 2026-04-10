@@ -40,11 +40,19 @@ from dse_tool.core.solution_parser import Phase1Result
 from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
 from ip_catalog.xilinx_ip_catalog import (
     EXPOSURE_VALUES,
+    PHASE1_REDUNDANCY_NORM_SCALE,
+    PHASE1_REDUNDANCY_RAW_CEILING,
+    PHASE1_REDUNDANCY_RAW_FLOOR,
+    PHASE1_REDUNDANCY_RAW_RANGE,
     REALTIME_DETECTION_VALUES,
     EXPLOIT_FACTOR_MAP,
     SECURITY_FEATURE_EXPORT_ORDER,
     REALTIME_FEATURE_EXPORT_ORDER,
+    phase1_prob_lookup_entry,
     get_calibrated_estimate,
+    scale_phase1_availability_risk,
+    scale_phase1_risk_cap,
+    scale_phase1_security_risk,
 )
 
 
@@ -61,8 +69,8 @@ _RESOURCE_ATTRS = {
     "power": "power_mw",
 }
 
-_MU = 25
-_OMEGA = 1000
+_MU = PHASE1_REDUNDANCY_RAW_FLOOR
+_OMEGA = PHASE1_REDUNDANCY_RAW_CEILING
 
 
 def _feature_cost(feature: str, resource: str) -> int:
@@ -232,7 +240,7 @@ def verify_phase1_solution(
 
         for asset in comp_assets[c.name]:
             for action, impact in _asset_actions(asset):
-                risk = impact * exposure * realtime_det * exploit_factor // 100
+                risk = scale_phase1_security_risk(impact, exposure, realtime_det, exploit_factor)
                 expected_risks[(c.name, asset.asset_id, action)] = risk
 
     # --- Redundancy group computation ---
@@ -251,17 +259,16 @@ def verify_phase1_solution(
             rt = result.realtime[c.name]
             exposure = EXPOSURE_VALUES[sec]
             realtime_det = REALTIME_DETECTION_VALUES[rt]
-            raw_prob = exposure * realtime_det
-            norm = (raw_prob - _MU) * 1000 // (_OMEGA - _MU)
+            _raw_prob, norm, _denorm = phase1_prob_lookup_entry(sec, rt)
             member_norms.append(norm)
 
         # Running product with divide-by-1000 at each step
         combined = member_norms[0]
         for p in member_norms[1:]:
-            combined = combined * p // 1000
+            combined = combined * p // PHASE1_REDUNDANCY_NORM_SCALE
 
         # Denormalize
-        denorm = (combined * (_OMEGA - _MU) // 1000) + _MU * 10
+        denorm = (combined * PHASE1_REDUNDANCY_RAW_RANGE // PHASE1_REDUNDANCY_NORM_SCALE) + (_MU * 10)
 
         # Check for common-cause beta correction
         beta = model.system_caps.get("redundancy_beta_pct", 0)
@@ -270,9 +277,8 @@ def verify_phase1_solution(
             for c in members_sorted:
                 sec = result.security[c.name]
                 rt = result.realtime[c.name]
-                raw_prob = EXPOSURE_VALUES[sec] * REALTIME_DETECTION_VALUES[rt]
-                norm = (raw_prob - _MU) * 1000 // (_OMEGA - _MU)
-                sd = (norm * (_OMEGA - _MU) // 1000) + _MU * 10
+                _raw_prob, norm, _denorm = phase1_prob_lookup_entry(sec, rt)
+                sd = (norm * PHASE1_REDUNDANCY_RAW_RANGE // PHASE1_REDUNDANCY_NORM_SCALE) + (_MU * 10)
                 single_denorms.append(sd)
             max_single = max(single_denorms)
             denorm = ((100 - beta) * denorm + beta * max_single) // 100
@@ -282,7 +288,7 @@ def verify_phase1_solution(
             exploit_factor = EXPLOIT_FACTOR_MAP.get(c.exploitability, 10)
             for asset in comp_assets[c.name]:
                 for action, impact in _asset_actions(asset):
-                    risk = impact * denorm * exploit_factor // 1000
+                    risk = scale_phase1_availability_risk(impact, denorm, exploit_factor)
                     expected_risks[(c.name, asset.asset_id, action)] = risk
 
     # Compare expected vs reported risks
@@ -307,12 +313,12 @@ def verify_phase1_solution(
                 violations.append(f"RISK: unexpected reported risk for {key}")
 
     # --- Check 6: Risk caps ---
-    max_security_risk = model.system_caps.get(
+    max_security_risk = scale_phase1_risk_cap(model.system_caps.get(
         "max_security_risk", model.system_caps.get("max_asset_risk", 500)
-    )
-    max_avail_risk = model.system_caps.get(
+    ))
+    max_avail_risk = scale_phase1_risk_cap(model.system_caps.get(
         "max_avail_risk", model.system_caps.get("max_asset_risk", 500)
-    )
+    ))
 
     for (comp, asset, action), risk in expected_risks.items():
         if comp in grouped:

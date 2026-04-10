@@ -43,11 +43,11 @@
 %
 %   max_security_risk  — caps the MULTIPLICATIVE residual risk for
 %                        non-redundant components:
-%                        Risk = Impact * Exposure * Realtime * ExploitFactor / 100.
+%                        internal_risk = Impact * Exposure * Realtime * ExploitFactor * 10.
 %
 %   max_avail_risk     — caps the corrected availability risk for redundant
 %                        groups.  This is what redundancy architecture controls:
-%                        Risk = Imp * corrected_group_score * ExploitFactor / 1000.
+%                        internal_risk = Imp * corrected_group_score * ExploitFactor.
 %
 % The two budgets are entirely independent.  A design can violate one, the
 % other, or both.  The solver enforces them as separate hard constraints.
@@ -109,14 +109,14 @@ exploit_factor(C, F) :- exploitability(C, E), exploit_factor_map(E, F).
 exploit_factor(C, 10) :- component(C), not exploitability(C, _).
 
 % --- Multiplicative residual risk per component (all CIA action types) ---
-% Risk = Impact * Exposure * Realtime * ExploitFactor / 100.
+% Risk is tracked internally in milli-risk units to avoid truncation loss.
 original_register_risk(C, R, Action, Risk) :-
     component(C), asset(C, R, Action),
     impact(R, Action, Imp),
     exposure_score(C, V),
     realtime_score(C, L),
     exploit_factor(C, EF),
-    Risk = Imp * V * L * EF / 100.
+    Risk = Imp * V * L * EF * 10.
 
 % --- Precomputed residual-score lookup ---
 % Deterministic score math is emitted by Python as prob_lookup/5 so Clingo
@@ -266,7 +266,7 @@ avail_risk(C, R, Action, Risk) :-
     impact(R, Action, Imp),
     corrected_prob_denormalized(C, P),
     exploit_factor(C, EF),
-    Risk = Imp * P * EF / 1000.
+    Risk = Imp * P * EF.
 
 group_state(G, Stage, State) :-
     preprocessed_group_transitions,
@@ -312,13 +312,13 @@ new_risk(C, R, A, Risk) :- avail_risk(C, R, A, Risk).
 % Enforces the multiplicative cap on non-redundant components only.
 :- security_risk(_, _, _, Risk),
    system_capability(max_security_risk, Cap),
-   Risk > Cap.
+   Risk > Cap * 1000.
 
 % --- Availability risk budget (hard constraint) ---
 % Enforces the probabilistic cap on redundant group members.
 :- avail_risk(_, _, _, Risk),
    system_capability(max_avail_risk, Cap),
-   Risk > Cap.
+   Risk > Cap * 1000.
 
 % --- Minimise total weighted asset risk ---
 % When risk_weight/2 facts are present (emitted by ASPGenerator), the objective

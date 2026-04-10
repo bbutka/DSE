@@ -162,18 +162,21 @@ class Phase2Agent:
     def _phase2_objective_facts(self) -> str:
         """Return optional objective-tuning facts injected into the encoding."""
         objective = self.solver_config.get("phase2_objective")
-        if objective != "control_plane":
-            return ""
+        lines: list = []
 
-        lines = ["phase2_resilience_mode(control_plane)."]
-        if "phase2_safety_fw_penalty_weight" in self.solver_config:
-            lines.append(
-                f"phase2_safety_fw_penalty_weight({int(self.solver_config['phase2_safety_fw_penalty_weight'])})."
-            )
-        if "phase2_concentration_penalty_weight" in self.solver_config:
-            lines.append(
-                f"phase2_concentration_penalty_weight({int(self.solver_config['phase2_concentration_penalty_weight'])})."
-            )
+        if objective == "control_plane":
+            lines.append("phase2_resilience_mode(control_plane).")
+            if "phase2_safety_fw_penalty_weight" in self.solver_config:
+                lines.append(
+                    f"phase2_safety_fw_penalty_weight({int(self.solver_config['phase2_safety_fw_penalty_weight'])})."
+                )
+            if "phase2_concentration_penalty_weight" in self.solver_config:
+                lines.append(
+                    f"phase2_concentration_penalty_weight({int(self.solver_config['phase2_concentration_penalty_weight'])})."
+                )
+        elif objective == "max_coverage":
+            lines.append("phase2_coverage_mode(max_coverage).")
+
         return "\n".join(lines)
 
     def _diagnose_unsat(self, lp_files: list, all_extra: str) -> str:
@@ -253,6 +256,21 @@ class Phase2Agent:
             issues.append(
                 "zero policy server candidates: the encoding requires at "
                 "least one cand_ps fact. Add a policy server to the topology."
+            )
+
+        # Test 5: Check for insufficient PS candidates vs min_ps_count
+        relax_min_ps = (
+            all_extra + "\n"
+            "% DIAG: override min_ps_count to 1\n"
+            "min_ps_required(1).\n"
+        )
+        r5 = runner.solve(lp_files=lp_files, extra_facts=relax_min_ps,
+                          num_solutions=1, opt_mode="opt")
+        if r5["status"] == "SAT":
+            issues.append(
+                "min_ps_count constraint: fewer policy server candidates than "
+                "the required minimum. Reduce min_ps_count in system_caps or "
+                "add more policy server candidates to the topology."
             )
 
         if issues:

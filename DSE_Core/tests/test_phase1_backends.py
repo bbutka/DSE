@@ -29,6 +29,7 @@ from ip_catalog.xilinx_ip_catalog import (
     EXPLOIT_FACTOR_MAP,
     EXPOSURE_VALUES,
     REALTIME_DETECTION_VALUES,
+    phase1_prob_lookup_entry,
     get_calibrated_estimate,
 )
 
@@ -81,9 +82,7 @@ def _write_minimal_phase1_catalog(filepath: str) -> Path:
     realtime = "no_realtime"
     sec_est = get_calibrated_estimate(security)
     rt_est = get_calibrated_estimate(realtime)
-    raw_score = int(EXPOSURE_VALUES[security]) * int(REALTIME_DETECTION_VALUES[realtime])
-    normalized = ((raw_score - 25) * 1000) // 975
-    denormalized = (normalized * 975) // 1000 + 250
+    raw_score, normalized, denormalized = phase1_prob_lookup_entry(security, realtime)
     lines = [
         "% Minimal catalog for Phase 1 backend parity tests",
         f"security_feature({security}).",

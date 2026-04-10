@@ -87,6 +87,14 @@ class AccessNeed:
 
 
 @dataclass
+class TransitionTrigger:
+    """A mode transition trigger for the ZTA security mode ladder."""
+    condition: str   # e.g. anomaly_detected, attestation_failure, intrusion_confirmed
+    from_mode: str   # normal | attack_suspected | attack_confirmed
+    to_mode: str     # normal | attack_suspected | attack_confirmed
+
+
+@dataclass
 class MissionCapability:
     """
     A high-level mission function that the SoC must perform.
@@ -106,9 +114,9 @@ class MissionCapability:
         (master, component, operation) access paths that must be functional
         (component alive, reachable, not cut off).
     criticality : str
-        ``"essential"`` â€” system cannot operate without it;
-        ``"important"`` â€” degraded operation possible;
-        ``"optional"``  â€” nice-to-have.
+        ``"essential"``  --  system cannot operate without it;
+        ``"important"``  --  degraded operation possible;
+        ``"optional"``   --  nice-to-have.
     mission_phases : list[str]
         Phases in which this capability is needed (empty = all phases).
     """
@@ -189,6 +197,7 @@ class NetworkModel:
         "max_security_risk": 50,   # multiplicative cap: non-redundant components
         "max_avail_risk":    20,   # probabilistic cap: redundant groups
         "redundancy_beta_pct": 0,  # common-cause correction: 0 = independence-only
+        "min_ps_count":       1,   # Phase 2: minimum policy servers (1 = no redundancy)
         "max_attack_depth":   5,   # Phase 3 attack-path search depth
     })
     cand_fws: List[str] = field(default_factory=list)
@@ -206,6 +215,7 @@ class NetworkModel:
     trust_anchors: Dict[str, List[str]] = field(default_factory=dict)
     pep_guards: List[Tuple[str, str]] = field(default_factory=list)
     ps_governs_pep: List[Tuple[str, str]] = field(default_factory=list)
+    transition_triggers: List[TransitionTrigger] = field(default_factory=list)
     mission_phases: List[str] = field(default_factory=lambda: [
         "operational", "maintenance", "emergency"
     ])
@@ -287,7 +297,7 @@ class ASPGenerator:
         lines.append(f"% Auto-generated ASP facts for network: {m.name}")
         lines.append("")
 
-        # â”€â”€ Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Components -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Components")
         ip_comps = [c for c in m.components
                     if c.comp_type not in ("bus",) and not c.is_master]
@@ -299,7 +309,7 @@ class ASPGenerator:
 
         lines.append("")
 
-        # â”€â”€ Assets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Assets -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         # Use explicit asset list if provided; otherwise auto-generate one
         # asset per component using its direction field.
         lines.append("% Assets")
@@ -331,7 +341,7 @@ class ASPGenerator:
 
         lines.append("")
 
-        # â”€â”€ Impact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Impact -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Asset impact values (C = read, I = write, A = avail)")
         for a in asset_list:
             if a.direction in ("input", "bidirectional"):
@@ -343,7 +353,7 @@ class ASPGenerator:
 
         lines.append("")
 
-        # â”€â”€ Latency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Latency -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Allowable latency per asset")
         for a in asset_list:
             if a.direction in ("input", "bidirectional"):
@@ -353,7 +363,7 @@ class ASPGenerator:
 
         lines.append("")
 
-        # â”€â”€ Redundancy groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Redundancy groups -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Redundancy groups")
         for grp in m.redundancy_groups:
             gid = grp.group_id
@@ -367,8 +377,8 @@ class ASPGenerator:
 
         lines.append("")
 
-        # â”€â”€ ZTA Topology â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        lines.append("% ZTA topology â€” masters, receivers, buses, links")
+        # -€-€ ZTA Topology -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+        lines.append("% ZTA topology - masters, receivers, buses, links")
         for c in masters:
             lines.append(f"master({c.name}).")
         for c in ip_comps:
@@ -387,14 +397,14 @@ class ASPGenerator:
             lines.append(f"reachable({master}, {receiver}).")
         lines.append("")
 
-        # â”€â”€ Trust domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Trust domains -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Trust domains (untrusted=0 | low=0 | normal=1 | privileged=2 | high=3 | root=3)")
         for c in m.components:
             if c.comp_type not in ("bus",):
                 lines.append(f"domain({c.name}, {c.domain}).")
         lines.append("")
 
-        # â”€â”€ Exploitability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Exploitability -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Exploitability: 1=hard, 3=neutral, 5=trivial (default 3 when omitted)")
         lines.append("% Phase 1 emits receiver-side exploitability only; masters drive scenarios but do not carry Phase 1 assets.")
         for c in ip_comps:
@@ -409,7 +419,7 @@ class ASPGenerator:
                 lines.append(f"audit_capability({c.name}, {self._audit_capability(c)}).")
         lines.append("")
 
-        # â”€â”€ Critical components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Critical components -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Critical and safety-critical IPs")
         for c in ip_comps:
             if c.is_critical and c.comp_type not in ("policy_server", "firewall", "bus"):
@@ -419,7 +429,7 @@ class ASPGenerator:
                 lines.append(f"safety_critical({c.name}).")
         lines.append("")
 
-        # â”€â”€ Firewall / PS candidates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Firewall / PS candidates -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Candidate firewalls and policy servers")
         for fw in m.cand_fws:
             lines.append(f"cand_fw({fw}).")
@@ -427,7 +437,7 @@ class ASPGenerator:
             lines.append(f"cand_ps({ps}).")
         lines.append("")
 
-        # â”€â”€ On-path and ip_loc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ On-path and ip_loc -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% On-path and ip_loc facts")
         for fw, master, ip in m.on_paths:
             lines.append(f"on_path({fw}, {master}, {ip}).")
@@ -435,13 +445,13 @@ class ASPGenerator:
             lines.append(f"ip_loc({ip}, {fw}).")
         lines.append("")
 
-        # â”€â”€ FW governance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ FW governance -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Firewall governance by policy server")
         for ps, pep in m.fw_governs:
             lines.append(f"governs({ps}, {pep}).")
         lines.append("")
 
-        # â”€â”€ Hardware costs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Hardware costs -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Hardware costs")
         for fw, cost in m.fw_costs.items():
             lines.append(f"fw_cost({fw}, {cost}).")
@@ -449,31 +459,31 @@ class ASPGenerator:
             lines.append(f"ps_cost({ps}, {cost}).")
         lines.append("")
 
-        # â”€â”€ System capabilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ System capabilities -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% System capabilities (resource budgets)")
         for cap, val in m.system_caps.items():
             lines.append(f"system_capability({cap}, {val}).")
         lines.append("")
 
-        # â”€â”€ Allow rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Allow rules -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Explicit allow rules (normal mode)")
         for master, comp, mode in m.allow_rules:
             lines.append(f"allow({master}, {comp}, {mode}).")
         lines.append("")
 
-        # â”€â”€ Access needs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Access needs -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Least-privilege access needs")
         for an in m.access_needs:
             lines.append(f"access_need({an.master}, {an.component}, {an.operation}).")
         lines.append("")
 
-        # â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Roles -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Subject roles")
         for master, role in m.roles:
             lines.append(f"role({master}, {role}).")
         lines.append("")
 
-        # â”€â”€ Policy exceptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Policy exceptions -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         if m.policy_exceptions:
             lines.append("% Policy exceptions")
             for exc in m.policy_exceptions:
@@ -481,7 +491,7 @@ class ASPGenerator:
                 lines.append(f"policy_exception({master}, {comp}, {op}, {mode}, reason({reason})).")
             lines.append("")
 
-        # â”€â”€ Trust anchors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Trust anchors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Trust anchors and attestation")
         for comp, anchors in m.trust_anchors.items():
             if "rot" in anchors:
@@ -498,7 +508,7 @@ class ASPGenerator:
                 lines.append(f"trusted_telemetry({comp}).")
         lines.append("")
 
-        # â”€â”€ Services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Services -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Services")
         for svc in m.services:
             for member in svc.members:
@@ -506,7 +516,7 @@ class ASPGenerator:
             lines.append(f"service_quorum({svc.name}, {svc.quorum}).")
         lines.append("")
 
-        # â”€â”€ Control plane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Control plane -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Control plane")
         for ps in m.cand_ps:
             lines.append(f"policy_server({ps}).")
@@ -518,13 +528,22 @@ class ASPGenerator:
             lines.append(f"ps_governs_pep({ps}, {pep}).")
         lines.append("")
 
-        # â”€â”€ Mission phases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Mission phases -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         lines.append("% Mission phases")
         for phase in m.mission_phases:
             lines.append(f"mission_phase({phase}).")
         lines.append("")
 
-        # â”€â”€ Mission access rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Mode transition triggers
+        if m.transition_triggers:
+            lines.append("% Mode transition triggers")
+            for tt in m.transition_triggers:
+                lines.append(
+                    f"transition_trigger({tt.condition}, {tt.from_mode}, {tt.to_mode})."
+                )
+            lines.append("")
+
+        # -€-€ Mission access rules -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         # Derive primary processor and DMA master from topology for mission rules
         primary_proc = next((c.name for c in masters if c.comp_type == "processor"), None)
         dma_master = next((c.name for c in masters if c.comp_type == "dma"), None)
@@ -541,7 +560,7 @@ class ASPGenerator:
             lines.append("mission_access(M, C, read, emergency) :- master(M), receiver(C), access_need(M, C, read).")
         lines.append("")
 
-        # â”€â”€ Role needs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Role needs -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         # Derive from model roles and topology instead of hardcoding TC9 names
         lines.append("% Role-level access needs")
         if m.role_need_rules:
@@ -558,7 +577,7 @@ class ASPGenerator:
                     lines.append(f"role_need({dma_role}, C, write) :- receiver(C).")
         lines.append("")
 
-        # â”€â”€ Static risk weights (amplification proxy for Phase 1 objective) â”€â”€
+        # -€-€ Static risk weights (amplification proxy for Phase 1 objective) -€-€
         # risk_weight(Asset, W): integer weight in [10, 50] derived from topology.
         # Phase 1 #minimize uses Risk * W so the solver prioritises reducing risk
         # on assets that scenario analysis will amplify most.
@@ -618,7 +637,7 @@ class ASPGenerator:
                     lines.append(f"risk_weight({a.asset_id}, {weight}).")
         lines.append("")
 
-        # â”€â”€ Mission capabilities (functional resilience) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -€-€ Mission capabilities (functional resilience) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
         if m.capabilities:
             lines.append("% Mission capabilities")
             for cap in m.capabilities:
@@ -752,7 +771,7 @@ def make_tc9_network() -> NetworkModel:
     """
     model = NetworkModel(name="testCase9")
 
-    # â”€â”€ Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Components -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.components = [
         Component("sys_cpu", "processor",     "low",  1, 1, 1000, 1000,
                   has_attest=True, is_master=True, is_receiver=False),
@@ -781,10 +800,10 @@ def make_tc9_network() -> NetworkModel:
                   is_receiver=False),
     ]
 
-    # â”€â”€ Buses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Buses -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.buses = ["noc0", "noc1"]
 
-    # â”€â”€ Links â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Links -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.links = [
         ("sys_cpu", "noc0"),
         ("dma",     "noc0"),
@@ -794,19 +813,19 @@ def make_tc9_network() -> NetworkModel:
         ("noc1", "c6"), ("noc1", "c7"), ("noc1", "c8"),
     ]
 
-    # â”€â”€ Redundancy groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Redundancy groups -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.redundancy_groups = [
         RedundancyGroup("g1", ["c1", "c2", "c3", "c4", "c5"])
     ]
 
-    # â”€â”€ Services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Services -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.services = [
         Service("compute_svc", ["c1","c2","c3","c4","c5"], 3),
         Service("monitor_svc", ["c6"], 1),
         Service("io_svc",      ["c8"], 1),
     ]
 
-    # â”€â”€ Access needs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Access needs -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.access_needs = [
         AccessNeed("sys_cpu", "c1", "read"),  AccessNeed("sys_cpu", "c1", "write"),
         AccessNeed("sys_cpu", "c2", "read"),  AccessNeed("sys_cpu", "c2", "write"),
@@ -821,7 +840,7 @@ def make_tc9_network() -> NetworkModel:
         AccessNeed("dma", "c8", "read"),
     ]
 
-    # â”€â”€ System capabilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ System capabilities -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.system_caps = {
         "max_power":      15000,
         "max_luts":       53200,
@@ -835,24 +854,24 @@ def make_tc9_network() -> NetworkModel:
         "max_attack_depth":   5,   # Phase 3 attack-path search depth
     }
 
-    # â”€â”€ Candidates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Candidates -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.cand_fws = ["pep_group", "pep_standalone"]
     model.cand_ps  = ["ps0", "ps1"]
 
-    # â”€â”€ On-path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ On-path -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for c in ["c1","c2","c3","c4","c5"]:
         model.on_paths.append(("pep_group", "sys_cpu", c))
         model.on_paths.append(("pep_group", "dma",     c))
     for c in ["c6","c7","c8"]:
         model.on_paths.append(("pep_standalone", "dma", c))
 
-    # â”€â”€ ip_loc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ ip_loc -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for c in ["c1","c2","c3","c4","c5"]:
         model.ip_locs.append((c, "pep_group"))
     for c in ["c6","c7","c8"]:
         model.ip_locs.append((c, "pep_standalone"))
 
-    # â”€â”€ Governance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Governance -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.fw_governs = [
         ("ps0", "pep_group"), ("ps0", "pep_standalone"),
         ("ps1", "pep_group"),
@@ -860,22 +879,22 @@ def make_tc9_network() -> NetworkModel:
     model.fw_costs = {"pep_group": 150, "pep_standalone": 100}
     model.ps_costs = {"ps0": 200, "ps1": 180}
 
-    # â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Roles -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.roles = [("sys_cpu", "processor"), ("dma", "data_mover")]
 
-    # â”€â”€ Allow rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Allow rules -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for c in ["c1","c2","c3","c4","c5"]:
         model.allow_rules.append(("sys_cpu", c, "normal"))
         model.allow_rules.append(("dma",     c, "normal"))
     for c in ["c6","c7","c8"]:
         model.allow_rules.append(("dma", c, "normal"))
 
-    # â”€â”€ Policy exceptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Policy exceptions -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.policy_exceptions = [
         ("dma", "c7", "write", "maintenance", "firmware_update")
     ]
 
-    # â”€â”€ Trust anchors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Trust anchors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.trust_anchors = {
         "sys_cpu": ["attest", "trusted_telemetry"],
         "c1":      ["rot", "sboot", "key_storage", "trusted_telemetry"],
@@ -886,19 +905,19 @@ def make_tc9_network() -> NetworkModel:
         "ps0":     ["signed_policy"],
     }
 
-    # â”€â”€ PEP guards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ PEP guards -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for c in ["c1","c2","c3","c4","c5"]:
         model.pep_guards.append(("pep_group", c))
     for c in ["c6","c7","c8"]:
         model.pep_guards.append(("pep_standalone", c))
 
-    # â”€â”€ PS governs PEP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ PS governs PEP -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.ps_governs_pep = [
         ("ps0", "pep_group"), ("ps0", "pep_standalone"),
         ("ps1", "pep_group"),
     ]
 
-    # â”€â”€ Mission capabilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Mission capabilities -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.capabilities = [
         MissionCapability(
             name="compute",
@@ -1555,14 +1574,14 @@ def make_pixhawk6x_platform() -> NetworkModel:
 
     # Bus topology notes (verified against PX4-Autopilot FMUv6X source):
     #
-    # IMU buses — TRUE physical isolation.
+    # IMU buses  --  TRUE physical isolation.
     #   spi.cpp confirms each ICM-45686 on a dedicated SPI peripheral:
     #     imu_bus_1 → SPI1 (CS: PI9,  DRDY: PF2)
     #     imu_bus_2 → SPI2 (CS: PH5,  DRDY: PA10)
     #     imu_bus_3 → SPI3 (CS: PI4,  DRDY: PI7)
     #   A single SPI peripheral failure affects only one IMU.
     #
-    # Barometer buses — separate via internal/external I2C split.
+    # Barometer buses  --  separate via internal/external I2C split.
     #   i2c.cpp defines only ONE internal I2C bus (bus 4, hardware I2C4).
     #   rc.board_sensors shows the Pixhawk 6X runs one baro internally
     #   (ICP-201xx at 0x64 or BMP388 at 0x77, variant-dependent) on I2C
@@ -2002,7 +2021,7 @@ def make_pixhawk6x_dual_ps_network() -> NetworkModel:
 
 
 # ---------------------------------------------------------------------------
-# Reference SoC factory — exercises every DSE tool feature
+# Reference SoC factory  --  exercises every DSE tool feature
 # ---------------------------------------------------------------------------
 
 def make_reference_soc() -> NetworkModel:
@@ -2027,47 +2046,47 @@ def make_reference_soc() -> NetworkModel:
     Topology
     --------
     Masters:
-      arm_a53     â€” App processor, privileged, RoT+sboot+attest, exploitability=2
-      arm_m4      â€” RT processor, normal, sboot only, exploitability=3
-      dma0        â€” DMA controller, normal, exploitability=4 (DMA attack class)
+      arm_a53      --  App processor, privileged, RoT+sboot+attest, exploitability=2
+      arm_m4       --  RT processor, normal, sboot only, exploitability=3
+      dma0         --  DMA controller, normal, exploitability=4 (DMA attack class)
 
     Buses:
-      axi_main    â€” Primary AXI interconnect
-      axi_sec     â€” Secure AXI segment (crypto, NVRAM)
-      apb_periph  â€” APB peripheral bus (sensors, GPIO, debug)
+      axi_main     --  Primary AXI interconnect
+      axi_sec      --  Secure AXI segment (crypto, NVRAM)
+      apb_periph   --  APB peripheral bus (sensors, GPIO, debug)
 
     IP Cores:
-      crypto_eng  â€” Crypto accelerator, root, safety-critical, exploit=1
-      sensor_a    â€” Temp sensor, input, normal, avail=4 (redundant group)
-      sensor_b    â€” Pressure sensor, input, normal, avail=4 (redundant group)
-      sensor_c    â€” Voltage monitor, input, normal, avail=3 (redundant group)
-      actuator    â€” Motor/PWM controller, output, privileged, safety-critical
-      comm_eth    â€” Ethernet interface, bidirectional, untrusted, exploit=5
-      watchdog    â€” Watchdog timer, privileged, avail=5, low C/I
-      nvram       â€” Non-volatile storage, privileged, high C/I
-      gpio        â€” GPIO block, bidirectional, low domain
-      debug_jtag  â€” Debug port, untrusted, exploit=5
+      crypto_eng   --  Crypto accelerator, root, safety-critical, exploit=1
+      sensor_a     --  Temp sensor, input, normal, avail=4 (redundant group)
+      sensor_b     --  Pressure sensor, input, normal, avail=4 (redundant group)
+      sensor_c     --  Voltage monitor, input, normal, avail=3 (redundant group)
+      actuator     --  Motor/PWM controller, output, privileged, safety-critical
+      comm_eth     --  Ethernet interface, bidirectional, untrusted, exploit=5
+      watchdog     --  Watchdog timer, privileged, avail=5, low C/I
+      nvram        --  Non-volatile storage, privileged, high C/I
+      gpio         --  GPIO block, bidirectional, low domain
+      debug_jtag   --  Debug port, untrusted, exploit=5
 
     Firewalls:
-      fw_secure   â€” Guards axi_sec segment (crypto, nvram)
-      fw_periph   â€” Guards apb_periph (sensors, gpio, debug, watchdog)
+      fw_secure    --  Guards axi_sec segment (crypto, nvram)
+      fw_periph    --  Guards apb_periph (sensors, gpio, debug, watchdog)
 
     Policy Servers:
-      ps_main     â€” Primary PS, signed policy
-      ps_backup   â€” Backup PS
+      ps_main      --  Primary PS, signed policy
+      ps_backup    --  Backup PS
 
     Redundancy:
       Group g1: sensor_a, sensor_b, sensor_c (triple-redundant)
 
     Services:
-      sensor_svc  â€” {sensor_a, sensor_b, sensor_c}, quorum=2
-      control_svc â€” {actuator, watchdog}, quorum=2
-      comms_svc   â€” {comm_eth}, quorum=1
-      crypto_svc  â€” {crypto_eng}, quorum=1
+      sensor_svc   --  {sensor_a, sensor_b, sensor_c}, quorum=2
+      control_svc  --  {actuator, watchdog}, quorum=2
+      comms_svc    --  {comm_eth}, quorum=1
+      crypto_svc   --  {crypto_eng}, quorum=1
     """
     model = NetworkModel(name="SecureSoC-16")
 
-    # â”€â”€ Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Components -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     # Component(name, type, domain, imp_r, imp_w, lat_r, lat_w, impact_avail, exploitability, ...)
     model.components = [
         # Masters
@@ -2136,17 +2155,17 @@ def make_reference_soc() -> NetworkModel:
                   is_receiver=False),
     ]
 
-    # â”€â”€ Buses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Buses -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.buses = ["axi_main", "axi_sec", "apb_periph"]
 
-    # â”€â”€ Links (topology) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    #   arm_a53 â”€â”€â”€ axi_main â”€â”¬â”€ axi_sec â”€â”€â”€â”€ crypto_eng
-    #   arm_m4  â”€â”€â”€â”˜           â”‚                nvram
-    #   dma0    â”€â”€â”€â”˜           â”‚
-    #                          â”œâ”€ apb_periph â”€â”€ sensor_a, sensor_b, sensor_c
-    #                          â”‚                actuator, watchdog, gpio
-    #                          â”‚                debug_jtag
-    #                          â””â”€ comm_eth (directly on main bus)
+    # -€-€ Links (topology) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    #   arm_a53 -€-€-€ axi_main -€-¬-€ axi_sec -€-€-€-€ crypto_eng
+    #   arm_m4  -€-€-€-˜           -‚                nvram
+    #   dma0    -€-€-€-˜           -‚
+    #                          -œ-€ apb_periph -€-€ sensor_a, sensor_b, sensor_c
+    #                          -‚                actuator, watchdog, gpio
+    #                          -‚                debug_jtag
+    #                          -"-€ comm_eth (directly on main bus)
     model.links = [
         # Masters to main bus
         ("arm_a53", "axi_main"),
@@ -2169,12 +2188,12 @@ def make_reference_soc() -> NetworkModel:
         ("axi_main", "comm_eth"),
     ]
 
-    # â”€â”€ Redundancy groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Redundancy groups -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.redundancy_groups = [
         RedundancyGroup("g1", ["sensor_a", "sensor_b", "sensor_c"]),
     ]
 
-    # â”€â”€ Services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Services -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.services = [
         Service("sensor_svc",  ["sensor_a", "sensor_b", "sensor_c"], 2),
         Service("control_svc", ["actuator", "watchdog"], 2),
@@ -2182,7 +2201,7 @@ def make_reference_soc() -> NetworkModel:
         Service("crypto_svc",  ["crypto_eng"], 1),
     ]
 
-    # â”€â”€ Access needs (least-privilege declarations) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Access needs (least-privilege declarations) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.access_needs = [
         # arm_a53: app processor reads sensors, manages crypto and NVRAM
         AccessNeed("arm_a53", "sensor_a",  "read"),
@@ -2200,7 +2219,7 @@ def make_reference_soc() -> NetworkModel:
         AccessNeed("arm_m4", "sensor_c", "read"),
         AccessNeed("arm_m4", "actuator",  "write"),
         AccessNeed("arm_m4", "watchdog",  "write"),
-        # dma0: bulk transfers â€” sensor data to NVRAM, NVRAM to comm
+        # dma0: bulk transfers  --  sensor data to NVRAM, NVRAM to comm
         AccessNeed("dma0", "sensor_a", "read"),
         AccessNeed("dma0", "sensor_b", "read"),
         AccessNeed("dma0", "sensor_c", "read"),
@@ -2210,7 +2229,7 @@ def make_reference_soc() -> NetworkModel:
         # â†’ these will appear as excess_privilege in Phase 2 analysis
     ]
 
-    # â”€â”€ System capabilities (PYNQ-Z2 xc7z020) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ System capabilities (PYNQ-Z2 xc7z020) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.system_caps = {
         "max_power":         15000,
         "max_luts":          53200,
@@ -2224,11 +2243,11 @@ def make_reference_soc() -> NetworkModel:
         "max_attack_depth":     8,  # larger topology benefits from deeper reachability analysis
     }
 
-    # â”€â”€ Candidate firewalls and policy servers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Candidate firewalls and policy servers -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.cand_fws = ["fw_secure", "fw_periph", "fw_comm"]
     model.cand_ps  = ["ps_main", "ps_backup"]
 
-    # â”€â”€ On-path relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ On-path relationships -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     # fw_secure guards axi_sec segment
     for ip in ["crypto_eng", "nvram"]:
         for master in ["arm_a53", "arm_m4", "dma0"]:
@@ -2244,7 +2263,7 @@ def make_reference_soc() -> NetworkModel:
     for master in ["arm_a53", "arm_m4", "dma0"]:
         model.on_paths.append(("fw_comm", master, "comm_eth"))
 
-    # â”€â”€ ip_loc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ ip_loc -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for ip in ["crypto_eng", "nvram"]:
         model.ip_locs.append((ip, "fw_secure"))
     for ip in ["sensor_a", "sensor_b", "sensor_c",
@@ -2252,7 +2271,7 @@ def make_reference_soc() -> NetworkModel:
         model.ip_locs.append((ip, "fw_periph"))
     model.ip_locs.append(("comm_eth", "fw_comm"))
 
-    # â”€â”€ Governance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Governance -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.fw_governs = [
         ("ps_main",   "fw_secure"),
         ("ps_main",   "fw_periph"),
@@ -2262,19 +2281,19 @@ def make_reference_soc() -> NetworkModel:
     model.fw_costs = {"fw_secure": 200, "fw_periph": 150, "fw_comm": 120}
     model.ps_costs = {"ps_main": 220, "ps_backup": 180}
 
-    # â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Roles -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.roles = [
         ("arm_a53", "app_processor"),
         ("arm_m4",  "rt_controller"),
         ("dma0",    "data_mover"),
     ]
 
-    # â”€â”€ Allow rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Allow rules -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     # Normal-mode allows derived from access_needs
     for an in model.access_needs:
         model.allow_rules.append((an.master, an.component, "normal"))
 
-    # â”€â”€ Policy exceptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Policy exceptions -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.policy_exceptions = [
         # Debug access allowed in maintenance mode only
         ("arm_a53", "debug_jtag", "read",  "maintenance", "hw_debug"),
@@ -2285,7 +2304,7 @@ def make_reference_soc() -> NetworkModel:
         ("arm_a53", "actuator",   "write", "emergency",   "emergency_override"),
     ]
 
-    # â”€â”€ Trust anchors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Trust anchors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.trust_anchors = {
         "arm_a53":    ["rot", "sboot", "attest", "key_storage"],
         "arm_m4":     ["sboot"],
@@ -2296,7 +2315,7 @@ def make_reference_soc() -> NetworkModel:
         "ps_main":    ["signed_policy", "key_storage"],
     }
 
-    # â”€â”€ PEP guards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ PEP guards -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     for ip in ["crypto_eng", "nvram"]:
         model.pep_guards.append(("fw_secure", ip))
     for ip in ["sensor_a", "sensor_b", "sensor_c",
@@ -2304,7 +2323,7 @@ def make_reference_soc() -> NetworkModel:
         model.pep_guards.append(("fw_periph", ip))
     model.pep_guards.append(("fw_comm", "comm_eth"))
 
-    # â”€â”€ PS governs PEP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ PS governs PEP -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.ps_governs_pep = [
         ("ps_main",   "fw_secure"),
         ("ps_main",   "fw_periph"),
@@ -2312,7 +2331,7 @@ def make_reference_soc() -> NetworkModel:
         ("ps_backup", "fw_secure"),
     ]
 
-    # â”€â”€ Mission capabilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -€-€ Mission capabilities -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
     model.capabilities = [
         MissionCapability(
             name="sensor_fusion",

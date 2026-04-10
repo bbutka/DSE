@@ -2,9 +2,9 @@
   "description": "Pixhawk 6X UAV non-runtime golden baselines captured from the current integrated DSE_Core solver path.",
   "max_security": {
     "satisfiable": true,
-    "total_risk": 236,
-    "total_luts": 22110,
-    "total_power": 446,
+    "total_risk": 12637500,
+    "total_luts": 26410,
+    "total_power": 535,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_telem1"
@@ -13,13 +13,13 @@
       "ps_fmu"
     ],
     "phase3_scenario_count": 118,
-    "phase3_worst_case_risk_scaled": 3247
+    "phase3_worst_case_risk_scaled": 3190500
   },
   "min_resources": {
     "satisfiable": true,
-    "total_risk": 600,
-    "total_luts": 17250,
-    "total_power": 338,
+    "total_risk": 31929690,
+    "total_luts": 9890,
+    "total_power": 198,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_telem1"
@@ -28,13 +28,13 @@
       "ps_fmu"
     ],
     "phase3_scenario_count": 118,
-    "phase3_worst_case_risk_scaled": 9380
+    "phase3_worst_case_risk_scaled": 9248630
   },
   "balanced": {
     "satisfiable": true,
-    "total_risk": 236,
-    "total_luts": 21390,
-    "total_power": 432,
+    "total_risk": 12637500,
+    "total_luts": 26410,
+    "total_power": 535,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_telem1"
@@ -43,6 +43,8 @@
       "ps_fmu"
     ],
     "phase3_scenario_count": 118,
-    "phase3_worst_case_risk_scaled": 3280
-  }
+    "phase3_worst_case_risk_scaled": 3190500
+  },
+  "risk_units": "milli",
+  "generated_by": "tools/regenerate_phase1_golden_fixtures.py"
 }

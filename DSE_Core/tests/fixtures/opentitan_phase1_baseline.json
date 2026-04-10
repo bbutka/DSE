@@ -2,20 +2,22 @@
   "description": "OpenTitan Phase 1 golden baselines captured from the deterministic CP-SAT math-optimization path in the integrated DSE_Core package.",
   "OT-A": {
     "satisfiable": true,
-    "total_risk": 247,
-    "total_luts": 31320,
-    "total_power": 638
+    "total_risk": 10977500,
+    "total_luts": 31610,
+    "total_power": 643
   },
   "OT-B": {
     "satisfiable": true,
-    "total_risk": 315,
-    "total_luts": 24930,
-    "total_power": 507
+    "total_risk": 13237370,
+    "total_luts": 25000,
+    "total_power": 509
   },
   "OT-C": {
     "satisfiable": true,
-    "total_risk": 247,
-    "total_luts": 30350,
-    "total_power": 615
-  }
+    "total_risk": 10977500,
+    "total_luts": 31610,
+    "total_power": 643
+  },
+  "risk_units": "milli",
+  "generated_by": "tools/regenerate_phase1_golden_fixtures.py"
 }

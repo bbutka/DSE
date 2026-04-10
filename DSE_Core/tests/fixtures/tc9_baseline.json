@@ -2,9 +2,9 @@
   "description": "TC9 non-runtime golden baselines captured from the current integrated DSE_Core solver path.",
   "max_security": {
     "satisfiable": true,
-    "total_risk": 106,
-    "total_luts": 7260,
-    "total_power": 148,
+    "total_risk": 4512500,
+    "total_luts": 7420,
+    "total_power": 153,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_group",
@@ -14,13 +14,13 @@
       "ps0"
     ],
     "phase3_scenario_count": 31,
-    "phase3_worst_case_risk_scaled": 2650
+    "phase3_worst_case_risk_scaled": 2687500
   },
   "min_resources": {
     "satisfiable": true,
-    "total_risk": 193,
-    "total_luts": 7140,
-    "total_power": 138,
+    "total_risk": 9317750,
+    "total_luts": 4070,
+    "total_power": 83,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_group",
@@ -29,14 +29,14 @@
     "placed_ps": [
       "ps0"
     ],
-    "phase3_scenario_count": 29,
-    "phase3_worst_case_risk_scaled": 4825
+    "phase3_scenario_count": 31,
+    "phase3_worst_case_risk_scaled": 5700250
   },
   "balanced": {
     "satisfiable": true,
-    "total_risk": 106,
-    "total_luts": 8950,
-    "total_power": 177,
+    "total_risk": 4512500,
+    "total_luts": 7420,
+    "total_power": 153,
     "phase2_satisfiable": true,
     "placed_fws": [
       "pep_group",
@@ -45,7 +45,9 @@
     "placed_ps": [
       "ps0"
     ],
-    "phase3_scenario_count": 29,
-    "phase3_worst_case_risk_scaled": 2650
-  }
+    "phase3_scenario_count": 31,
+    "phase3_worst_case_risk_scaled": 2687500
+  },
+  "risk_units": "milli",
+  "generated_by": "tools/regenerate_phase1_golden_fixtures.py"
 }
