@@ -67,6 +67,10 @@
 - Resilience score = 40% blast radius + 40% capability retention + 20% control plane health (3-axis). When function-support data is present, switches to 4-axis: 35% blast radius + 30% capability retention + 20% control plane health + 15% function diversity.
 - `FunctionSupport` (asp_generator.py): Cross-service functional contribution with modality metadata. Fields: function, component, modality, quality (0-100), bus. Used by the Python Phase 3 evaluator (`phase3_fast_agent.py`) for diversity-aware ok/degraded/lost assessment.
 - **Known parity gap**: Python Phase 3 ignores trust-level amplification (`_trust_amp` returns 0) because Phase 2 does not serialize `p2_trust_level` facts. ASP Phase 3 uses ±0.3x amplification. Do not mix Python and ASP Phase 3 results in the same comparison until this is resolved.
+- **Automatic backend routing**: `resolve_phase3_backend()` in `phase3_agent.py` forces Python backend when `function_supports` exist. The orchestrator logs this override. ASP backend silently ignores modality failures.
+- **Architecture seed exploration**: `architecture_space.py` generates seeds from the user's baseline model (not stock factory). All seeds preserve user edits/constraints. Controlled via `generate_architecture_seeds` solver config.
+- **Repair rerun validation**: `validated_improvement_by_full_ase_rerun` status requires both feasibility AND Phase 3 improvement over the repair reevaluation. `feasible_but_worse_after_full_ase_rerun` means Phase 1/2 solved but Phase 3 worst-case risk increased.
+- **Clingo warnings**: Controlled via `DSE_CLINGO_WARN` environment variable (default: `none`). Set to `all` for development/debugging.
 - `SolutionRanker` accepts `max_luts`/`max_power` from `NetworkModel.system_caps`; module-level defaults remain as fallback when caps are absent.
 - `solve_scenario()` respects the ClingoRunner timeout â€” no unbounded solve calls.
 

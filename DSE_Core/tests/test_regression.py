@@ -1698,7 +1698,10 @@ class TestArchitectureRepair(unittest.TestCase):
         orch.architecture_repair_candidates = candidates
         promoted = orch._promote_architecture_repair_candidate()
 
-        self.assertEqual(promoted["promotion_status"], "validated_by_full_ase_rerun")
+        self.assertIn(promoted["promotion_status"], (
+            "validated_improvement_by_full_ase_rerun",
+            "feasible_but_worse_after_full_ase_rerun",
+        ))
         self.assertIn("full_ase_solution", promoted)
         self.assertTrue(promoted["full_ase_solution"].phase1.satisfiable)
         self.assertIs(orch.network_model, model)

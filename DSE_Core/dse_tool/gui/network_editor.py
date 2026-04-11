@@ -3507,8 +3507,14 @@ class _EditScenarioDialog(tk.Toplevel):
             self._fail_e.insert(0, ", ".join(scenario.get("failed", [])))
         self._fail_e.grid(row=2, column=1, padx=4)
 
+        ttk.Label(frm, text="Failed modalities\n(comma-sep):").grid(row=3, column=0, sticky="e", pady=2)
+        self._modality_e = ttk.Entry(frm, width=30)
+        if scenario:
+            self._modality_e.insert(0, ", ".join(scenario.get("failed_modalities", [])))
+        self._modality_e.grid(row=3, column=1, padx=4)
+
         btn_row = ttk.Frame(frm)
-        btn_row.grid(row=3, column=0, columnspan=2, pady=(8, 0))
+        btn_row.grid(row=4, column=0, columnspan=2, pady=(8, 0))
         ttk.Button(btn_row, text="OK",     command=self._ok).pack(side=tk.LEFT, padx=4)
         ttk.Button(btn_row, text="Cancel", command=self.destroy).pack(side=tk.LEFT)
         self.wait_window()
@@ -3516,9 +3522,11 @@ class _EditScenarioDialog(tk.Toplevel):
     def _ok(self) -> None:
         comp_raw = self._comp_e.get().strip()
         fail_raw = self._fail_e.get().strip()
+        mod_raw = self._modality_e.get().strip()
         self.result = {
-            "name":        self._name_e.get().strip() or "scenario",
-            "compromised": [x.strip() for x in comp_raw.split(",") if x.strip()],
-            "failed":      [x.strip() for x in fail_raw.split(",") if x.strip()],
+            "name":              self._name_e.get().strip() or "scenario",
+            "compromised":       [x.strip() for x in comp_raw.split(",") if x.strip()],
+            "failed":            [x.strip() for x in fail_raw.split(",") if x.strip()],
+            "failed_modalities": [x.strip() for x in mod_raw.split(",") if x.strip()],
         }
         self.destroy()

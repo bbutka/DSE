@@ -64,7 +64,7 @@ def generate_pixhawk6x_architecture_seeds(
         ["Cost/weight pressure is represented as removed non-flight-critical hardware."],
     ))
 
-    balanced = make_pixhawk6x_uav_dual_ps_network()
+    balanced = _make_dual_ps_from_baseline(baseline_model)
     balanced.name = "Pixhawk 6X UAV Seed - Balanced Dual PS"
     seeds.append((
         "balanced_dual_ps",
@@ -74,7 +74,7 @@ def generate_pixhawk6x_architecture_seeds(
         ["Balanced seed uses control-plane diversity without adding new sensing modalities."],
     ))
 
-    max_security = _make_security_hardened_seed()
+    max_security = _make_security_hardened_seed(baseline_model)
     seeds.append((
         "max_security",
         "max_security",
@@ -83,7 +83,7 @@ def generate_pixhawk6x_architecture_seeds(
         ["Security bias widens enforcement placement before Phase 2 optimization."],
     ))
 
-    max_resilience = _make_resilience_diverse_seed()
+    max_resilience = _make_resilience_diverse_seed(baseline_model)
     seeds.append((
         "max_resilience",
         "max_resilience",
@@ -116,8 +116,22 @@ def _make_low_resource_seed(baseline: NetworkModel) -> NetworkModel:
     return model
 
 
-def _make_security_hardened_seed() -> NetworkModel:
-    model = make_pixhawk6x_uav_dual_ps_network()
+def _make_dual_ps_from_baseline(baseline: NetworkModel) -> NetworkModel:
+    """Derive a dual-PS variant from the user's baseline rather than the stock factory."""
+    model = deepcopy(baseline)
+    # Add a second policy server if only one exists
+    if not any(ps.startswith("ps_io") for ps in model.cand_ps):
+        _append_unique(model.cand_ps, "ps_io")
+        model.ps_costs.setdefault("ps_io", 200)
+        # Reassign motor/IO firewalls to the new PS
+        for i, (ps, pep) in enumerate(model.ps_governs_pep):
+            if "can" in pep or "io" in pep:
+                model.ps_governs_pep[i] = ("ps_io", pep)
+    return model
+
+
+def _make_security_hardened_seed(baseline: NetworkModel) -> NetworkModel:
+    model = _make_dual_ps_from_baseline(baseline)
     model.name = "Pixhawk 6X UAV Seed - Max Security"
     _add_firewall_candidate(model, "pep_gps1", "gps_1", "ps_fmu", cost=110)
     _add_firewall_candidate(model, "pep_rc", "rc_receiver", "ps_io", cost=120)
@@ -125,8 +139,8 @@ def _make_security_hardened_seed() -> NetworkModel:
     return model
 
 
-def _make_resilience_diverse_seed() -> NetworkModel:
-    model = make_pixhawk6x_uav_dual_ps_network()
+def _make_resilience_diverse_seed(baseline: NetworkModel) -> NetworkModel:
+    model = _make_dual_ps_from_baseline(baseline)
     model.name = "Pixhawk 6X UAV Seed - Max Resilience"
     _append_unique(
         model.components,
@@ -197,6 +211,10 @@ def _remove_components(model: NetworkModel, names: set[str]) -> None:
     model.allow_rules = [
         rule for rule in model.allow_rules
         if rule[0] not in names and rule[1] not in names
+    ]
+    model.policy_exceptions = [
+        exc for exc in model.policy_exceptions
+        if exc[0] not in names and exc[1] not in names
     ]
     model.function_supports = [
         support for support in model.function_supports

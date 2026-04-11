@@ -210,6 +210,10 @@ def resolve_phase3_backend(requested_backend: str | None, model: "NetworkModel")
     function-support semantics currently live in the Python Phase 3 evaluator.
     Routing those models through ASP would silently ignore modality-failure
     scenarios and overstate resilience.
+
+    When the model has ``function_supports``, this function forces the Python
+    backend regardless of the user's requested setting.  Callers should log
+    this override so users know the ASP path was not used.
     """
     backend = (requested_backend or "asp").lower()
     if backend == "asp" and getattr(model, "function_supports", None):

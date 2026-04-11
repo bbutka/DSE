@@ -782,14 +782,29 @@ class DSEOrchestrator:
         if self.solver_config.get("run_promoted_architecture_full_ase"):
             selected["full_ase_solution"] = self._run_architecture_repair_full_ase(selected)
             full_solution = selected["full_ase_solution"]
-            selected["promotion_status"] = (
-                "validated_by_full_ase_rerun"
-                if full_solution.phase1
+            if (
+                full_solution.phase1
                 and full_solution.phase1.satisfiable
                 and full_solution.phase2
                 and full_solution.phase2.satisfiable
-                else "full_ase_rerun_failed"
-            )
+            ):
+                selected["promotion_status"] = "feasible_full_ase_rerun"
+                # Compare Phase 3 outcomes to check for improvement
+                if full_solution.scenarios:
+                    original_worst = max(
+                        (s.total_risk_scaled for s in (selected.get("reevaluation", {}).get("scenarios", []) or []) if s.satisfiable),
+                        default=0,
+                    )
+                    rerun_worst = max(
+                        (s.total_risk_scaled for s in full_solution.scenarios if s.satisfiable),
+                        default=0,
+                    )
+                    if rerun_worst <= original_worst:
+                        selected["promotion_status"] = "validated_improvement_by_full_ase_rerun"
+                    else:
+                        selected["promotion_status"] = "feasible_but_worse_after_full_ase_rerun"
+            else:
+                selected["promotion_status"] = "full_ase_rerun_failed"
         return selected
 
     def _run_architecture_repair_full_ase(self, candidate: dict) -> SolutionResult:

@@ -206,6 +206,52 @@ Opens the Scenario Editor. Each scenario represents a threat event to test resil
 
 If no scenarios are defined, Phase 3 uses built-in default scenarios (single-component compromise for each node). Defining custom scenarios allows testing multi-component failure conditions and realistic attack chains.
 
+- **Failed modalities**: a comma-separated list of modality names (e.g., `satellite`, `inertial`, `pressure`). When specified, all FunctionSupport entries with the listed modality are treated as unavailable. This only takes effect when the Python Phase 3 backend is active (automatically selected for models with function supports).
+
+**Note on Phase 3 backend selection:** When a model contains `function_supports` (diversity-aware resilience data), the system automatically routes Phase 3 through the Python evaluator instead of ASP Clingo. The ASP backend does not evaluate modality-failure scenarios or FunctionSupport quality scores. This override is logged in the progress panel.
+
+---
+
+#### 2.1.10a Function Supports (Diversity-Aware Resilience)
+
+Function supports define how individual components contribute to high-level mission functions across different sensing modalities. Each entry has:
+- **function**: the mission function name (e.g., `state_estimation`)
+- **component**: the hardware component providing support (e.g., `gps_1`)
+- **modality**: the sensing modality (e.g., `satellite`, `inertial`, `pressure`, `vision`)
+- **quality**: standalone support quality score (0-100)
+- **bus**: the communication bus this component uses
+
+Function thresholds define ok/degraded/lost boundaries per function:
+- `ok`: minimum quality for full functionality (default: 80)
+- `degraded`: minimum quality for degraded operation (default: 50)
+- Below `degraded`: function is lost
+
+The Phase 3 evaluator computes `max(quality of surviving supports)` and compares against thresholds. This allows the system to distinguish redundancy (two GPS units) from diversity (GPS + IMU + barometer).
+
+---
+
+#### 2.1.10b Architecture Seed Exploration
+
+When enabled in the solver configuration dialog, the system generates structurally distinct architecture variants (seeds) and evaluates each through the full DSE pipeline. Current seed types:
+- **Baseline**: the user's current model
+- **Low resource**: removes optional payload/logging hardware
+- **Balanced dual-PS**: splits policy-server governance
+- **Max security**: adds enforcement candidates for GPS, RC, and logging paths
+- **Max resilience**: adds optical-flow as a vision modality
+
+All seeds are derived from the user's baseline model, not from stock factory presets. Results appear in the Architecture Pareto Front section of the report.
+
+---
+
+#### 2.1.10c Architecture Repair
+
+When enabled, the system generates repair candidates from Phase 3 deficiency findings (e.g., "state_estimation lacks bus diversity"). Repair candidates can be:
+- **Re-evaluated** with Phase 3 fast semantics (proves resilience improvement only)
+- **Selected for export** for manual review
+- **Validated by full ASE rerun** (runs Phase 1/2/3 on the repaired topology)
+
+Re-evaluation reuses the source solution's Phase 1/2 results. A full ASE rerun is required to validate that the repaired topology is feasible under security and resource constraints.
+
 ---
 
 #### 2.1.11 Undo / Redo

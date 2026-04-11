@@ -248,7 +248,8 @@ class ClingoRunner:
         opt_mode: Optional[str] = None,
         num_solutions: Optional[int] = None,
     ) -> List[str]:
-        flags: List[str] = ["--warn=none"]
+        warn_level = os.environ.get("DSE_CLINGO_WARN", "none")
+        flags: List[str] = [f"--warn={warn_level}"]
         if opt_mode:
             flags.append(f"--opt-mode={opt_mode}")
         if num_solutions is not None:

@@ -707,8 +707,28 @@ class _SolverConfigDialog(tk.Toplevel):
         ).pack(anchor="w", pady=(0, 8))
         ttk.Checkbutton(
             frm,
-            text="Promote improving repair candidate for next ASE iteration",
+            text="Select best repair candidate for export / manual rerun",
             variable=self._repair_promote_var,
+        ).pack(anchor="w", pady=(0, 8))
+
+        # Architecture-space exploration controls
+        self._seed_explore_var = tk.BooleanVar(
+            value=bool(config.get("generate_architecture_seeds", False))
+        )
+        self._full_rerun_var = tk.BooleanVar(
+            value=bool(config.get("run_promoted_architecture_full_ase", False))
+        )
+        ttk.Separator(frm, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(4, 8))
+        ttk.Label(frm, text="Architecture Space Exploration", font=("", 9, "bold")).pack(anchor="w")
+        ttk.Checkbutton(
+            frm,
+            text="Generate architecture seed variants (Pixhawk models only)",
+            variable=self._seed_explore_var,
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Checkbutton(
+            frm,
+            text="Run full ASE pipeline on selected repair candidate",
+            variable=self._full_rerun_var,
         ).pack(anchor="w", pady=(0, 8))
 
         self._text_widgets: dict = {}
@@ -772,6 +792,14 @@ class _SolverConfigDialog(tk.Toplevel):
             result["promote_improving_architecture_repair_candidate"] = True
         else:
             result.pop("promote_improving_architecture_repair_candidate", None)
+        if self._seed_explore_var.get():
+            result["generate_architecture_seeds"] = True
+        else:
+            result.pop("generate_architecture_seeds", None)
+        if self._full_rerun_var.get():
+            result["run_promoted_architecture_full_ase"] = True
+        else:
+            result.pop("run_promoted_architecture_full_ase", None)
         self.result = result
         self.destroy()
 
