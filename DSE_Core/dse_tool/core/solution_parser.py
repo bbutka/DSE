@@ -277,6 +277,7 @@ class ScenarioResult:
     name:              str
     compromised:       List[str]
     failed:            List[str]
+    failed_modalities: List[str]       = field(default_factory=list)
     scenario_risks:    Dict[str, int]  = field(default_factory=dict)
     scenario_asset_max_risks: Dict[str, int] = field(default_factory=dict)
     # CIA-disaggregated scenario risk: (asset, action) → risk
@@ -334,6 +335,14 @@ class ScenarioResult:
     capability_ok_count:       int         = 0
     capability_degraded_count: int         = 0
     capability_lost_count:     int         = 0
+    # Function-support resilience — semantic Phase 3 extension.
+    # Function status is intentionally separate from mission-capability status.
+    function_scores:   Dict[str, int]  = field(default_factory=dict)
+    function_statuses: Dict[str, str]  = field(default_factory=dict)
+    functions_ok:       List[str]      = field(default_factory=list)
+    functions_degraded: List[str]      = field(default_factory=list)
+    functions_lost:     List[str]      = field(default_factory=list)
+    function_findings:  List[str]      = field(default_factory=list)
 
     @property
     def total_risk(self) -> float:
@@ -700,6 +709,7 @@ class SolutionParser:
             name=scenario_def["name"],
             compromised=scenario_def.get("compromised", []),
             failed=scenario_def.get("failed", []),
+            failed_modalities=scenario_def.get("failed_modalities", []),
             satisfiable=True,
         )
         for sym in atoms:

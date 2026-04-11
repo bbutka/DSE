@@ -96,6 +96,8 @@ class Phase3FastAgent:
         for asset in self._assets:
             self._assets_by_component[asset.component].append(asset)
         self._capabilities = {cap.name: cap for cap in network_model.capabilities}
+        self._function_supports = list(getattr(network_model, "function_supports", []) or [])
+        self._function_thresholds = dict(getattr(network_model, "function_thresholds", {}) or {})
         self._service_members = {svc.name: list(svc.members) for svc in network_model.services}
         self._service_quorum = {svc.name: svc.quorum for svc in network_model.services}
         self._domains = {
@@ -168,6 +170,7 @@ class Phase3FastAgent:
     def _evaluate_scenario(self, scenario: dict) -> ScenarioResult:
         compromised = set(scenario.get("compromised", []))
         failed = set(scenario.get("failed", []))
+        failed_modalities = set(scenario.get("failed_modalities", []))
         scenario_mode = self._scenario_mode(compromised)
         active_ps, active_peps = self._active_control_plane()
         pep_to_guards = self._pep_guards
@@ -415,11 +418,18 @@ class Phase3FastAgent:
         system_non_functional = bool(essential_caps_lost)
         system_functional = (not has_capabilities) or not system_non_functional
         system_degraded = system_functional and bool(capabilities_lost or capabilities_degraded)
+        function_eval = self._evaluate_function_supports(
+            failed=failed,
+            compromised=compromised,
+            cut_off=set(cut_off),
+            failed_modalities=failed_modalities,
+        )
 
         result = ScenarioResult(
             name=scenario["name"],
             compromised=sorted(compromised),
             failed=sorted(failed),
+            failed_modalities=sorted(failed_modalities),
             scenario_risks=scenario_asset_risks,
             scenario_action_risks=scenario_action_risks,
             total_risk_scaled=sum(scenario_asset_risks.values()),
@@ -460,6 +470,12 @@ class Phase3FastAgent:
             capability_ok_count=len(capabilities_ok),
             capability_degraded_count=len(capabilities_degraded),
             capability_lost_count=len(capabilities_lost),
+            function_scores=function_eval["scores"],
+            function_statuses=function_eval["statuses"],
+            functions_ok=function_eval["ok"],
+            functions_degraded=function_eval["degraded"],
+            functions_lost=function_eval["lost"],
+            function_findings=function_eval["findings"],
         )
         result.scenario_asset_max_risks = scenario_asset_max_risks
         result.effective_risk_weights = effective_risk_weights
@@ -467,6 +483,80 @@ class Phase3FastAgent:
             result.scenario_modes = [scenario_mode]
         result.mode_denied_accesses = sorted(set(mode_denied_accesses))
         return result
+
+    def _evaluate_function_supports(
+        self,
+        *,
+        failed: Set[str],
+        compromised: Set[str],
+        cut_off: Set[str],
+        failed_modalities: Set[str],
+    ) -> Dict[str, object]:
+        """
+        Evaluate function-level resilience using a max-quality fallback model.
+
+        ``max(quality)`` is a single-best-surviving-support approximation, not
+        a sensor-fusion model. It means a GPS quality of 90 can be high-quality
+        standalone state estimation while an IMU quality of 70 is a usable but
+        drift-limited fallback.
+        """
+        supports_by_function: Dict[str, List[object]] = defaultdict(list)
+        for support in self._function_supports:
+            supports_by_function[support.function].append(support)
+
+        scores: Dict[str, int] = {}
+        statuses: Dict[str, str] = {}
+        functions_ok: List[str] = []
+        functions_degraded: List[str] = []
+        functions_lost: List[str] = []
+        findings: List[str] = []
+
+        for function_name, supports in supports_by_function.items():
+            thresholds = self._function_thresholds.get(function_name, {})
+            ok_threshold = int(thresholds.get("ok", 80))
+            degraded_threshold = int(thresholds.get("degraded", 50))
+
+            available_scores = [
+                int(support.quality)
+                for support in supports
+                if support.component not in failed
+                and support.component not in compromised
+                and support.component not in cut_off
+                and support.modality not in failed_modalities
+            ]
+            score = max(available_scores, default=0)
+            scores[function_name] = score
+
+            if score >= ok_threshold:
+                statuses[function_name] = "ok"
+                functions_ok.append(function_name)
+            elif score >= degraded_threshold:
+                statuses[function_name] = "degraded"
+                functions_degraded.append(function_name)
+            else:
+                statuses[function_name] = "lost"
+                functions_lost.append(function_name)
+
+            modalities = {support.modality for support in supports}
+            if len(modalities) < 2:
+                findings.append(f"{function_name}_lacks_modality_diversity")
+            if (
+                function_name == "state_estimation"
+                and "satellite" in failed_modalities
+                and statuses[function_name] == "lost"
+            ):
+                findings.append("state_estimation_lost_under_satellite_failure")
+            if failed_modalities and score < degraded_threshold:
+                findings.append(f"{function_name}_fallback_below_degraded_threshold")
+
+        return {
+            "scores": scores,
+            "statuses": statuses,
+            "ok": sorted(functions_ok),
+            "degraded": sorted(functions_degraded),
+            "lost": sorted(functions_lost),
+            "findings": sorted(set(findings)),
+        }
 
     def _resolve_assets(self) -> List[Asset]:
         if self.network_model.assets:

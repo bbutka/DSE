@@ -81,7 +81,12 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
     ]
     seen_names: set = {"baseline"}
 
-    def _add(name: str, compromised: list, failed: list) -> None:
+    def _add(
+        name: str,
+        compromised: list,
+        failed: list,
+        failed_modalities: Optional[list] = None,
+    ) -> None:
         if name not in seen_names:
             # Validate: all referenced nodes must be ASP-emittable
             valid_comp = [c for c in compromised if c in valid_names]
@@ -95,6 +100,7 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
                 "name": name,
                 "compromised": list(compromised),
                 "failed": list(failed),
+                "failed_modalities": list(failed_modalities or []),
             })
 
     masters = [c for c in model.components if c.is_master]
@@ -133,6 +139,16 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
                 for pair in combinations(grp.members, 2):
                     _add(f"group_{grp.group_id}_{'_'.join(pair)}_fail",
                          [], list(pair))
+
+    # Function-support modality failures (Python Phase 3 semantic extension).
+    # ASP Phase 3 currently ignores failed_modalities; only models that opt into
+    # function_supports get these scenarios.
+    modalities = sorted({
+        support.modality
+        for support in getattr(model, "function_supports", []) or []
+    })
+    for modality in modalities:
+        _add(f"modality_{modality}_failure", [], [], [modality])
 
     if full:
         # Single-receiver compromises
@@ -319,6 +335,7 @@ class Phase3Agent:
                     name=sc["name"],
                     compromised=sc.get("compromised", []),
                     failed=sc.get("failed", []),
+                    failed_modalities=sc.get("failed_modalities", []),
                     satisfiable=False,
                 )
 

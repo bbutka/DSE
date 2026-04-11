@@ -131,6 +131,22 @@ class MissionCapability:
 
 
 @dataclass
+class FunctionSupport:
+    """
+    A component's standalone contribution to a mission function.
+
+    The initial Phase 3 evaluator uses ``quality`` as a best-surviving-support
+    score, not as a sensor-fusion contribution.  For example, GPS may provide
+    high-quality standalone state estimation, while an IMU provides a usable
+    but drift-limited fallback.
+    """
+    function: str
+    component: str
+    modality: str
+    quality: int
+
+
+@dataclass
 class NetworkModel:
     """
     Complete description of the target SoC network for DSE analysis.
@@ -223,6 +239,8 @@ class NetworkModel:
     buses: List[str] = field(default_factory=list)
     scenarios: List[dict] = field(default_factory=list)
     capabilities: List[MissionCapability] = field(default_factory=list)
+    function_supports: List[FunctionSupport] = field(default_factory=list)
+    function_thresholds: Dict[str, Dict[str, int]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

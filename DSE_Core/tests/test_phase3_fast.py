@@ -10,17 +10,127 @@ from dse_tool.agents.phase3_agent import Phase3Agent, generate_scenarios
 from dse_tool.agents.phase3_fast_agent import Phase3FastAgent
 from dse_tool.core.asp_generator import (
     ASPGenerator,
+    Component,
+    FunctionSupport,
+    NetworkModel,
     make_pixhawk6x_uav_dual_ps_network,
     make_pixhawk6x_uav_network,
     make_tc9_network,
 )
-from dse_tool.core.solution_parser import Phase2Result
+from dse_tool.core.solution_parser import Phase1Result, Phase2Result
 
 
 CLINGO_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     "Clingo",
 )
+
+
+class TestPhase3FunctionSupportSemantics(unittest.TestCase):
+    def _make_model(self, supports: list[FunctionSupport]) -> NetworkModel:
+        component_names = sorted({support.component for support in supports})
+        components = [
+            Component(
+                "fmu", "processor", "privileged", 1, 1, 1000, 1000,
+                is_master=True, is_receiver=False,
+            )
+        ]
+        for name in component_names:
+            components.append(
+                Component(
+                    name, "ip_core", "normal", 1, 1, 1000, 1000,
+                    direction="input",
+                )
+            )
+        return NetworkModel(
+            name="function_support_fixture",
+            components=components,
+            links=[("fmu", name) for name in component_names],
+            function_supports=supports,
+            function_thresholds={"state_estimation": {"ok": 80, "degraded": 50}},
+        )
+
+    def _run(self, supports: list[FunctionSupport], scenario: dict):
+        model = self._make_model(supports)
+        return Phase3FastAgent(
+            network_model=model,
+            phase1_result=Phase1Result(satisfiable=True),
+            phase2_result=Phase2Result(satisfiable=True),
+            strategy="max_security",
+            timeout=30,
+            solver_config={"phase3_backend": "python"},
+        ).run(model_scenarios=[scenario])[0]
+
+    def test_gps_only_satellite_failure_loses_state_estimation(self) -> None:
+        result = self._run(
+            [FunctionSupport("state_estimation", "gps_1", "satellite", 90)],
+            {"name": "satellite_loss", "compromised": [], "failed": [], "failed_modalities": ["satellite"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 0)
+        self.assertEqual(result.function_statuses["state_estimation"], "lost")
+        self.assertIn("state_estimation", result.functions_lost)
+        self.assertIn("state_estimation_lost_under_satellite_failure", result.function_findings)
+        self.assertIn("state_estimation_lacks_modality_diversity", result.function_findings)
+        self.assertIn("state_estimation_fallback_below_degraded_threshold", result.function_findings)
+
+    def test_mixed_modalities_degrade_after_satellite_failure(self) -> None:
+        result = self._run(
+            [
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90),
+                FunctionSupport("state_estimation", "imu_1", "inertial", 70),
+                FunctionSupport("state_estimation", "baro_1", "pressure", 40),
+            ],
+            {"name": "satellite_loss", "compromised": [], "failed": [], "failed_modalities": ["satellite"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 70)
+        self.assertEqual(result.function_statuses["state_estimation"], "degraded")
+        self.assertIn("state_estimation", result.functions_degraded)
+        self.assertNotIn("state_estimation_lost_under_satellite_failure", result.function_findings)
+        self.assertNotIn("state_estimation_lacks_modality_diversity", result.function_findings)
+        self.assertNotIn("state_estimation_fallback_below_degraded_threshold", result.function_findings)
+
+    def test_same_modality_duplication_loses_under_modality_failure(self) -> None:
+        result = self._run(
+            [
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90),
+                FunctionSupport("state_estimation", "gps_2", "satellite", 88),
+            ],
+            {"name": "satellite_loss", "compromised": [], "failed": [], "failed_modalities": ["satellite"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 0)
+        self.assertEqual(result.function_statuses["state_estimation"], "lost")
+        self.assertIn("state_estimation", result.functions_lost)
+        self.assertIn("state_estimation_lost_under_satellite_failure", result.function_findings)
+        self.assertIn("state_estimation_lacks_modality_diversity", result.function_findings)
+        self.assertIn("state_estimation_fallback_below_degraded_threshold", result.function_findings)
+
+    def test_gps_imu_mixed_modality_survives_satellite_failure(self) -> None:
+        result = self._run(
+            [
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90),
+                FunctionSupport("state_estimation", "imu_1", "inertial", 70),
+            ],
+            {"name": "satellite_loss", "compromised": [], "failed": [], "failed_modalities": ["satellite"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 70)
+        self.assertEqual(result.function_statuses["state_estimation"], "degraded")
+        self.assertIn("state_estimation", result.functions_degraded)
+
+    def test_auto_generates_modality_failure_scenarios_for_opt_in_models(self) -> None:
+        model = self._make_model([
+            FunctionSupport("state_estimation", "gps_1", "satellite", 90),
+            FunctionSupport("state_estimation", "imu_1", "inertial", 70),
+        ])
+
+        scenarios = generate_scenarios(model, full=False)
+
+        self.assertIn("modality_satellite_failure", {scenario["name"] for scenario in scenarios})
+        satellite = next(s for s in scenarios if s["name"] == "modality_satellite_failure")
+        self.assertEqual(satellite["failed_modalities"], ["satellite"])
 
 
 class TestPhase3FastParity(unittest.TestCase):
