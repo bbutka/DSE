@@ -50,6 +50,10 @@ from dse_tool.core.architecture_repair import (
     serialize_architecture_repair_candidates,
 )
 from dse_tool.core.architecture_space import generate_pixhawk6x_architecture_seeds
+from dse_tool.core.architecture_pareto import (
+    ArchitectureParetoPoint,
+    build_architecture_pareto_front,
+)
 from dse_tool.core.architecture_comparison_report import (
     build_architecture_comparison_summary,
     format_architecture_comparison,
@@ -1285,6 +1289,106 @@ class TestArchitectureSpaceSeeds(unittest.TestCase):
                 if solution.architecture_objective_bias == "max_resilience"
             },
         )
+
+
+class TestArchitectureParetoFront(unittest.TestCase):
+    def _solution(
+        self,
+        seed: str,
+        *,
+        security: float,
+        resilience: float,
+        resource: float,
+        power: float,
+        policy: float,
+        feasible: bool = True,
+    ) -> SolutionResult:
+        sol = SolutionResult(
+            strategy="balanced",
+            label=seed,
+            architecture_seed=seed,
+            architecture_objective_bias=seed,
+        )
+        sol.security_score = security
+        sol.resilience_score = resilience
+        sol.resource_score = resource
+        sol.power_score = power
+        sol.policy_score = policy
+        if feasible:
+            sol.phase1 = Phase1Result(satisfiable=True)
+            sol.phase2 = Phase2Result(satisfiable=True)
+            sol.scenarios = [
+                ScenarioResult(name="baseline", compromised=[], failed=[], satisfiable=True)
+            ]
+        else:
+            sol.phase1 = Phase1Result(satisfiable=False)
+            sol.phase2 = Phase2Result(satisfiable=False)
+        return sol
+
+    def test_pareto_front_filters_infeasible_and_dominated_seed_solutions(self):
+        infeasible = self._solution(
+            "infeasible",
+            security=100,
+            resilience=100,
+            resource=100,
+            power=100,
+            policy=100,
+            feasible=False,
+        )
+        dominated = self._solution(
+            "dominated",
+            security=60,
+            resilience=60,
+            resource=60,
+            power=60,
+            policy=60,
+        )
+        balanced = self._solution(
+            "balanced",
+            security=80,
+            resilience=80,
+            resource=80,
+            power=80,
+            policy=80,
+        )
+        tradeoff = self._solution(
+            "resilience",
+            security=70,
+            resilience=95,
+            resource=65,
+            power=65,
+            policy=75,
+        )
+
+        front = build_architecture_pareto_front([infeasible, dominated, balanced, tradeoff])
+
+        self.assertEqual({"balanced", "resilience"}, {point.architecture_seed for point in front})
+        self.assertNotIn("infeasible", {point.architecture_seed for point in front})
+        self.assertNotIn("dominated", {point.architecture_seed for point in front})
+
+    def test_report_includes_architecture_pareto_front(self):
+        report = generate_report_text(
+            [self._solution("base", security=80, resilience=80, resource=80, power=80, policy=80)],
+            architecture_pareto_front=[
+                ArchitectureParetoPoint(
+                    architecture_seed="max_resilience",
+                    objective_bias="max_resilience",
+                    strategy="balanced",
+                    label="max resilience: Balanced",
+                    scores={
+                        "security": 70,
+                        "resilience": 95,
+                        "resource": 65,
+                        "power": 65,
+                        "policy": 75,
+                    },
+                )
+            ],
+        )
+
+        self.assertIn("ARCHITECTURE SPACE PARETO FRONT", report)
+        self.assertIn("max_resilience", report)
+        self.assertIn("resilience=95.0", report)
 
 
 class TestArchitectureRepair(unittest.TestCase):

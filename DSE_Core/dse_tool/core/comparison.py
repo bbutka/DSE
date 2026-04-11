@@ -346,6 +346,7 @@ def generate_report_text(
     max_power: int = 0,
     max_ffs: int = 0,
     architecture_repair_candidates: List[dict] | None = None,
+    architecture_pareto_front: List[object] | None = None,
 ) -> str:
     """
     Generate the full human-readable DSE analysis report.
@@ -686,6 +687,27 @@ def generate_report_text(
         for idx, candidate in enumerate(architecture_repair_candidates, 1):
             lines.extend(_format_architecture_repair_candidate(candidate, idx))
             lines.append("")
+
+    if architecture_pareto_front:
+        lines.append(SEP)
+        lines.append("  ARCHITECTURE SPACE PARETO FRONT")
+        lines.append(SEP)
+        for idx, point in enumerate(architecture_pareto_front, 1):
+            scores = getattr(point, "scores", {})
+            lines.append(
+                f"  {idx}. {getattr(point, 'label', '')} "
+                f"[seed={getattr(point, 'architecture_seed', '')}, "
+                f"bias={getattr(point, 'objective_bias', '')}]"
+            )
+            lines.append(
+                "     "
+                f"security={scores.get('security', 0.0):.1f}, "
+                f"resilience={scores.get('resilience', 0.0):.1f}, "
+                f"resource={scores.get('resource', 0.0):.1f}, "
+                f"power={scores.get('power', 0.0):.1f}, "
+                f"policy={scores.get('policy', 0.0):.1f}"
+            )
+        lines.append("")
 
     # ── Topology-aware recommendations ──────────────────────────────────────
     lines.append(SEP)

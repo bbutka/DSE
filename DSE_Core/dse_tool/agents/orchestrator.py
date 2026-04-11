@@ -31,6 +31,7 @@ from ..core.solution_parser import (
     Phase1Result, Phase2Result, SolutionResult, ScenarioResult,
     RuntimeAdaptiveResult, JointPhase2RuntimeResult,
 )
+from ..core.architecture_pareto import ArchitectureParetoPoint, build_architecture_pareto_front
 from ..core.architecture_delta import compare_network_models
 from ..core.architecture_repair import apply_architecture_repair_intents
 from ..core.architecture_space import ArchitectureSeed, generate_pixhawk6x_architecture_seeds
@@ -241,6 +242,7 @@ class DSEOrchestrator:
 
         self.solutions:   List[SolutionResult] = []
         self.architecture_space_solutions: List[SolutionResult] = []
+        self.architecture_pareto_front: List[ArchitectureParetoPoint] = []
         self.architecture_repair_candidates: List[dict] = []
         self.promoted_architecture_repair_candidate: Optional[dict] = None
         self.next_iteration_network_model: Optional[NetworkModel] = None
@@ -301,6 +303,9 @@ class DSEOrchestrator:
                         max_power=self.network_model.system_caps.get("max_power", 0),
                     )
                     seed_ranker.rank()
+                    self.architecture_pareto_front = build_architecture_pareto_front(
+                        self.architecture_space_solutions
+                    )
                 caps = self.network_model.system_caps
                 ranker = SolutionRanker(
                     self.solutions,
@@ -325,6 +330,7 @@ class DSEOrchestrator:
                     max_power=caps.get("max_power", 0),
                     max_ffs=caps.get("max_ffs", 0),
                     architecture_repair_candidates=self.architecture_repair_candidates,
+                    architecture_pareto_front=self.architecture_pareto_front,
                 )
                 if self.solver_config.get("generate_architecture_repair_candidates"):
                     if self.architecture_repair_candidates:
