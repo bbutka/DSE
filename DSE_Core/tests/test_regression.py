@@ -1246,6 +1246,8 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn(("imu_1_repair_bus", "imu_1"), candidate.links)
         self.assertIn(("fmu", "baro_1_repair_bus"), candidate.links)
         self.assertIn(("baro_1_repair_bus", "baro_1"), candidate.links)
+        self.assertIn("imu_1_repair_bus", {component.name for component in candidate.components})
+        self.assertIn("baro_1_repair_bus", {component.name for component in candidate.components})
         self.assertNotIn(("sensor_bus", "imu_1"), candidate.links)
         self.assertNotIn(("sensor_bus", "baro_1"), candidate.links)
 
