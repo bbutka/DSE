@@ -420,13 +420,16 @@ class Phase3FastAgent:
         system_non_functional = bool(essential_caps_lost)
         system_functional = (not has_capabilities) or not system_non_functional
         system_degraded = system_functional and bool(capabilities_lost or capabilities_degraded)
-        failed_buses = failed.intersection(set(self.network_model.buses))
+        all_buses = set(self.network_model.buses)
+        failed_buses = failed.intersection(all_buses)
+        compromised_buses = compromised.intersection(all_buses)
         function_eval = self._evaluate_function_supports(
             failed=failed,
             compromised=compromised,
             cut_off=set(cut_off),
             failed_modalities=failed_modalities,
             failed_buses=failed_buses,
+            compromised_buses=compromised_buses,
         )
 
         result = ScenarioResult(
@@ -499,6 +502,7 @@ class Phase3FastAgent:
         cut_off: Set[str],
         failed_modalities: Set[str],
         failed_buses: Set[str],
+        compromised_buses: Set[str] = frozenset(),
     ) -> Dict[str, object]:
         """
         Evaluate function-level resilience using a max-quality fallback model.
@@ -531,7 +535,8 @@ class Phase3FastAgent:
                 and support.component not in compromised
                 and support.component not in cut_off
                 and support.modality not in failed_modalities
-                and (not getattr(support, "bus", "") or support.bus not in failed_buses)
+                and (not getattr(support, "bus", "") or (
+                    support.bus not in failed_buses and support.bus not in compromised_buses))
             ]
             score = max(available_scores, default=0)
             scores[function_name] = score
@@ -676,12 +681,20 @@ class Phase3FastAgent:
         )
 
     def _trust_amp(self, node: str) -> int:
-        """Return trust-level amplification available to the current Phase 3 contract.
+        """Return trust-level amplification for a node.
 
-        Phase 3 currently consumes deployed PEP/PS placement and optional
-        mode-aware allows.  Trust-level diagnostics exist in Phase 2 results but
-        are not serialized into Phase 3 facts, so the Python evaluator must
-        ignore them to stay aligned with the ASP backend.
+        KNOWN PARITY GAP: The ASP backend (resilience_enc.lp) uses
+        ``p2_trust_level(C, low/medium/high)`` facts to amplify risk by up to
+        ±0.3x per component.  The Python evaluator returns 0 (no amplification)
+        because Phase 2 does not currently serialize trust-level diagnostics
+        into the Phase 3 result contract.
+
+        This means risk scores from the Python backend may be lower than ASP
+        for models with weak trust anchors, and higher for models with strong
+        trust anchors.  Until Phase 2 exports trust-level facts, results from
+        the two backends should not be mixed in the same comparison.
+
+        TODO: Emit p2_trust_level from Phase 2 result and consume here.
         """
         return 0
 
