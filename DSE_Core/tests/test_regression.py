@@ -1279,6 +1279,19 @@ class TestArchitectureRepair(unittest.TestCase):
             "Shared Bus State Estimation (repaired)",
         )
 
+    def test_serializes_precomputed_candidate_dict_fields(self):
+        candidate = {
+            "source_strategy": "balanced",
+            "repair_intents": [],
+            "model": {"name": "already_serialized"},
+            "delta": {"added_buses": ["bus_a"]},
+        }
+
+        serialized = serialize_architecture_repair_candidate(candidate)
+
+        self.assertEqual(serialized["model"], {"name": "already_serialized"})
+        self.assertEqual(serialized["delta"], {"added_buses": ["bus_a"]})
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 7. Executive Summary Tests

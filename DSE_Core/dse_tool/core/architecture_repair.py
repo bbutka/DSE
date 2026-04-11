@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List, Tuple
 
 from .asp_generator import NetworkModel
@@ -109,4 +109,8 @@ def _link_sort_key(original_links: List[Tuple[str, str]]):
 def _asdict_or_none(value: Any) -> dict | None:
     if value is None:
         return None
+    if isinstance(value, dict):
+        return dict(value)
+    if not is_dataclass(value):
+        raise TypeError(f"Cannot serialize repair candidate value of type {type(value).__name__}")
     return asdict(value)
