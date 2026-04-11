@@ -1080,7 +1080,7 @@ class TestComparisonEngine(unittest.TestCase):
             {
                 "source_label": sols[0].label,
                 "source_strategy": sols[0].strategy,
-                "promotion_status": "promoted_for_next_ase_iteration",
+                "promotion_status": "selected_for_full_ase_rerun",
                 "repair_intents": sols[0].phase2.closed_loop_repair_intents,
                 "delta": compare_network_models(baseline, candidate),
                 "reevaluation": {
@@ -1115,7 +1115,7 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
         self.assertIn("Added components", report)
-        self.assertIn("Promotion: promoted_for_next_ase_iteration", report)
+        self.assertIn("Promotion: selected_for_full_ase_rerun", report)
         self.assertIn("Re-evaluation", report)
         self.assertIn("lost@0 -> degraded@70", report)
         self.assertIn("Function Deficiencies", report)
@@ -1586,7 +1586,7 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIs(promoted, candidates[0])
         self.assertEqual(
             candidates[0]["promotion_status"],
-            "promoted_for_next_ase_iteration",
+            "selected_for_full_ase_rerun",
         )
         self.assertIs(orch.next_iteration_network_model, candidates[0]["model"])
 
@@ -1636,6 +1636,73 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn("reevaluation", candidates[0])
         self.assertIs(promoted, candidates[0])
 
+    def test_selected_repair_candidate_can_run_full_ase_rerun(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        class StubRepairRerunOrchestrator(DSEOrchestrator):
+            def _run_strategy(self, strategy: str, instance_facts: str) -> SolutionResult:
+                return SolutionResult(
+                    strategy=strategy,
+                    label=strategy,
+                    phase1=Phase1Result(satisfiable=True),
+                    phase2=Phase2Result(satisfiable=True),
+                    scenarios=[
+                        ScenarioResult(
+                            name="baseline",
+                            compromised=[],
+                            failed=[],
+                            satisfiable=True,
+                        )
+                    ],
+                    complete=True,
+                )
+
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+        original_failure = ScenarioResult(
+            name="sensor_bus_failure",
+            compromised=[],
+            failed=["sensor_bus"],
+            failed_buses=["sensor_bus"],
+            satisfiable=True,
+            function_scores={"state_estimation": 0},
+            function_statuses={"state_estimation": "lost"},
+        )
+        p2 = Phase2Result(satisfiable=True)
+        p2.closed_loop_repair_intents = [intent]
+        sol = SolutionResult(
+            strategy="balanced",
+            phase1=Phase1Result(satisfiable=True),
+            phase2=p2,
+            scenarios=[original_failure],
+        )
+        orch = StubRepairRerunOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_repair_candidates": True,
+                "promote_improving_architecture_repair_candidate": True,
+                "run_promoted_architecture_full_ase": True,
+            },
+        )
+        orch.solutions = [sol]
+
+        candidates = orch._build_architecture_repair_candidates()
+        orch.architecture_repair_candidates = candidates
+        promoted = orch._promote_architecture_repair_candidate()
+
+        self.assertEqual(promoted["promotion_status"], "validated_by_full_ase_rerun")
+        self.assertIn("full_ase_solution", promoted)
+        self.assertTrue(promoted["full_ase_solution"].phase1.satisfiable)
+        self.assertIs(orch.network_model, model)
+
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()
         intent = {
@@ -1667,7 +1734,7 @@ class TestArchitectureRepair(unittest.TestCase):
     def test_serializes_precomputed_candidate_dict_fields(self):
         candidate = {
             "source_strategy": "balanced",
-            "promotion_status": "promoted_for_next_ase_iteration",
+            "promotion_status": "selected_for_full_ase_rerun",
             "repair_intents": [],
             "model": {"name": "already_serialized"},
             "delta": {"added_buses": ["bus_a"]},
@@ -1677,7 +1744,7 @@ class TestArchitectureRepair(unittest.TestCase):
 
         self.assertEqual(serialized["model"], {"name": "already_serialized"})
         self.assertEqual(serialized["delta"], {"added_buses": ["bus_a"]})
-        self.assertEqual(serialized["promotion_status"], "promoted_for_next_ase_iteration")
+        self.assertEqual(serialized["promotion_status"], "selected_for_full_ase_rerun")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

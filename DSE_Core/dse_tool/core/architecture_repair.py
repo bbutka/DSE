@@ -38,6 +38,7 @@ def serialize_architecture_repair_candidate(candidate: dict) -> dict:
         "delta": _asdict_or_none(candidate.get("delta")),
         "model": _asdict_or_none(candidate.get("model")),
         "reevaluation": _serialize_reevaluation(candidate.get("reevaluation")),
+        "full_ase_solution": _asdict_or_none(candidate.get("full_ase_solution")),
     }
 
 

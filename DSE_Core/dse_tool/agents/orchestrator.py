@@ -111,6 +111,7 @@ DEFAULT_SOLVER_CONFIG = {
     "phase3_backend": "asp",
     "generate_architecture_seeds": False,
     "architecture_seed_strategies": ["balanced"],
+    "run_promoted_architecture_full_ase": False,
     "cpsat_threads": _default_solver_threads(),
     "cbc_threads": _default_solver_threads(),
     "clingo_threads": _default_solver_threads(),
@@ -343,7 +344,7 @@ class DSEOrchestrator:
                     if self.promoted_architecture_repair_candidate:
                         self._post(
                             "INFO",
-                            "[Orchestrator] Promoted architecture repair candidate for the next ASE iteration.",
+                            "[Orchestrator] Selected architecture repair candidate for a full ASE rerun.",
                         )
 
             self._post("SUCCESS", "=== DSE Analysis Complete ===")
@@ -762,10 +763,35 @@ class DSEOrchestrator:
             )
             return (-improved, worst_severity, -worst_score)
 
-        promoted = sorted(improving, key=_score)[0]
-        promoted["promotion_status"] = "promoted_for_next_ase_iteration"
-        self.next_iteration_network_model = promoted["model"]
-        return promoted
+        selected = sorted(improving, key=_score)[0]
+        selected["promotion_status"] = "selected_for_full_ase_rerun"
+        self.next_iteration_network_model = selected["model"]
+        if self.solver_config.get("run_promoted_architecture_full_ase"):
+            selected["full_ase_solution"] = self._run_architecture_repair_full_ase(selected)
+            full_solution = selected["full_ase_solution"]
+            selected["promotion_status"] = (
+                "validated_by_full_ase_rerun"
+                if full_solution.phase1
+                and full_solution.phase1.satisfiable
+                and full_solution.phase2
+                and full_solution.phase2.satisfiable
+                else "full_ase_rerun_failed"
+            )
+        return selected
+
+    def _run_architecture_repair_full_ase(self, candidate: dict) -> SolutionResult:
+        """Run the full ASE pipeline on a selected architecture repair model."""
+        baseline_model = self.network_model
+        candidate_model = candidate["model"]
+        strategy = str(candidate.get("source_strategy") or "balanced")
+        try:
+            self.network_model = candidate_model
+            instance_facts = ASPGenerator(candidate_model).generate()
+            sol = self._run_strategy(strategy, instance_facts)
+            sol.label = f"{candidate.get('source_label', strategy)} (repair rerun)"
+            return sol
+        finally:
+            self.network_model = baseline_model
 
     def _post(self, level: str, msg: str) -> None:
         try:
