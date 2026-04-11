@@ -755,6 +755,57 @@ system_non_functional :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 11b. FUNCTION-SUPPORT DIVERSITY ASSESSMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Evaluates cross-service functional resilience using max-quality
+% fallback model.  Only active when function_support/4 facts exist.
+%
+% Modality failures are injected as failed_modality(Mod) scenario facts.
+% Bus failures use the existing failed(Bus) mechanism.
+
+% A support's bus is healthy when no bus fact exists, or the bus is neither
+% failed nor compromised.
+function_bus_blocked(F, C) :-
+    function_support_bus(F, C, Bus), failed(Bus).
+function_bus_blocked(F, C) :-
+    function_support_bus(F, C, Bus), compromised(Bus).
+
+% Available supports: component alive, modality not failed, bus not blocked
+function_support_available(F, C, Mod, Q) :-
+    function_support(F, C, Mod, Q),
+    not failed(C), not compromised(C), not node_cut_off(C),
+    not failed_modality(Mod),
+    not function_bus_blocked(F, C).
+
+% Best quality among available supports (0 sentinel when none available)
+function_best_quality(F, Q) :-
+    function_support(F, _, _, _),
+    Q = #max { Qi : function_support_available(F, _, _, Qi) ; 0 }.
+
+% 3-state function evaluation
+function_ok(F) :-
+    function_threshold(F, OkT, _),
+    function_best_quality(F, Q), Q >= OkT.
+
+function_degraded(F) :-
+    function_threshold(F, OkT, DegT),
+    function_best_quality(F, Q), Q < OkT, Q >= DegT.
+
+function_lost(F) :-
+    function_threshold(F, _, DegT),
+    function_best_quality(F, Q), Q < DegT.
+
+% Modality diversity diagnostics
+modality_available_count(F, N) :-
+    function_support(F, _, _, _),
+    N = #count { Mod : function_support_available(F, _, Mod, _) }.
+
+function_lacks_modality_diversity(F) :-
+    function_support(F, _, _, _),
+    modality_available_count(F, N), N <= 1.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 12. OUTPUT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -812,3 +863,9 @@ system_non_functional :-
 #show capability_ok_count/1.
 #show capability_degraded_count/1.
 #show capability_lost_count/1.
+#show function_ok/1.
+#show function_degraded/1.
+#show function_lost/1.
+#show function_best_quality/2.
+#show function_lacks_modality_diversity/1.
+#show modality_available_count/2.

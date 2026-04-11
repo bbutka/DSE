@@ -235,6 +235,8 @@ class Phase2Result:
         # semantic mismatch with runtime_adaptive_tc9_enc.lp.
         for master, ip, mode in sorted(set(self.final_allows)):
             lines.append(f"p2_mode_allow({master}, {ip}, {mode}).")
+        for comp, level in sorted(self.trust_levels.items()):
+            lines.append(f"p2_trust_level({comp}, {level}).")
         return "\n".join(lines)
 
     def avg_policy_tightness(self) -> float:
@@ -885,6 +887,26 @@ class SolutionParser:
                 res.capability_degraded_count = a[0].number
             elif n == "capability_lost_count" and len(a) == 1:
                 res.capability_lost_count = a[0].number
+            # Function-support atoms (from ASP Section 11b)
+            elif n == "function_ok" and len(a) == 1:
+                res.functions_ok.append(str(a[0]))
+            elif n == "function_degraded" and len(a) == 1:
+                res.functions_degraded.append(str(a[0]))
+            elif n == "function_lost" and len(a) == 1:
+                res.functions_lost.append(str(a[0]))
+            elif n == "function_best_quality" and len(a) == 2:
+                res.function_scores[str(a[0])] = a[1].number
+            elif n == "function_lacks_modality_diversity" and len(a) == 1:
+                res.function_findings.append(f"{a[0]}_lacks_modality_diversity")
+            elif n == "modality_available_count" and len(a) == 2:
+                pass  # diagnostic only, not stored
+        # Derive function_statuses from parsed atoms
+        for f in res.functions_ok:
+            res.function_statuses[f] = "ok"
+        for f in res.functions_degraded:
+            res.function_statuses[f] = "degraded"
+        for f in res.functions_lost:
+            res.function_statuses[f] = "lost"
         return res
 
     # ------------------------------------------------------------------

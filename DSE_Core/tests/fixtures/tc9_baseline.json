@@ -14,7 +14,7 @@
       "ps0"
     ],
     "phase3_scenario_count": 46,
-    "phase3_worst_case_risk_scaled": 76562500
+    "phase3_worst_case_risk_scaled": 74937500
   },
   "min_resources": {
     "satisfiable": true,

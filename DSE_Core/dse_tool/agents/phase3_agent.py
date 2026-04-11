@@ -204,21 +204,15 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
 
 def resolve_phase3_backend(requested_backend: str | None, model: "NetworkModel") -> str:
     """
-    Return the Phase 3 backend that can faithfully evaluate the model.
+    Return the Phase 3 backend to use.
 
-    The ASP backend remains the default for legacy/topology-only models, but
-    function-support semantics currently live in the Python Phase 3 evaluator.
-    Routing those models through ASP would silently ignore modality-failure
-    scenarios and overstate resilience.
+    Both backends now support function-support evaluation:
+    - ASP: via function_support/4 facts and resilience_enc.lp Section 11b
+    - Python: via _evaluate_function_supports() in phase3_fast_agent.py
 
-    When the model has ``function_supports``, this function forces the Python
-    backend regardless of the user's requested setting.  Callers should log
-    this override so users know the ASP path was not used.
+    The user's requested backend is honored directly.
     """
-    backend = (requested_backend or "asp").lower()
-    if backend == "asp" and getattr(model, "function_supports", None):
-        return "python"
-    return backend
+    return (requested_backend or "asp").lower()
 
 
 # Legacy scenario lists (kept for backwards compatibility only)
@@ -341,6 +335,8 @@ class Phase3Agent:
                 scenario_facts += f"\ncompromised({node})."
             for node in sc.get("failed", []):
                 scenario_facts += f"\nfailed({node})."
+            for mod in sc.get("failed_modalities", []):
+                scenario_facts += f"\nfailed_modality({mod})."
 
             raw = runner.solve_scenario(
                 lp_files=lp_files,

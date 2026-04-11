@@ -689,6 +689,19 @@ class ASPGenerator:
                         lines.append(f"capability_phase({cap.name}, {phase}).")
             lines.append("")
 
+        # ── Function supports (diversity-aware resilience) ────────────────
+        if m.function_supports:
+            lines.append("% Function-support diversity")
+            for fs in m.function_supports:
+                lines.append(f"function_support({fs.function}, {fs.component}, {fs.modality}, {fs.quality}).")
+                if fs.bus:
+                    lines.append(f"function_support_bus({fs.function}, {fs.component}, {fs.bus}).")
+            for func_name, thresholds in m.function_thresholds.items():
+                ok_t = thresholds.get("ok", 80)
+                deg_t = thresholds.get("degraded", 50)
+                lines.append(f"function_threshold({func_name}, {ok_t}, {deg_t}).")
+            lines.append("")
+
         return "\n".join(lines)
 
     def validate_topology(self) -> List[str]:

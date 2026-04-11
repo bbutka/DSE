@@ -698,23 +698,19 @@ class Phase3FastAgent:
             + _AUDIT_DISCOUNT.get(audit, 0),
         )
 
+    _TRUST_AMP = {"low": 3, "medium": 0, "high": -2}
+
     def _trust_amp(self, node: str) -> int:
-        """Return trust-level amplification for a node.
+        """Return trust-level amplification matching ASP resilience_enc.lp.
 
-        KNOWN PARITY GAP: The ASP backend (resilience_enc.lp) uses
-        ``p2_trust_level(C, low/medium/high)`` facts to amplify risk by up to
-        ±0.3x per component.  The Python evaluator returns 0 (no amplification)
-        because Phase 2 does not currently serialize trust-level diagnostics
-        into the Phase 3 result contract.
-
-        This means risk scores from the Python backend may be lower than ASP
-        for models with weak trust anchors, and higher for models with strong
-        trust anchors.  Until Phase 2 exports trust-level facts, results from
-        the two backends should not be mixed in the same comparison.
-
-        TODO: Emit p2_trust_level from Phase 2 result and consume here.
+        Mirrors the ASP rules:
+          trust_amp(C, 3)  :- p2_trust_level(C, low).
+          trust_amp(C, 0)  :- p2_trust_level(C, medium).
+          trust_amp(C, -2) :- p2_trust_level(C, high).
+          trust_amp(C, 0)  :- domain(C, _), not p2_trust_level(C, _).
         """
-        return 0
+        level = self.phase2_result.trust_levels.get(node)
+        return self._TRUST_AMP.get(level, 0)
 
     def _unsigned_only_exposure(
         self,

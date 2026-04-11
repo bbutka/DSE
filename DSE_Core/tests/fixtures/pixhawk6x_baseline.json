@@ -13,7 +13,7 @@
       "ps_fmu"
     ],
     "phase3_scenario_count": 133,
-    "phase3_worst_case_risk_scaled": 160817500
+    "phase3_worst_case_risk_scaled": 191485000
   },
   "min_resources": {
     "satisfiable": true,

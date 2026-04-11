@@ -722,7 +722,7 @@ class TestPhase2Result(unittest.TestCase):
         self.assertIn("deployed_pep(fw1).", facts)
         self.assertIn("deployed_ps(ps0).", facts)
         self.assertIn("p2_mode_allow(cpu, ip1, read).", facts)
-        self.assertNotIn("p2_trust_level", facts)
+        self.assertIn("p2_trust_level(ip1, low).", facts)
         self.assertNotIn("p2_excess_privilege", facts)
         self.assertNotIn("transition_trigger", facts)
 
@@ -1132,7 +1132,8 @@ class TestOrchestratorDefaults(unittest.TestCase):
 
         self.assertEqual(DEFAULT_SOLVER_CONFIG["phase3_backend"], "asp")
 
-    def test_function_support_models_use_python_phase3_semantics(self):
+    def test_function_support_models_honor_requested_backend(self):
+        """Both backends now support function evaluation, so no forced override."""
         legacy = NetworkModel()
         semantic = NetworkModel(
             function_supports=[
@@ -1141,7 +1142,8 @@ class TestOrchestratorDefaults(unittest.TestCase):
         )
 
         self.assertEqual(resolve_phase3_backend("asp", legacy), "asp")
-        self.assertEqual(resolve_phase3_backend("asp", semantic), "python")
+        self.assertEqual(resolve_phase3_backend("asp", semantic), "asp")
+        self.assertEqual(resolve_phase3_backend("python", semantic), "python")
 
 
 class TestArchitectureComparisonReport(unittest.TestCase):

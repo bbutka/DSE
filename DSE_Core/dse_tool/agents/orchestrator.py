@@ -542,17 +542,10 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
-        requested_phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
         phase3_backend = resolve_phase3_backend(
-            requested_phase3_backend,
+            self.solver_config.get("phase3_backend"),
             self.network_model,
         )
-        if requested_phase3_backend == "asp" and phase3_backend == "python":
-            self._post(
-                "INFO",
-                "[Orchestrator] Auto-switching Phase 3 to Python backend "
-                "(model has function_supports; ASP backend does not evaluate them).",
-            )
         if phase3_backend == "python":
             p3_agent = Phase3FastAgent(
                 network_model=self.network_model,
