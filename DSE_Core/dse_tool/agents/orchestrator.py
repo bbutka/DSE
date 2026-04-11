@@ -239,6 +239,7 @@ class DSEOrchestrator:
         self.solutions:   List[SolutionResult] = []
         self.architecture_repair_candidates: List[dict] = []
         self.promoted_architecture_repair_candidate: Optional[dict] = None
+        self.next_iteration_network_model: Optional[NetworkModel] = None
         self.report_text: str                  = ""
         self.done:        bool                 = False
         self.error:       str                  = ""
@@ -596,7 +597,10 @@ class DSEOrchestrator:
                 "model": candidate_model,
                 "delta": delta,
             }
-            if self.solver_config.get("reevaluate_architecture_repair_candidates"):
+            if (
+                self.solver_config.get("reevaluate_architecture_repair_candidates")
+                or self.solver_config.get("promote_improving_architecture_repair_candidate")
+            ):
                 candidate["reevaluation"] = self._reevaluate_architecture_repair_candidate(
                     candidate,
                     source_solution=sol,
@@ -674,6 +678,7 @@ class DSEOrchestrator:
 
         promoted = sorted(improving, key=_score)[0]
         promoted["promotion_status"] = "promoted_for_next_ase_iteration"
+        self.next_iteration_network_model = promoted["model"]
         return promoted
 
     def _post(self, level: str, msg: str) -> None:

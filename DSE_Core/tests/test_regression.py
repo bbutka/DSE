@@ -1342,6 +1342,53 @@ class TestArchitectureRepair(unittest.TestCase):
             candidates[0]["promotion_status"],
             "promoted_for_next_ase_iteration",
         )
+        self.assertIs(orch.next_iteration_network_model, candidates[0]["model"])
+
+    def test_promotion_implies_candidate_reevaluation(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+        original_failure = ScenarioResult(
+            name="sensor_bus_failure",
+            compromised=[],
+            failed=["sensor_bus"],
+            failed_buses=["sensor_bus"],
+            satisfiable=True,
+            function_scores={"state_estimation": 0},
+            function_statuses={"state_estimation": "lost"},
+        )
+        p2 = Phase2Result(satisfiable=True)
+        p2.closed_loop_repair_intents = [intent]
+        sol = SolutionResult(
+            strategy="balanced",
+            phase1=Phase1Result(satisfiable=True),
+            phase2=p2,
+            scenarios=[original_failure],
+        )
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_repair_candidates": True,
+                "promote_improving_architecture_repair_candidate": True,
+            },
+        )
+        orch.solutions = [sol]
+
+        candidates = orch._build_architecture_repair_candidates()
+        orch.architecture_repair_candidates = candidates
+        promoted = orch._promote_architecture_repair_candidate()
+
+        self.assertIn("reevaluation", candidates[0])
+        self.assertIs(promoted, candidates[0])
 
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()
