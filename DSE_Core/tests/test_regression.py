@@ -34,7 +34,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from dse_tool.core.asp_generator import (
     Component, Asset, RedundancyGroup, Service, AccessNeed,
-    MissionCapability, NetworkModel, ASPGenerator,
+    MissionCapability, FunctionSupport, NetworkModel, ASPGenerator,
     make_opentitan_network, make_pixhawk6x_platform, make_pixhawk6x_uav_network,
     make_pixhawk6x_dual_ps_network, make_pixhawk6x_uav_dual_ps_network,
     make_tc9_network, make_reference_soc,
@@ -44,6 +44,7 @@ from dse_tool.core.solution_parser import (
     SolutionParser, AMP_DENOM,
 )
 from dse_tool.core.architecture_delta import compare_network_models
+from dse_tool.core.architecture_repair import apply_architecture_repair_intents
 from dse_tool.core.architecture_comparison_report import (
     build_architecture_comparison_summary,
     format_architecture_comparison,
@@ -1102,6 +1103,95 @@ class TestArchitectureComparisonReport(unittest.TestCase):
         self.assertIn("Phase 1 security overhead: LUTs=25,180", text)
         self.assertIn("Phase 2 ZTA cost: 1", text)
         self.assertIn("Worst scenario: group_gps_group_compromise", text)
+
+
+class TestArchitectureRepair(unittest.TestCase):
+    def _make_shared_bus_state_estimation_model(self) -> NetworkModel:
+        return NetworkModel(
+            name="Shared Bus State Estimation",
+            components=[
+                Component("fmu", "processor", "privileged", 1, 1, 1000, 1000, is_master=True, is_receiver=False),
+                Component("sensor_bus", "bus", "normal", 1, 1, 1000, 1000, is_receiver=False),
+                Component("gps_1", "ip_core", "low", 1, 1, 1000, 1000, direction="input"),
+                Component("imu_1", "ip_core", "high", 1, 1, 1000, 1000, direction="input"),
+                Component("baro_1", "ip_core", "normal", 1, 1, 1000, 1000, direction="input"),
+            ],
+            links=[
+                ("fmu", "sensor_bus"),
+                ("sensor_bus", "gps_1"),
+                ("sensor_bus", "imu_1"),
+                ("sensor_bus", "baro_1"),
+            ],
+            buses=["sensor_bus"],
+            function_supports=[
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90, bus="sensor_bus"),
+                FunctionSupport("state_estimation", "imu_1", "inertial", 70, bus="sensor_bus"),
+                FunctionSupport("state_estimation", "baro_1", "pressure", 40, bus="sensor_bus"),
+            ],
+            function_thresholds={"state_estimation": {"ok": 80, "degraded": 50}},
+        )
+
+    def test_split_function_support_buses_creates_revised_architecture(self):
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "stage": "architecture_generation",
+            "status": "pending_architecture_revision",
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+
+        candidate = apply_architecture_repair_intents(model, [intent])
+        candidate_support_buses = {
+            support.component: support.bus
+            for support in candidate.function_supports
+            if support.function == "state_estimation"
+        }
+
+        self.assertEqual(model.buses, ["sensor_bus"])
+        self.assertEqual(candidate.name, "Shared Bus State Estimation (repaired)")
+        self.assertGreaterEqual(len(set(candidate_support_buses.values())), 2)
+        self.assertEqual(candidate_support_buses["gps_1"], "sensor_bus")
+        self.assertEqual(candidate_support_buses["imu_1"], "imu_1_repair_bus")
+        self.assertEqual(candidate_support_buses["baro_1"], "baro_1_repair_bus")
+        self.assertIn(("fmu", "imu_1_repair_bus"), candidate.links)
+        self.assertIn(("imu_1_repair_bus", "imu_1"), candidate.links)
+        self.assertIn(("fmu", "baro_1_repair_bus"), candidate.links)
+        self.assertIn(("baro_1_repair_bus", "baro_1"), candidate.links)
+        self.assertNotIn(("sensor_bus", "imu_1"), candidate.links)
+        self.assertNotIn(("sensor_bus", "baro_1"), candidate.links)
+
+        delta = compare_network_models(model, candidate)
+        self.assertIn("imu_1_repair_bus", delta.added_buses)
+        self.assertIn("baro_1_repair_bus", delta.added_buses)
+        self.assertIn(("imu_1_repair_bus", "imu_1"), delta.added_links)
+        self.assertIn(("sensor_bus", "imu_1"), delta.removed_links)
+
+    def test_split_function_support_buses_noops_when_already_diverse(self):
+        model = self._make_shared_bus_state_estimation_model()
+        model.buses = ["gps_bus", "imu_bus"]
+        model.links = [
+            ("fmu", "gps_bus"),
+            ("gps_bus", "gps_1"),
+            ("fmu", "imu_bus"),
+            ("imu_bus", "imu_1"),
+        ]
+        model.function_supports = [
+            FunctionSupport("state_estimation", "gps_1", "satellite", 90, bus="gps_bus"),
+            FunctionSupport("state_estimation", "imu_1", "inertial", 70, bus="imu_bus"),
+        ]
+        intent = {
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "minimum_independent_domains": 2,
+        }
+
+        candidate = apply_architecture_repair_intents(model, [intent])
+        delta = compare_network_models(model, candidate)
+
+        self.assertEqual(candidate.name, "Shared Bus State Estimation")
+        self.assertFalse(delta.has_changes())
 
 
 # ═══════════════════════════════════════════════════════════════════════════
