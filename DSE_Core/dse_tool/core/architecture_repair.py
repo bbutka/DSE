@@ -36,6 +36,7 @@ def serialize_architecture_repair_candidate(candidate: dict) -> dict:
         "repair_intents": list(candidate.get("repair_intents") or []),
         "delta": _asdict_or_none(candidate.get("delta")),
         "model": _asdict_or_none(candidate.get("model")),
+        "reevaluation": _serialize_reevaluation(candidate.get("reevaluation")),
     }
 
 
@@ -114,3 +115,16 @@ def _asdict_or_none(value: Any) -> dict | None:
     if not is_dataclass(value):
         raise TypeError(f"Cannot serialize repair candidate value of type {type(value).__name__}")
     return asdict(value)
+
+
+def _serialize_reevaluation(value: Any) -> dict | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise TypeError(f"Cannot serialize repair candidate reevaluation of type {type(value).__name__}")
+    serialized = dict(value)
+    serialized["scenarios"] = [
+        asdict(scenario) if is_dataclass(scenario) else dict(scenario)
+        for scenario in value.get("scenarios", [])
+    ]
+    return serialized

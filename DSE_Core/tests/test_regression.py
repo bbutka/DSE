@@ -1043,6 +1043,24 @@ class TestComparisonEngine(unittest.TestCase):
                 "source_strategy": sols[0].strategy,
                 "repair_intents": sols[0].phase2.closed_loop_repair_intents,
                 "delta": compare_network_models(baseline, candidate),
+                "reevaluation": {
+                    "scenario_count": 4,
+                    "improved_functions": ["state_estimation"],
+                    "original_function_summary": {
+                        "state_estimation": {
+                            "worst_status": "lost",
+                            "worst_score": 0,
+                            "worst_scenario": "sensor_bus_failure",
+                        },
+                    },
+                    "repaired_function_summary": {
+                        "state_estimation": {
+                            "worst_status": "degraded",
+                            "worst_score": 70,
+                            "worst_scenario": "sensor_bus_failure",
+                        },
+                    },
+                },
             }
         ]
         report = generate_report_text(
@@ -1057,6 +1075,8 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
         self.assertIn("Added components", report)
+        self.assertIn("Re-evaluation", report)
+        self.assertIn("lost@0 -> degraded@70", report)
         self.assertIn("Function Deficiencies", report)
         self.assertIn("Repair Intents", report)
         self.assertIn("split_function_support_buses", report)
@@ -1309,6 +1329,9 @@ class TestArchitectureRepair(unittest.TestCase):
             "degraded",
         )
         self.assertGreater(reevaluation["scenario_count"], 1)
+        serialized = serialize_architecture_repair_candidate(candidates[0])
+        self.assertIn("reevaluation", serialized)
+        self.assertIn("scenarios", serialized["reevaluation"])
 
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()

@@ -87,6 +87,25 @@ def _format_architecture_repair_candidate(candidate: dict, idx: int) -> List[str
     lines.extend(_format_candidate_values("Removed links", getattr(delta, "removed_links", [])))
     lines.extend(_format_candidate_values("Added components", getattr(delta, "added_components", [])))
     lines.extend(_format_candidate_values("Removed components", getattr(delta, "removed_components", [])))
+    reevaluation = candidate.get("reevaluation")
+    if reevaluation:
+        improved = reevaluation.get("improved_functions", [])
+        improved_text = ", ".join(improved) if improved else "none"
+        lines.append(
+            f"    Re-evaluation: {reevaluation.get('scenario_count', 0)} scenario(s), "
+            f"improved functions: {improved_text}"
+        )
+        original = reevaluation.get("original_function_summary", {})
+        repaired = reevaluation.get("repaired_function_summary", {})
+        for function in sorted(set(original) | set(repaired)):
+            orig = original.get(function, {})
+            rep = repaired.get(function, {})
+            lines.append(
+                "    "
+                f"{function}: "
+                f"{orig.get('worst_status', 'n/a')}@{orig.get('worst_score', 'n/a')} "
+                f"-> {rep.get('worst_status', 'n/a')}@{rep.get('worst_score', 'n/a')}"
+            )
     return lines
 
 
