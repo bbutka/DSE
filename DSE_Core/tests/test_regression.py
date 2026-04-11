@@ -49,6 +49,7 @@ from dse_tool.core.architecture_repair import (
     serialize_architecture_repair_candidate,
     serialize_architecture_repair_candidates,
 )
+from dse_tool.core.architecture_space import generate_pixhawk6x_architecture_seeds
 from dse_tool.core.architecture_comparison_report import (
     build_architecture_comparison_summary,
     format_architecture_comparison,
@@ -1190,6 +1191,57 @@ class TestArchitectureComparisonReport(unittest.TestCase):
         self.assertIn("Phase 1 security overhead: LUTs=25,180", text)
         self.assertIn("Phase 2 ZTA cost: 1", text)
         self.assertIn("Worst scenario: group_gps_group_compromise", text)
+
+
+class TestArchitectureSpaceSeeds(unittest.TestCase):
+    def test_pixhawk_seed_generation_has_distinct_objective_biases(self):
+        seeds = generate_pixhawk6x_architecture_seeds()
+        seed_by_name = {seed.name: seed for seed in seeds}
+
+        self.assertGreaterEqual(len(seeds), 5)
+        self.assertEqual(len(seed_by_name), len(seeds))
+        self.assertEqual(
+            {
+                "baseline",
+                "low_resource",
+                "balanced_dual_ps",
+                "max_security",
+                "max_resilience",
+            },
+            set(seed_by_name),
+        )
+        self.assertEqual(seed_by_name["max_security"].objective_bias, "max_security")
+        self.assertEqual(seed_by_name["max_resilience"].objective_bias, "max_resilience")
+
+    def test_max_resilience_seed_adds_modality_diversity(self):
+        seed = {
+            seed.name: seed
+            for seed in generate_pixhawk6x_architecture_seeds()
+        }["max_resilience"]
+        supports = {
+            (support.function, support.component, support.modality, support.bus)
+            for support in seed.model.function_supports
+        }
+
+        self.assertIn(("state_estimation", "optical_flow", "vision", "flow_port"), supports)
+        self.assertIn("flow_port", seed.model.buses)
+        self.assertIn("pep_flow", seed.model.cand_fws)
+        self.assertIn("optical_flow", seed.delta_from_baseline.added_components)
+
+    def test_low_resource_seed_removes_payload_without_dropping_flight_supports(self):
+        seed = {
+            seed.name: seed
+            for seed in generate_pixhawk6x_architecture_seeds()
+        }["low_resource"]
+        components = {component.name for component in seed.model.components}
+        functions = {support.function for support in seed.model.function_supports}
+
+        self.assertNotIn("companion", components)
+        self.assertNotIn("camera", components)
+        self.assertNotIn("flash_fram", components)
+        self.assertIn("state_estimation", functions)
+        self.assertIn("stabilization", functions)
+        self.assertIn("surveillance", seed.delta_from_baseline.removed_capabilities)
 
 
 class TestArchitectureRepair(unittest.TestCase):
