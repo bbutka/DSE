@@ -120,6 +120,11 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
     for ps in model.cand_ps:
         _add(f"{ps}_compromise", [ps], [])
 
+    # PEP bypass / compromise (always).  A design that depends on one
+    # firewall should not look resilient under the default core scenario set.
+    for fw in model.cand_fws:
+        _add(f"{fw}_bypass", [fw], [])
+
     # Redundancy group full compromise (always)
     for grp in model.redundancy_groups:
         _add(f"group_{grp.group_id}_compromise", list(grp.members), [])
@@ -154,10 +159,6 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
         # Single-receiver compromises
         for r in receivers:
             _add(f"{r.name}_compromise", [r.name], [])
-
-        # PEP bypass (compromise the firewall)
-        for fw in model.cand_fws:
-            _add(f"{fw}_bypass", [fw], [])
 
         # Combined: master compromise + bus failure
         for m in masters:

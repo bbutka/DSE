@@ -979,6 +979,23 @@ class TestSolutionRanker(unittest.TestCase):
         SolutionRanker([sol2]).rank()
         self.assertGreater(sol1.resilience_score, sol2.resilience_score)
 
+    def test_resilience_uses_worst_case_blast_radius(self):
+        """Low-impact scenario padding must not dilute a severe failure."""
+        p1 = Phase1Result(strategy="test", satisfiable=True)
+        p1.new_risk = [("c1", "c1r1", "read", 5)]
+        nodes = {f"c{i}": 1 for i in range(10)}
+        severe = ScenarioResult(name="severe", compromised=["c0"], failed=[], satisfiable=True)
+        severe.blast_radii = dict(nodes)
+        severe.blast_radii["c0"] = 9
+        trivial = []
+        for idx in range(20):
+            sc = ScenarioResult(name=f"trivial_{idx}", compromised=[], failed=[], satisfiable=True)
+            sc.blast_radii = dict(nodes)
+            trivial.append(sc)
+        sol = SolutionResult(strategy="test", phase1=p1, scenarios=[severe] + trivial)
+        SolutionRanker([sol]).rank()
+        self.assertLess(sol.resilience_score, 70.0)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Comparison Engine Tests
@@ -1537,6 +1554,9 @@ class TestScenarioGeneration(unittest.TestCase):
         # PS compromises
         self.assertIn("ps0_compromise", names)
         self.assertIn("ps1_compromise", names)
+        # Firewall bypasses are core resilience scenarios, not optional extras
+        self.assertIn("pep_group_bypass", names)
+        self.assertIn("pep_standalone_bypass", names)
 
     def test_tc9_full_scenarios(self):
         model = make_tc9_network()
