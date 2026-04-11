@@ -114,6 +114,82 @@ DEFAULT_SOLVER_CONFIG = {
 }
 
 
+_FUNCTION_STATUS_SEVERITY = {
+    "ok": 0,
+    "degraded": 1,
+    "lost": 2,
+}
+
+
+def _summarize_function_outcomes(scenarios: List[ScenarioResult]) -> dict:
+    """Return worst observed function status/score across scenarios."""
+    summary: dict = {}
+    for scenario in scenarios or []:
+        if not scenario.satisfiable:
+            continue
+        for function, status in scenario.function_statuses.items():
+            score = scenario.function_scores.get(function, 0)
+            current = summary.get(function)
+            severity = _FUNCTION_STATUS_SEVERITY.get(status, -1)
+            current_severity = (
+                _FUNCTION_STATUS_SEVERITY.get(current["worst_status"], -1)
+                if current
+                else -1
+            )
+            if (
+                current is None
+                or severity > current_severity
+                or (severity == current_severity and score < current["worst_score"])
+            ):
+                summary[function] = {
+                    "worst_status": status,
+                    "worst_score": score,
+                    "worst_scenario": scenario.name,
+                }
+    return summary
+
+
+def _improved_functions(original_summary: dict, repaired_summary: dict) -> List[str]:
+    """Return functions whose worst repaired outcome improves over original."""
+    improved: List[str] = []
+    for function, original in original_summary.items():
+        repaired = repaired_summary.get(function)
+        if not repaired:
+            continue
+        original_severity = _FUNCTION_STATUS_SEVERITY.get(original["worst_status"], -1)
+        repaired_severity = _FUNCTION_STATUS_SEVERITY.get(repaired["worst_status"], -1)
+        if repaired_severity < original_severity:
+            improved.append(function)
+        elif (
+            repaired_severity == original_severity
+            and repaired["worst_score"] > original["worst_score"]
+        ):
+            improved.append(function)
+    return sorted(set(improved))
+
+
+def _repair_relevant_scenarios(
+    scenarios: List[ScenarioResult],
+    repair_intents: List[dict],
+) -> List[ScenarioResult]:
+    """Filter scenarios to the failure domain targeted by repair intents."""
+    axes = {
+        str(intent.get("required_diversity_axis", ""))
+        for intent in repair_intents
+        if intent.get("required_diversity_axis")
+    }
+    if not axes:
+        return scenarios or []
+
+    relevant: List[ScenarioResult] = []
+    for scenario in scenarios or []:
+        if "bus" in axes and scenario.failed_buses:
+            relevant.append(scenario)
+        elif "modality" in axes and scenario.failed_modalities:
+            relevant.append(scenario)
+    return relevant or (scenarios or [])
+
+
 class DSEOrchestrator:
     """
     Coordinates Phase 1, 2, and 3 agents across three strategy variants.
@@ -503,16 +579,62 @@ class DSEOrchestrator:
             delta = compare_network_models(self.network_model, candidate_model)
             if not delta.has_changes():
                 continue
-            candidates.append(
-                {
-                    "source_strategy": sol.strategy,
-                    "source_label": sol.label,
-                    "repair_intents": list(repair_intents),
-                    "model": candidate_model,
-                    "delta": delta,
-                }
-            )
+            candidate = {
+                "source_strategy": sol.strategy,
+                "source_label": sol.label,
+                "repair_intents": list(repair_intents),
+                "model": candidate_model,
+                "delta": delta,
+            }
+            if self.solver_config.get("reevaluate_architecture_repair_candidates"):
+                candidate["reevaluation"] = self._reevaluate_architecture_repair_candidate(
+                    candidate,
+                    source_solution=sol,
+                )
+            candidates.append(candidate)
         return candidates
+
+    def _reevaluate_architecture_repair_candidate(
+        self,
+        candidate: dict,
+        *,
+        source_solution: SolutionResult,
+    ) -> dict:
+        """Run Phase 3 fast evaluation on a repaired architecture candidate."""
+        candidate_model = candidate["model"]
+        scenarios = generate_scenarios(candidate_model, full=self.full_phase3)
+        agent = Phase3FastAgent(
+            network_model=candidate_model,
+            phase1_result=source_solution.phase1 or Phase1Result(satisfiable=True),
+            phase2_result=source_solution.phase2 or Phase2Result(satisfiable=True),
+            strategy=f"{source_solution.strategy}_repair",
+            progress_queue=None,
+            full_scenarios=self.full_phase3,
+            timeout=self.phase_timeout,
+            solver_config=dict(self.solver_config, phase3_backend="python"),
+        )
+        repaired_scenarios = agent.run(model_scenarios=scenarios)
+        original_summary = _summarize_function_outcomes(
+            _repair_relevant_scenarios(
+                source_solution.scenarios,
+                candidate.get("repair_intents", []),
+            )
+        )
+        repaired_summary = _summarize_function_outcomes(
+            _repair_relevant_scenarios(
+                repaired_scenarios,
+                candidate.get("repair_intents", []),
+            )
+        )
+        improved_functions = _improved_functions(original_summary, repaired_summary)
+        return {
+            "backend": "python",
+            "scenario_count": len(repaired_scenarios),
+            "original_function_summary": original_summary,
+            "repaired_function_summary": repaired_summary,
+            "improved_functions": improved_functions,
+            "scenarios": repaired_scenarios,
+        }
 
     def _post(self, level: str, msg: str) -> None:
         try:

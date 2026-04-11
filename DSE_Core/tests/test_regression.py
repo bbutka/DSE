@@ -1251,6 +1251,65 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn("baro_1_repair_bus", candidates[0]["delta"].added_buses)
         self.assertIn(("imu_1_repair_bus", "imu_1"), candidates[0]["delta"].added_links)
 
+    def test_orchestrator_reevaluates_repair_candidate_when_enabled(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "stage": "architecture_generation",
+            "status": "pending_architecture_revision",
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+        original_failure = ScenarioResult(
+            name="sensor_bus_failure",
+            compromised=[],
+            failed=["sensor_bus"],
+            failed_buses=["sensor_bus"],
+            satisfiable=True,
+            function_scores={"state_estimation": 0},
+            function_statuses={"state_estimation": "lost"},
+            functions_lost=["state_estimation"],
+        )
+        p2 = Phase2Result(satisfiable=True)
+        p2.closed_loop_repair_intents = [intent]
+        sol = SolutionResult(
+            strategy="max_security",
+            label="Solution 1: Maximum Security",
+            phase1=Phase1Result(satisfiable=True),
+            phase2=p2,
+            scenarios=[original_failure],
+        )
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_repair_candidates": True,
+                "reevaluate_architecture_repair_candidates": True,
+            },
+        )
+        orch.solutions = [sol]
+
+        candidates = orch._build_architecture_repair_candidates()
+
+        self.assertEqual(len(candidates), 1)
+        reevaluation = candidates[0]["reevaluation"]
+        self.assertEqual(reevaluation["backend"], "python")
+        self.assertIn("state_estimation", reevaluation["improved_functions"])
+        self.assertEqual(
+            reevaluation["original_function_summary"]["state_estimation"]["worst_status"],
+            "lost",
+        )
+        self.assertEqual(
+            reevaluation["repaired_function_summary"]["state_estimation"]["worst_status"],
+            "degraded",
+        )
+        self.assertGreater(reevaluation["scenario_count"], 1)
+
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()
         intent = {
