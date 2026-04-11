@@ -13,8 +13,8 @@
     "placed_ps": [
       "ps0"
     ],
-    "phase3_scenario_count": 31,
-    "phase3_worst_case_risk_scaled": 2687500
+    "phase3_scenario_count": 46,
+    "phase3_worst_case_risk_scaled": 76562500
   },
   "min_resources": {
     "satisfiable": true,

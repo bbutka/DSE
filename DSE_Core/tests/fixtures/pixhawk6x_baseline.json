@@ -12,8 +12,8 @@
     "placed_ps": [
       "ps_fmu"
     ],
-    "phase3_scenario_count": 118,
-    "phase3_worst_case_risk_scaled": 3190500
+    "phase3_scenario_count": 130,
+    "phase3_worst_case_risk_scaled": 160817500
   },
   "min_resources": {
     "satisfiable": true,

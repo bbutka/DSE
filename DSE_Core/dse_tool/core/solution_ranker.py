@@ -116,8 +116,9 @@ class SolutionRanker:
         sol.latency_score = 100.0 if (p1 and p1.satisfiable) else 0.0
 
         # ── Resilience score ───────────────────────────────────────────────
-        # Combines blast radius (40%), capability retention (40%),
-        # and control plane health (20%) for a holistic resilience picture.
+        # When function-support data is present (4-axis):
+        #   35% blast radius + 30% capability + 20% control plane + 15% function diversity
+        # Otherwise (3-axis): 40% blast radius + 40% capability + 20% control plane
         if sol.scenarios:
             sat_sc = [s for s in sol.scenarios if s.satisfiable]
             if sat_sc:
@@ -159,12 +160,38 @@ class SolutionRanker:
                 cp_score = (sum(cp_scores) / len(cp_scores)
                             if cp_scores else 100.0)
 
+                # Sub-score 4: Function diversity (higher is better)
+                # Only active when scenarios have function-support data.
+                func_scores: list = []
+                for s in sat_sc:
+                    total_funcs = (len(s.functions_ok)
+                                   + len(s.functions_degraded)
+                                   + len(s.functions_lost))
+                    if total_funcs > 0:
+                        # OK = full credit, degraded = half, lost = 0
+                        func_retained = ((len(s.functions_ok)
+                                          + 0.5 * len(s.functions_degraded))
+                                         / total_funcs) * 100.0
+                        func_scores.append(func_retained)
+                has_functions = bool(func_scores)
+                func_score = (sum(func_scores) / len(func_scores)
+                              if func_scores else 100.0)
+
                 # Tool-internal composite for GUI strategy comparison.
                 # Not defined in the paper; the paper uses β_S, β_E,
                 # α, and capability-loss counts as its resilience metrics.
-                sol.resilience_score = (0.4 * br_score
-                                        + 0.4 * cap_score
-                                        + 0.2 * cp_score)
+                # When function-support data is present, use 4-axis weights:
+                #   35% blast radius + 30% capability + 20% control plane + 15% function diversity
+                # Otherwise fall back to original 3-axis: 40/40/20.
+                if has_functions:
+                    sol.resilience_score = (0.35 * br_score
+                                            + 0.30 * cap_score
+                                            + 0.20 * cp_score
+                                            + 0.15 * func_score)
+                else:
+                    sol.resilience_score = (0.4 * br_score
+                                            + 0.4 * cap_score
+                                            + 0.2 * cp_score)
             else:
                 sol.resilience_score = 0.0
         else:

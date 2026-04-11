@@ -13,7 +13,7 @@
       "ps_uart"
     ],
     "phase3_scenario_count": 24,
-    "phase3_worst_case_risk_scaled": 5400000
+    "phase3_worst_case_risk_scaled": 164887500
   },
   "min_resources": {
     "satisfiable": true,

@@ -64,7 +64,8 @@
 - `capability_access_unmediated` flags access paths where the PEP is bypassed â€” capability is degraded (not lost).
 - `system_functional` is emitted for capability-free topologies, so Phase 3 does not default them to non-functional.
 - `capability_degraded` bypass variant is guarded by `not capability_lost(Cap)` to prevent simultaneous lost+degraded.
-- Resilience score = 40% blast radius + 40% capability retention + 20% control plane health.
+- Resilience score = 40% blast radius + 40% capability retention + 20% control plane health (3-axis). When function-support data is present, switches to 4-axis: 35% blast radius + 30% capability retention + 20% control plane health + 15% function diversity.
+- `FunctionSupport` (asp_generator.py): Cross-service functional contribution with modality metadata. Fields: function, component, modality, quality (0-100), bus. Used by the Python Phase 3 evaluator (`phase3_fast_agent.py`) for diversity-aware ok/degraded/lost assessment.
 - `SolutionRanker` accepts `max_luts`/`max_power` from `NetworkModel.system_caps`; module-level defaults remain as fallback when caps are absent.
 - `solve_scenario()` respects the ClingoRunner timeout â€” no unbounded solve calls.
 
