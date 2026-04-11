@@ -36,7 +36,7 @@ from ..core.asp_generator import (
     NetworkModel, Component, Asset, RedundancyGroup, Service,
     AccessNeed, ASPGenerator, make_opentitan_network, make_pixhawk6x_platform,
     make_pixhawk6x_uav_network, make_pixhawk6x_uav_dual_ps_network,
-    make_tc9_network, make_reference_soc
+    make_tc9_network, make_reference_soc, FunctionSupport
 )
 
 
@@ -233,6 +233,8 @@ class NetworkEditor(ttk.Frame):
         self._model_roles:              List[tuple] = []
         self._model_policy_exceptions:  list        = []
         self._model_capabilities:       list        = []
+        self._model_function_supports:  list        = []
+        self._model_function_thresholds: dict       = {}
 
         # Analysis results overlay
         self._analysis_results: Optional[dict] = None
@@ -776,6 +778,12 @@ class NetworkEditor(ttk.Frame):
         self._model_capabilities = (
             list(model.capabilities) if model.capabilities else []
         )
+        self._model_function_supports = (
+            list(model.function_supports) if model.function_supports else []
+        )
+        self._model_function_thresholds = (
+            dict(model.function_thresholds) if model.function_thresholds else {}
+        )
 
         # Auto-generate scenarios from the loaded topology
         from ..agents.phase3_agent import generate_scenarios
@@ -1006,6 +1014,10 @@ class NetworkEditor(ttk.Frame):
         # ── Capabilities ────────────────────────────────────────────────────
         if self._model_capabilities:
             model.capabilities = list(self._model_capabilities)
+        if self._model_function_supports:
+            model.function_supports = list(self._model_function_supports)
+        if self._model_function_thresholds:
+            model.function_thresholds = dict(self._model_function_thresholds)
 
         # ── Build explicit asset list ────────────────────────────────────────
         SKIP = {"bus", "processor", "dma", "policy_server", "firewall"}
@@ -1062,6 +1074,17 @@ class NetworkEditor(ttk.Frame):
             "mission_phases": self.mission_phases,
             "policy_exceptions": self.policy_exceptions,
             "scenarios": self.scenarios,
+            "function_supports": [
+                {
+                    "function": support.function,
+                    "component": support.component,
+                    "modality": support.modality,
+                    "quality": support.quality,
+                    "bus": support.bus,
+                }
+                for support in self._model_function_supports
+            ],
+            "function_thresholds": self._model_function_thresholds,
         }
         for name, nd in self.nodes.items():
             data["nodes"].append({
@@ -1111,6 +1134,18 @@ class NetworkEditor(ttk.Frame):
             self.policy_exceptions = list(data["policy_exceptions"])
         if "scenarios" in data:
             self.scenarios = list(data["scenarios"])
+        self._model_function_supports = [
+            FunctionSupport(
+                function=str(support["function"]),
+                component=str(support["component"]),
+                modality=str(support["modality"]),
+                quality=int(support["quality"]),
+                bus=str(support.get("bus", "")),
+            )
+            for support in data.get("function_supports", [])
+        ]
+        if "function_thresholds" in data:
+            self._model_function_thresholds = dict(data["function_thresholds"])
         self._draw_all()
         self._notify_changed()
 
@@ -1984,6 +2019,8 @@ class NetworkEditor(ttk.Frame):
         self._model_roles             = []
         self._model_policy_exceptions = []
         self._model_capabilities      = []
+        self._model_function_supports = []
+        self._model_function_thresholds = {}
         self._canvas.delete("node", "link", "label", "redund", "overlay", "badge")
         self._notify_changed()
 

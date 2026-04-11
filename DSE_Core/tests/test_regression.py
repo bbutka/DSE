@@ -332,6 +332,12 @@ class TestPixhawk6XFactory(unittest.TestCase):
         caps = {c.name for c in self.platform.capabilities}
         self.assertEqual(caps, {"flight_stabilization_base", "failsafe_io", "crypto_anchor"})
 
+    def test_platform_function_supports(self):
+        supports = {(s.function, s.component, s.modality, s.bus) for s in self.platform.function_supports}
+        self.assertIn(("state_estimation", "imu_1", "inertial", "imu_bus_1"), supports)
+        self.assertIn(("state_estimation", "baro_1", "pressure", "baro_bus_1"), supports)
+        self.assertEqual(self.platform.function_thresholds["state_estimation"]["degraded"], 50)
+
     def test_uav_name(self):
         self.assertEqual(self.uav.name, "Pixhawk 6X UAV")
 
@@ -349,6 +355,13 @@ class TestPixhawk6XFactory(unittest.TestCase):
         caps = {c.name for c in self.uav.capabilities}
         for cap in ("flight_control", "navigation", "ground_comms", "rc_override", "surveillance", "crypto_ops", "logging"):
             self.assertIn(cap, caps)
+
+    def test_uav_overlay_function_supports(self):
+        supports = {(s.function, s.component, s.modality, s.bus) for s in self.uav.function_supports}
+        self.assertIn(("state_estimation", "gps_1", "satellite", "gps1_port"), supports)
+        self.assertIn(("navigation", "gps_2", "satellite", "gps2_port"), supports)
+        self.assertIn(("navigation", "imu_1", "inertial", "imu_bus_1"), supports)
+        self.assertEqual(self.uav.function_thresholds["navigation"]["degraded"], 55)
 
     def test_uav_pep_candidates(self):
         self.assertIn("pep_telem1", self.uav.cand_fws)
