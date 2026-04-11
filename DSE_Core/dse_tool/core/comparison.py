@@ -64,6 +64,32 @@ def _format_repair_intent(intent: dict) -> str:
     return f"{function}: {repair}{axis_text}{domains_text}, {status}"
 
 
+def _format_candidate_values(label: str, values: list) -> List[str]:
+    if not values:
+        return []
+    text_values = [str(value) for value in values[:6]]
+    suffix = f", ... {len(values) - 6} more" if len(values) > 6 else ""
+    return [f"    {label}: {', '.join(text_values)}{suffix}"]
+
+
+def _format_architecture_repair_candidate(candidate: dict, idx: int) -> List[str]:
+    source = candidate.get("source_label") or candidate.get("source_strategy") or "unknown"
+    delta = candidate.get("delta")
+    lines = [f"  Candidate {idx}: derived from {source}"]
+    for intent in candidate.get("repair_intents") or []:
+        lines.append(f"    Intent: {_format_repair_intent(intent)}")
+    if not delta:
+        return lines
+
+    lines.extend(_format_candidate_values("Added buses", getattr(delta, "added_buses", [])))
+    lines.extend(_format_candidate_values("Removed buses", getattr(delta, "removed_buses", [])))
+    lines.extend(_format_candidate_values("Added links", getattr(delta, "added_links", [])))
+    lines.extend(_format_candidate_values("Removed links", getattr(delta, "removed_links", [])))
+    lines.extend(_format_candidate_values("Added components", getattr(delta, "added_components", [])))
+    lines.extend(_format_candidate_values("Removed components", getattr(delta, "removed_components", [])))
+    return lines
+
+
 class ComparisonEngine:
     """
     Generates pros/cons lists for each solution variant.
@@ -298,6 +324,7 @@ def generate_report_text(
     max_luts: int = 0,
     max_power: int = 0,
     max_ffs: int = 0,
+    architecture_repair_candidates: List[dict] | None = None,
 ) -> str:
     """
     Generate the full human-readable DSE analysis report.
@@ -629,6 +656,15 @@ def generate_report_text(
         v3 = vals[2] if len(vals) > 2 else "N/A"
         lines.append(f"  {label:<30}  {v1:>10}  {v2:>10}  {v3:>10}")
     lines.append("")
+
+    # Architecture repair candidates generated from closed-loop findings
+    if architecture_repair_candidates:
+        lines.append(SEP)
+        lines.append("  ARCHITECTURE REPAIR CANDIDATES")
+        lines.append(SEP)
+        for idx, candidate in enumerate(architecture_repair_candidates, 1):
+            lines.extend(_format_architecture_repair_candidate(candidate, idx))
+            lines.append("")
 
     # ── Topology-aware recommendations ──────────────────────────────────────
     lines.append(SEP)

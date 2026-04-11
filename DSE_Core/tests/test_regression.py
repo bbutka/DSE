@@ -1031,12 +1031,28 @@ class TestComparisonEngine(unittest.TestCase):
                 "minimum_independent_domains": 2,
             }
         ]
-        report = generate_report_text(sols, network_name="test_net")
+        baseline = make_pixhawk6x_platform()
+        candidate = make_pixhawk6x_uav_network()
+        repair_candidates = [
+            {
+                "source_label": sols[0].label,
+                "source_strategy": sols[0].strategy,
+                "repair_intents": sols[0].phase2.closed_loop_repair_intents,
+                "delta": compare_network_models(baseline, candidate),
+            }
+        ]
+        report = generate_report_text(
+            sols,
+            network_name="test_net",
+            architecture_repair_candidates=repair_candidates,
+        )
         self.assertIn("DSE SECURITY ANALYSIS REPORT", report)
         self.assertIn("test_net", report)
         self.assertIn("COMPARISON TABLE", report)
         self.assertIn("FUNCTION SUPPORT FINDINGS", report)
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
+        self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
+        self.assertIn("Added components", report)
         self.assertIn("Function Deficiencies", report)
         self.assertIn("Repair Intents", report)
         self.assertIn("split_function_support_buses", report)

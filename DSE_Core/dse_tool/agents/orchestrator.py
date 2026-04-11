@@ -212,6 +212,9 @@ class DSEOrchestrator:
                 )
                 ranker.rank()
 
+                if self.solver_config.get("generate_architecture_repair_candidates"):
+                    self.architecture_repair_candidates = self._build_architecture_repair_candidates()
+
                 # Generate report (topology-aware resource caps)
                 caps = self.network_model.system_caps
                 self.report_text = generate_report_text(
@@ -220,9 +223,9 @@ class DSEOrchestrator:
                     max_luts=caps.get("max_luts", 0),
                     max_power=caps.get("max_power", 0),
                     max_ffs=caps.get("max_ffs", 0),
+                    architecture_repair_candidates=self.architecture_repair_candidates,
                 )
                 if self.solver_config.get("generate_architecture_repair_candidates"):
-                    self.architecture_repair_candidates = self._build_architecture_repair_candidates()
                     if self.architecture_repair_candidates:
                         self._post(
                             "INFO",
