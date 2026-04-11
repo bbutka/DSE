@@ -44,7 +44,11 @@ from dse_tool.core.solution_parser import (
     SolutionParser, AMP_DENOM,
 )
 from dse_tool.core.architecture_delta import compare_network_models
-from dse_tool.core.architecture_repair import apply_architecture_repair_intents
+from dse_tool.core.architecture_repair import (
+    apply_architecture_repair_intents,
+    serialize_architecture_repair_candidate,
+    serialize_architecture_repair_candidates,
+)
 from dse_tool.core.architecture_comparison_report import (
     build_architecture_comparison_summary,
     format_architecture_comparison,
@@ -1246,6 +1250,34 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn("imu_1_repair_bus", candidates[0]["model"].buses)
         self.assertIn("baro_1_repair_bus", candidates[0]["delta"].added_buses)
         self.assertIn(("imu_1_repair_bus", "imu_1"), candidates[0]["delta"].added_links)
+
+    def test_serializes_repair_candidate_for_export(self):
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "minimum_independent_domains": 2,
+        }
+        repaired = apply_architecture_repair_intents(model, [intent])
+        candidate = {
+            "source_strategy": "max_security",
+            "source_label": "Solution 1: Maximum Security",
+            "repair_intents": [intent],
+            "model": repaired,
+            "delta": compare_network_models(model, repaired),
+        }
+
+        serialized = serialize_architecture_repair_candidate(candidate)
+        bundle = serialize_architecture_repair_candidates([candidate])
+
+        self.assertEqual(serialized["source_strategy"], "max_security")
+        self.assertEqual(serialized["repair_intents"], [intent])
+        self.assertIn("imu_1_repair_bus", serialized["model"]["buses"])
+        self.assertIn("baro_1_repair_bus", serialized["delta"]["added_buses"])
+        self.assertEqual(
+            bundle["architecture_repair_candidates"][0]["model"]["name"],
+            "Shared Bus State Estimation (repaired)",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

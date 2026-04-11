@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, List, Tuple
+from dataclasses import asdict
+from typing import Any, Dict, List, Tuple
 
 from .asp_generator import NetworkModel
 
@@ -25,6 +26,27 @@ def apply_architecture_repair_intents(model: NetworkModel, intents: List[dict]) 
     if changed:
         candidate.name = f"{model.name} (repaired)"
     return candidate
+
+
+def serialize_architecture_repair_candidate(candidate: dict) -> dict:
+    """Return a JSON-compatible representation of a repair candidate."""
+    return {
+        "source_strategy": candidate.get("source_strategy", ""),
+        "source_label": candidate.get("source_label", ""),
+        "repair_intents": list(candidate.get("repair_intents") or []),
+        "delta": _asdict_or_none(candidate.get("delta")),
+        "model": _asdict_or_none(candidate.get("model")),
+    }
+
+
+def serialize_architecture_repair_candidates(candidates: List[dict]) -> dict:
+    """Return a JSON-compatible repair-candidate bundle."""
+    return {
+        "architecture_repair_candidates": [
+            serialize_architecture_repair_candidate(candidate)
+            for candidate in candidates
+        ]
+    }
 
 
 def _split_function_support_buses(model: NetworkModel, *, function: str, min_domains: int) -> bool:
@@ -82,3 +104,9 @@ def _unique_bus_name(model: NetworkModel, component: str, used_buses: set[str]) 
 def _link_sort_key(original_links: List[Tuple[str, str]]):
     original_index = {link: idx for idx, link in enumerate(original_links)}
     return lambda link: (original_index.get(link, len(original_index)), link)
+
+
+def _asdict_or_none(value: Any) -> dict | None:
+    if value is None:
+        return None
+    return asdict(value)
