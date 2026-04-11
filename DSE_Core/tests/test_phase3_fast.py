@@ -29,6 +29,7 @@ CLINGO_DIR = os.path.join(
 class TestPhase3FunctionSupportSemantics(unittest.TestCase):
     def _make_model(self, supports: list[FunctionSupport]) -> NetworkModel:
         component_names = sorted({support.component for support in supports})
+        support_buses = sorted({support.bus for support in supports if support.bus})
         components = [
             Component(
                 "fmu", "processor", "privileged", 1, 1, 1000, 1000,
@@ -42,10 +43,31 @@ class TestPhase3FunctionSupportSemantics(unittest.TestCase):
                     direction="input",
                 )
             )
+        for bus in support_buses:
+            components.append(
+                Component(
+                    bus, "bus", "normal", 1, 1, 1000, 1000,
+                    is_receiver=False,
+                )
+            )
+        bus_by_component = {
+            support.component: support.bus
+            for support in supports
+            if support.bus
+        }
+        links = []
+        for name in component_names:
+            bus = bus_by_component.get(name, "")
+            if bus:
+                links.append(("fmu", bus))
+                links.append((bus, name))
+            else:
+                links.append(("fmu", name))
         return NetworkModel(
             name="function_support_fixture",
             components=components,
-            links=[("fmu", name) for name in component_names],
+            links=links,
+            buses=support_buses,
             function_supports=supports,
             function_thresholds={"state_estimation": {"ok": 80, "degraded": 50}},
         )
@@ -131,6 +153,40 @@ class TestPhase3FunctionSupportSemantics(unittest.TestCase):
         self.assertIn("modality_satellite_failure", {scenario["name"] for scenario in scenarios})
         satellite = next(s for s in scenarios if s["name"] == "modality_satellite_failure")
         self.assertEqual(satellite["failed_modalities"], ["satellite"])
+
+    def test_shared_bus_failure_loses_mixed_modality_supports(self) -> None:
+        result = self._run(
+            [
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90, bus="sensor_bus"),
+                FunctionSupport("state_estimation", "imu_1", "inertial", 70, bus="sensor_bus"),
+                FunctionSupport("state_estimation", "baro_1", "pressure", 40, bus="sensor_bus"),
+            ],
+            {"name": "sensor_bus_failure", "compromised": [], "failed": ["sensor_bus"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 0)
+        self.assertEqual(result.function_statuses["state_estimation"], "lost")
+        self.assertIn("state_estimation", result.functions_lost)
+        self.assertIn("state_estimation_lacks_bus_diversity", result.function_findings)
+        self.assertIn("state_estimation_lost_under_bus_failure", result.function_findings)
+        self.assertIn("state_estimation_bus_fallback_below_degraded_threshold", result.function_findings)
+
+    def test_split_bus_failure_degrades_but_preserves_state_estimation(self) -> None:
+        result = self._run(
+            [
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90, bus="gps_bus"),
+                FunctionSupport("state_estimation", "imu_1", "inertial", 70, bus="imu_bus"),
+                FunctionSupport("state_estimation", "baro_1", "pressure", 40, bus="baro_bus"),
+            ],
+            {"name": "gps_bus_failure", "compromised": [], "failed": ["gps_bus"]},
+        )
+
+        self.assertEqual(result.function_scores["state_estimation"], 70)
+        self.assertEqual(result.function_statuses["state_estimation"], "degraded")
+        self.assertIn("state_estimation", result.functions_degraded)
+        self.assertNotIn("state_estimation_lacks_bus_diversity", result.function_findings)
+        self.assertNotIn("state_estimation_lost_under_bus_failure", result.function_findings)
+        self.assertNotIn("state_estimation_bus_fallback_below_degraded_threshold", result.function_findings)
 
 
 class TestPhase3FastParity(unittest.TestCase):

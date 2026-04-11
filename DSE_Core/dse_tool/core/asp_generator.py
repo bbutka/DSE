@@ -144,6 +144,7 @@ class FunctionSupport:
     component: str
     modality: str
     quality: int
+    bus: str = ""
 
 
 @dataclass

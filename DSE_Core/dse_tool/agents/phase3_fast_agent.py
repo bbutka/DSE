@@ -425,6 +425,7 @@ class Phase3FastAgent:
             compromised=compromised,
             cut_off=set(cut_off),
             failed_modalities=failed_modalities,
+            failed_buses=failed.intersection(set(self.network_model.buses)),
         )
 
         result = ScenarioResult(
@@ -494,6 +495,7 @@ class Phase3FastAgent:
         compromised: Set[str],
         cut_off: Set[str],
         failed_modalities: Set[str],
+        failed_buses: Set[str],
     ) -> Dict[str, object]:
         """
         Evaluate function-level resilience using a max-quality fallback model.
@@ -526,6 +528,7 @@ class Phase3FastAgent:
                 and support.component not in compromised
                 and support.component not in cut_off
                 and support.modality not in failed_modalities
+                and (not getattr(support, "bus", "") or support.bus not in failed_buses)
             ]
             score = max(available_scores, default=0)
             scores[function_name] = score
@@ -551,6 +554,18 @@ class Phase3FastAgent:
                 findings.append("state_estimation_lost_under_satellite_failure")
             if failed_modalities and score < degraded_threshold:
                 findings.append(f"{function_name}_fallback_below_degraded_threshold")
+
+            support_buses = {support.bus for support in supports if getattr(support, "bus", "")}
+            if support_buses and len(support_buses) < 2:
+                findings.append(f"{function_name}_lacks_bus_diversity")
+            if (
+                function_name == "state_estimation"
+                and failed_buses
+                and statuses[function_name] == "lost"
+            ):
+                findings.append("state_estimation_lost_under_bus_failure")
+            if failed_buses and score < degraded_threshold:
+                findings.append(f"{function_name}_bus_fallback_below_degraded_threshold")
 
         return {
             "scores": scores,
