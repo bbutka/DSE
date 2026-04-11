@@ -417,6 +417,9 @@ class SolutionResult:
     scenarios:  List[ScenarioResult]       = field(default_factory=list)
     error:      str                        = ""
     complete:   bool                       = False
+    architecture_seed: str                  = ""
+    architecture_objective_bias: str        = ""
+    architecture_description: str           = ""
     # Runtime results (populated when runtime is enabled)
     runtime_results: List["RuntimeAdaptiveResult"] = field(default_factory=list)
     joint_runtime:   Optional["JointPhase2RuntimeResult"] = None

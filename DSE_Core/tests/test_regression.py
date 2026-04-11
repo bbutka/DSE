@@ -49,6 +49,11 @@ from dse_tool.core.architecture_repair import (
     serialize_architecture_repair_candidate,
     serialize_architecture_repair_candidates,
 )
+from dse_tool.core.architecture_space import generate_pixhawk6x_architecture_seeds
+from dse_tool.core.architecture_pareto import (
+    ArchitectureParetoPoint,
+    build_architecture_pareto_front,
+)
 from dse_tool.core.architecture_comparison_report import (
     build_architecture_comparison_summary,
     format_architecture_comparison,
@@ -60,7 +65,11 @@ from dse_tool.core.executive_summary import (
     format_executive_summary,
 )
 from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
-from dse_tool.agents.phase3_agent import generate_scenarios, _valid_asp_components
+from dse_tool.agents.phase3_agent import (
+    generate_scenarios,
+    _valid_asp_components,
+    resolve_phase3_backend,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -332,6 +341,12 @@ class TestPixhawk6XFactory(unittest.TestCase):
         caps = {c.name for c in self.platform.capabilities}
         self.assertEqual(caps, {"flight_stabilization_base", "failsafe_io", "crypto_anchor"})
 
+    def test_platform_function_supports(self):
+        supports = {(s.function, s.component, s.modality, s.bus) for s in self.platform.function_supports}
+        self.assertIn(("state_estimation", "imu_1", "inertial", "imu_bus_1"), supports)
+        self.assertIn(("state_estimation", "baro_1", "pressure", "baro_bus_1"), supports)
+        self.assertEqual(self.platform.function_thresholds["state_estimation"]["degraded"], 50)
+
     def test_uav_name(self):
         self.assertEqual(self.uav.name, "Pixhawk 6X UAV")
 
@@ -349,6 +364,13 @@ class TestPixhawk6XFactory(unittest.TestCase):
         caps = {c.name for c in self.uav.capabilities}
         for cap in ("flight_control", "navigation", "ground_comms", "rc_override", "surveillance", "crypto_ops", "logging"):
             self.assertIn(cap, caps)
+
+    def test_uav_overlay_function_supports(self):
+        supports = {(s.function, s.component, s.modality, s.bus) for s in self.uav.function_supports}
+        self.assertIn(("state_estimation", "gps_1", "satellite", "gps1_port"), supports)
+        self.assertIn(("navigation", "gps_2", "satellite", "gps2_port"), supports)
+        self.assertIn(("navigation", "imu_1", "inertial", "imu_bus_1"), supports)
+        self.assertEqual(self.uav.function_thresholds["navigation"]["degraded"], 55)
 
     def test_uav_pep_candidates(self):
         self.assertIn("pep_telem1", self.uav.cand_fws)
@@ -966,6 +988,23 @@ class TestSolutionRanker(unittest.TestCase):
         SolutionRanker([sol2]).rank()
         self.assertGreater(sol1.resilience_score, sol2.resilience_score)
 
+    def test_resilience_uses_worst_case_blast_radius(self):
+        """Low-impact scenario padding must not dilute a severe failure."""
+        p1 = Phase1Result(strategy="test", satisfiable=True)
+        p1.new_risk = [("c1", "c1r1", "read", 5)]
+        nodes = {f"c{i}": 1 for i in range(10)}
+        severe = ScenarioResult(name="severe", compromised=["c0"], failed=[], satisfiable=True)
+        severe.blast_radii = dict(nodes)
+        severe.blast_radii["c0"] = 9
+        trivial = []
+        for idx in range(20):
+            sc = ScenarioResult(name=f"trivial_{idx}", compromised=[], failed=[], satisfiable=True)
+            sc.blast_radii = dict(nodes)
+            trivial.append(sc)
+        sol = SolutionResult(strategy="test", phase1=p1, scenarios=[severe] + trivial)
+        SolutionRanker([sol]).rank()
+        self.assertLess(sol.resilience_score, 70.0)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Comparison Engine Tests
@@ -1041,7 +1080,7 @@ class TestComparisonEngine(unittest.TestCase):
             {
                 "source_label": sols[0].label,
                 "source_strategy": sols[0].strategy,
-                "promotion_status": "promoted_candidate_for_export",
+                "promotion_status": "selected_for_full_ase_rerun",
                 "repair_intents": sols[0].phase2.closed_loop_repair_intents,
                 "delta": compare_network_models(baseline, candidate),
                 "reevaluation": {
@@ -1076,7 +1115,7 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
         self.assertIn("Added components", report)
-        self.assertIn("Promotion: promoted_candidate_for_export", report)
+        self.assertIn("Promotion: selected_for_full_ase_rerun", report)
         self.assertIn("Re-evaluation", report)
         self.assertIn("lost@0 -> degraded@70", report)
         self.assertIn("Function Deficiencies", report)
@@ -1092,6 +1131,17 @@ class TestOrchestratorDefaults(unittest.TestCase):
         from dse_tool.agents.orchestrator import DEFAULT_SOLVER_CONFIG
 
         self.assertEqual(DEFAULT_SOLVER_CONFIG["phase3_backend"], "asp")
+
+    def test_function_support_models_use_python_phase3_semantics(self):
+        legacy = NetworkModel()
+        semantic = NetworkModel(
+            function_supports=[
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90)
+            ]
+        )
+
+        self.assertEqual(resolve_phase3_backend("asp", legacy), "asp")
+        self.assertEqual(resolve_phase3_backend("asp", semantic), "python")
 
 
 class TestArchitectureComparisonReport(unittest.TestCase):
@@ -1145,6 +1195,200 @@ class TestArchitectureComparisonReport(unittest.TestCase):
         self.assertIn("Phase 1 security overhead: LUTs=25,180", text)
         self.assertIn("Phase 2 ZTA cost: 1", text)
         self.assertIn("Worst scenario: group_gps_group_compromise", text)
+
+
+class TestArchitectureSpaceSeeds(unittest.TestCase):
+    def test_pixhawk_seed_generation_has_distinct_objective_biases(self):
+        seeds = generate_pixhawk6x_architecture_seeds()
+        seed_by_name = {seed.name: seed for seed in seeds}
+
+        self.assertGreaterEqual(len(seeds), 5)
+        self.assertEqual(len(seed_by_name), len(seeds))
+        self.assertEqual(
+            {
+                "baseline",
+                "low_resource",
+                "balanced_dual_ps",
+                "max_security",
+                "max_resilience",
+            },
+            set(seed_by_name),
+        )
+        self.assertEqual(seed_by_name["max_security"].objective_bias, "max_security")
+        self.assertEqual(seed_by_name["max_resilience"].objective_bias, "max_resilience")
+
+    def test_max_resilience_seed_adds_modality_diversity(self):
+        seed = {
+            seed.name: seed
+            for seed in generate_pixhawk6x_architecture_seeds()
+        }["max_resilience"]
+        supports = {
+            (support.function, support.component, support.modality, support.bus)
+            for support in seed.model.function_supports
+        }
+
+        self.assertIn(("state_estimation", "optical_flow", "vision", "flow_port"), supports)
+        self.assertIn("flow_port", seed.model.buses)
+        self.assertIn("pep_flow", seed.model.cand_fws)
+        self.assertIn("optical_flow", seed.delta_from_baseline.added_components)
+
+    def test_low_resource_seed_removes_payload_without_dropping_flight_supports(self):
+        seed = {
+            seed.name: seed
+            for seed in generate_pixhawk6x_architecture_seeds()
+        }["low_resource"]
+        components = {component.name for component in seed.model.components}
+        functions = {support.function for support in seed.model.function_supports}
+
+        self.assertNotIn("companion", components)
+        self.assertNotIn("camera", components)
+        self.assertNotIn("flash_fram", components)
+        self.assertIn("state_estimation", functions)
+        self.assertIn("stabilization", functions)
+        self.assertIn("surveillance", seed.delta_from_baseline.removed_capabilities)
+
+    def test_orchestrator_can_run_seed_space_without_mutating_base_model(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        class StubSeedOrchestrator(DSEOrchestrator):
+            def _run_strategy(self, strategy: str, instance_facts: str) -> SolutionResult:
+                return SolutionResult(strategy=strategy, label=strategy, complete=True)
+
+        base = make_pixhawk6x_uav_network()
+        orch = StubSeedOrchestrator(
+            network_model=base,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp=TESTCASE_LP,
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_seeds": True,
+                "architecture_seed_strategies": ["balanced"],
+            },
+        )
+
+        solutions = orch._run_architecture_seed_exploration()
+
+        self.assertIs(orch.network_model, base)
+        self.assertEqual(len(solutions), 5)
+        self.assertEqual({solution.strategy for solution in solutions}, {"balanced"})
+        self.assertEqual(
+            {
+                "baseline",
+                "low_resource",
+                "balanced_dual_ps",
+                "max_security",
+                "max_resilience",
+            },
+            {solution.architecture_seed for solution in solutions},
+        )
+        self.assertIn(
+            "max_resilience",
+            {
+                solution.architecture_seed
+                for solution in solutions
+                if solution.architecture_objective_bias == "max_resilience"
+            },
+        )
+
+
+class TestArchitectureParetoFront(unittest.TestCase):
+    def _solution(
+        self,
+        seed: str,
+        *,
+        security: float,
+        resilience: float,
+        resource: float,
+        power: float,
+        policy: float,
+        feasible: bool = True,
+    ) -> SolutionResult:
+        sol = SolutionResult(
+            strategy="balanced",
+            label=seed,
+            architecture_seed=seed,
+            architecture_objective_bias=seed,
+        )
+        sol.security_score = security
+        sol.resilience_score = resilience
+        sol.resource_score = resource
+        sol.power_score = power
+        sol.policy_score = policy
+        if feasible:
+            sol.phase1 = Phase1Result(satisfiable=True)
+            sol.phase2 = Phase2Result(satisfiable=True)
+            sol.scenarios = [
+                ScenarioResult(name="baseline", compromised=[], failed=[], satisfiable=True)
+            ]
+        else:
+            sol.phase1 = Phase1Result(satisfiable=False)
+            sol.phase2 = Phase2Result(satisfiable=False)
+        return sol
+
+    def test_pareto_front_filters_infeasible_and_dominated_seed_solutions(self):
+        infeasible = self._solution(
+            "infeasible",
+            security=100,
+            resilience=100,
+            resource=100,
+            power=100,
+            policy=100,
+            feasible=False,
+        )
+        dominated = self._solution(
+            "dominated",
+            security=60,
+            resilience=60,
+            resource=60,
+            power=60,
+            policy=60,
+        )
+        balanced = self._solution(
+            "balanced",
+            security=80,
+            resilience=80,
+            resource=80,
+            power=80,
+            policy=80,
+        )
+        tradeoff = self._solution(
+            "resilience",
+            security=70,
+            resilience=95,
+            resource=65,
+            power=65,
+            policy=75,
+        )
+
+        front = build_architecture_pareto_front([infeasible, dominated, balanced, tradeoff])
+
+        self.assertEqual({"balanced", "resilience"}, {point.architecture_seed for point in front})
+        self.assertNotIn("infeasible", {point.architecture_seed for point in front})
+        self.assertNotIn("dominated", {point.architecture_seed for point in front})
+
+    def test_report_includes_architecture_pareto_front(self):
+        report = generate_report_text(
+            [self._solution("base", security=80, resilience=80, resource=80, power=80, policy=80)],
+            architecture_pareto_front=[
+                ArchitectureParetoPoint(
+                    architecture_seed="max_resilience",
+                    objective_bias="max_resilience",
+                    strategy="balanced",
+                    label="max resilience: Balanced",
+                    scores={
+                        "security": 70,
+                        "resilience": 95,
+                        "resource": 65,
+                        "power": 65,
+                        "policy": 75,
+                    },
+                )
+            ],
+        )
+
+        self.assertIn("ARCHITECTURE SPACE PARETO FRONT", report)
+        self.assertIn("max_resilience", report)
+        self.assertIn("resilience=95.0", report)
 
 
 class TestArchitectureRepair(unittest.TestCase):
@@ -1201,6 +1445,8 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn(("imu_1_repair_bus", "imu_1"), candidate.links)
         self.assertIn(("fmu", "baro_1_repair_bus"), candidate.links)
         self.assertIn(("baro_1_repair_bus", "baro_1"), candidate.links)
+        self.assertIn("imu_1_repair_bus", {component.name for component in candidate.components})
+        self.assertIn("baro_1_repair_bus", {component.name for component in candidate.components})
         self.assertNotIn(("sensor_bus", "imu_1"), candidate.links)
         self.assertNotIn(("sensor_bus", "baro_1"), candidate.links)
 
@@ -1340,7 +1586,7 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIs(promoted, candidates[0])
         self.assertEqual(
             candidates[0]["promotion_status"],
-            "promoted_candidate_for_export",
+            "selected_for_full_ase_rerun",
         )
         self.assertIs(orch.next_iteration_network_model, candidates[0]["model"])
 
@@ -1390,6 +1636,73 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIn("reevaluation", candidates[0])
         self.assertIs(promoted, candidates[0])
 
+    def test_selected_repair_candidate_can_run_full_ase_rerun(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        class StubRepairRerunOrchestrator(DSEOrchestrator):
+            def _run_strategy(self, strategy: str, instance_facts: str) -> SolutionResult:
+                return SolutionResult(
+                    strategy=strategy,
+                    label=strategy,
+                    phase1=Phase1Result(satisfiable=True),
+                    phase2=Phase2Result(satisfiable=True),
+                    scenarios=[
+                        ScenarioResult(
+                            name="baseline",
+                            compromised=[],
+                            failed=[],
+                            satisfiable=True,
+                        )
+                    ],
+                    complete=True,
+                )
+
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+        original_failure = ScenarioResult(
+            name="sensor_bus_failure",
+            compromised=[],
+            failed=["sensor_bus"],
+            failed_buses=["sensor_bus"],
+            satisfiable=True,
+            function_scores={"state_estimation": 0},
+            function_statuses={"state_estimation": "lost"},
+        )
+        p2 = Phase2Result(satisfiable=True)
+        p2.closed_loop_repair_intents = [intent]
+        sol = SolutionResult(
+            strategy="balanced",
+            phase1=Phase1Result(satisfiable=True),
+            phase2=p2,
+            scenarios=[original_failure],
+        )
+        orch = StubRepairRerunOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_repair_candidates": True,
+                "promote_improving_architecture_repair_candidate": True,
+                "run_promoted_architecture_full_ase": True,
+            },
+        )
+        orch.solutions = [sol]
+
+        candidates = orch._build_architecture_repair_candidates()
+        orch.architecture_repair_candidates = candidates
+        promoted = orch._promote_architecture_repair_candidate()
+
+        self.assertEqual(promoted["promotion_status"], "validated_by_full_ase_rerun")
+        self.assertIn("full_ase_solution", promoted)
+        self.assertTrue(promoted["full_ase_solution"].phase1.satisfiable)
+        self.assertIs(orch.network_model, model)
+
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()
         intent = {
@@ -1421,7 +1734,7 @@ class TestArchitectureRepair(unittest.TestCase):
     def test_serializes_precomputed_candidate_dict_fields(self):
         candidate = {
             "source_strategy": "balanced",
-            "promotion_status": "promoted_candidate_for_export",
+            "promotion_status": "selected_for_full_ase_rerun",
             "repair_intents": [],
             "model": {"name": "already_serialized"},
             "delta": {"added_buses": ["bus_a"]},
@@ -1431,7 +1744,7 @@ class TestArchitectureRepair(unittest.TestCase):
 
         self.assertEqual(serialized["model"], {"name": "already_serialized"})
         self.assertEqual(serialized["delta"], {"added_buses": ["bus_a"]})
-        self.assertEqual(serialized["promotion_status"], "promoted_candidate_for_export")
+        self.assertEqual(serialized["promotion_status"], "selected_for_full_ase_rerun")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1524,6 +1837,9 @@ class TestScenarioGeneration(unittest.TestCase):
         # PS compromises
         self.assertIn("ps0_compromise", names)
         self.assertIn("ps1_compromise", names)
+        # Firewall bypasses are core resilience scenarios, not optional extras
+        self.assertIn("pep_group_bypass", names)
+        self.assertIn("pep_standalone_bypass", names)
 
     def test_tc9_full_scenarios(self):
         model = make_tc9_network()

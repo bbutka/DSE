@@ -48,6 +48,7 @@ def serialize_architecture_repair_candidate(candidate: dict) -> dict:
         "delta": _asdict_or_none(candidate.get("delta")),
         "model": _asdict_or_none(candidate.get("model")),
         "reevaluation": _serialize_reevaluation(candidate.get("reevaluation")),
+        "full_ase_solution": _asdict_or_none(candidate.get("full_ase_solution")),
     }
 
 
@@ -90,12 +91,7 @@ def _split_function_support_buses(model: NetworkModel, *, function: str, min_dom
         new_bus = _unique_bus_name(model, support.component, used_buses)
         used_buses.add(new_bus)
         model.buses.append(new_bus)
-        # Also create a bus Component so model.components stays consistent.
-        model.components.append(Component(
-            name=new_bus, comp_type="bus", domain="normal",
-            impact_read=1, impact_write=1, latency_read=1000, latency_write=1000,
-            is_master=False, is_receiver=False,
-        ))
+        _ensure_bus_component(model, new_bus)
         support.bus = new_bus
 
         links.discard((old_bus, support.component))
@@ -107,6 +103,23 @@ def _split_function_support_buses(model: NetworkModel, *, function: str, min_dom
     model.buses = sorted(set(model.buses), key=model.buses.index)
     model.links = sorted(links, key=_link_sort_key(model.links))
     return True
+
+
+def _ensure_bus_component(model: NetworkModel, bus_name: str) -> None:
+    if any(component.name == bus_name for component in model.components):
+        return
+    model.components.append(
+        Component(
+            bus_name,
+            "bus",
+            "normal",
+            1,
+            1,
+            1000,
+            1000,
+            is_receiver=False,
+        )
+    )
 
 
 def _unique_bus_name(model: NetworkModel, component: str, used_buses: set[str]) -> str:

@@ -123,9 +123,11 @@ class SolutionRanker:
             sat_sc = [s for s in sol.scenarios if s.satisfiable]
             if sat_sc:
                 total_nodes = max(len(sat_sc[0].blast_radii), 1)
-                # Sub-score 1: Blast radius (lower is better)
-                avg_br = sum(s.max_blast_radius for s in sat_sc) / len(sat_sc)
-                br_score = max(0.0, 100.0 - (avg_br / total_nodes * 100.0))
+                # Sub-score 1: Blast radius (lower is better).
+                # Use worst modeled scenario so many low-impact scenarios cannot
+                # dilute a single fragile architecture dependency.
+                worst_br = max(s.max_blast_radius for s in sat_sc)
+                br_score = max(0.0, 100.0 - (worst_br / total_nodes * 100.0))
 
                 # Sub-score 2: Capability retention (higher is better)
                 cap_scores: list = []

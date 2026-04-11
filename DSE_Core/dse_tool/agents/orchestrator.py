@@ -31,15 +31,17 @@ from ..core.solution_parser import (
     Phase1Result, Phase2Result, SolutionResult, ScenarioResult,
     RuntimeAdaptiveResult, JointPhase2RuntimeResult,
 )
+from ..core.architecture_pareto import ArchitectureParetoPoint, build_architecture_pareto_front
 from ..core.architecture_delta import compare_network_models
 from ..core.architecture_repair import apply_architecture_repair_intents
+from ..core.architecture_space import ArchitectureSeed, generate_pixhawk6x_architecture_seeds
 from ..core.solution_ranker import SolutionRanker
 from ..core.comparison import generate_report_text
 from .phase1_mathopt_agent import Phase1MathOptAgent
 from .phase1_agent import Phase1Agent
 from .phase2_agent import Phase2Agent
 from .closed_loop_phase2_agent import ClosedLoopPhase2Agent
-from .phase3_agent import Phase3Agent, generate_scenarios
+from .phase3_agent import Phase3Agent, generate_scenarios, resolve_phase3_backend
 from .phase3_fast_agent import Phase3FastAgent
 from .runtime_agent import RuntimeAgent, RUNTIME_SCENARIOS
 
@@ -107,6 +109,9 @@ DEFAULT_SOLVER_CONFIG = {
     "phase1_backend": "cpsat",
     "ilp_solver": "cpsat",
     "phase3_backend": "asp",
+    "generate_architecture_seeds": False,
+    "architecture_seed_strategies": ["balanced"],
+    "run_promoted_architecture_full_ase": False,
     "cpsat_threads": _default_solver_threads(),
     "cbc_threads": _default_solver_threads(),
     "clingo_threads": _default_solver_threads(),
@@ -237,6 +242,8 @@ class DSEOrchestrator:
         self.runtime_scenarios    = runtime_scenarios
 
         self.solutions:   List[SolutionResult] = []
+        self.architecture_space_solutions: List[SolutionResult] = []
+        self.architecture_pareto_front: List[ArchitectureParetoPoint] = []
         self.architecture_repair_candidates: List[dict] = []
         self.promoted_architecture_repair_candidate: Optional[dict] = None
         self.next_iteration_network_model: Optional[NetworkModel] = None
@@ -280,8 +287,26 @@ class DSEOrchestrator:
                 sol = self._run_strategy(strategy, instance_facts)
                 self.solutions.append(sol)
 
+            if (
+                self.solver_config.get("generate_architecture_seeds")
+                and not self._stop_flag
+            ):
+                self.architecture_space_solutions = (
+                    self._run_architecture_seed_exploration()
+                )
+
             # Score all solutions
             if self.solutions:
+                if self.architecture_space_solutions:
+                    seed_ranker = SolutionRanker(
+                        self.architecture_space_solutions,
+                        max_luts=self.network_model.system_caps.get("max_luts", 0),
+                        max_power=self.network_model.system_caps.get("max_power", 0),
+                    )
+                    seed_ranker.rank()
+                    self.architecture_pareto_front = build_architecture_pareto_front(
+                        self.architecture_space_solutions
+                    )
                 caps = self.network_model.system_caps
                 ranker = SolutionRanker(
                     self.solutions,
@@ -306,6 +331,7 @@ class DSEOrchestrator:
                     max_power=caps.get("max_power", 0),
                     max_ffs=caps.get("max_ffs", 0),
                     architecture_repair_candidates=self.architecture_repair_candidates,
+                    architecture_pareto_front=self.architecture_pareto_front,
                 )
                 if self.solver_config.get("generate_architecture_repair_candidates"):
                     if self.architecture_repair_candidates:
@@ -318,7 +344,7 @@ class DSEOrchestrator:
                     if self.promoted_architecture_repair_candidate:
                         self._post(
                             "INFO",
-                            "[Orchestrator] Promoted architecture repair candidate for the next ASE iteration.",
+                            "[Orchestrator] Selected architecture repair candidate for a full ASE rerun.",
                         )
 
             self._post("SUCCESS", "=== DSE Analysis Complete ===")
@@ -334,6 +360,64 @@ class DSEOrchestrator:
     def stop(self) -> None:
         """Request the orchestrator to stop after the current strategy."""
         self._stop_flag = True
+
+    # ------------------------------------------------------------------
+    # Architecture-space exploration
+    # ------------------------------------------------------------------
+
+    def _run_architecture_seed_exploration(self) -> List[SolutionResult]:
+        """Run configured strategies over curated architecture seed models."""
+        if "pixhawk" not in self.network_model.name.lower():
+            self._post(
+                "WARNING",
+                "[Architecture Space] Pixhawk seed exploration requested for "
+                f"non-Pixhawk model '{self.network_model.name}'; skipping.",
+            )
+            return []
+
+        configured = self.solver_config.get("architecture_seed_strategies") or ["balanced"]
+        strategies = [str(strategy) for strategy in configured if str(strategy)]
+        if not strategies:
+            strategies = ["balanced"]
+
+        baseline_model = self.network_model
+        seeds = generate_pixhawk6x_architecture_seeds(baseline_model)
+        seed_solutions: List[SolutionResult] = []
+        self._post(
+            "PHASE",
+            f"--- Architecture Space: {len(seeds)} seed(s), "
+            f"{len(strategies)} strategy variant(s) each ---",
+        )
+
+        try:
+            for seed in seeds:
+                if self._stop_flag:
+                    break
+                self.network_model = seed.model
+                seed_facts = ASPGenerator(self.network_model).generate()
+                for strategy in strategies:
+                    if self._stop_flag:
+                        break
+                    sol = self._run_seed_strategy(seed, strategy, seed_facts)
+                    seed_solutions.append(sol)
+        finally:
+            self.network_model = baseline_model
+
+        return seed_solutions
+
+    def _run_seed_strategy(
+        self,
+        seed: ArchitectureSeed,
+        strategy: str,
+        instance_facts: str,
+    ) -> SolutionResult:
+        sol = self._run_strategy(strategy, instance_facts)
+        sol.architecture_seed = seed.name
+        sol.architecture_objective_bias = seed.objective_bias
+        sol.architecture_description = seed.description
+        seed_label = seed.name.replace("_", " ")
+        sol.label = f"{seed_label}: {STRATEGY_LABELS.get(strategy, strategy)}"
+        return sol
 
     # ------------------------------------------------------------------
     # Per-strategy execution
@@ -458,14 +542,17 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
-        phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
-        # Auto-switch to Python backend when function_supports exist,
-        # because the ASP encoding does not handle modality/bus diversity.
-        if phase3_backend == "asp" and getattr(self.network_model, "function_supports", None):
-            phase3_backend = "python"
-            self._post("INFO",
+        requested_phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
+        phase3_backend = resolve_phase3_backend(
+            requested_phase3_backend,
+            self.network_model,
+        )
+        if requested_phase3_backend == "asp" and phase3_backend == "python":
+            self._post(
+                "INFO",
                 "[Orchestrator] Auto-switching Phase 3 to Python backend "
-                "(model has function_supports; ASP backend does not evaluate them).")
+                "(model has function_supports; ASP backend does not evaluate them).",
+            )
         if phase3_backend == "python":
             p3_agent = Phase3FastAgent(
                 network_model=self.network_model,
@@ -689,13 +776,35 @@ class DSEOrchestrator:
             )
             return (-improved, worst_severity, -worst_score)
 
-        promoted = sorted(improving, key=_score)[0]
-        promoted["promotion_status"] = "promoted_candidate_for_export"
-        # Store the repaired model for callers that want to start a new
-        # ASE iteration.  Note: this does NOT automatically re-run Phase 1/2
-        # on the repaired topology — the caller must do that explicitly.
-        self.next_iteration_network_model = promoted["model"]
-        return promoted
+        selected = sorted(improving, key=_score)[0]
+        selected["promotion_status"] = "selected_for_full_ase_rerun"
+        self.next_iteration_network_model = selected["model"]
+        if self.solver_config.get("run_promoted_architecture_full_ase"):
+            selected["full_ase_solution"] = self._run_architecture_repair_full_ase(selected)
+            full_solution = selected["full_ase_solution"]
+            selected["promotion_status"] = (
+                "validated_by_full_ase_rerun"
+                if full_solution.phase1
+                and full_solution.phase1.satisfiable
+                and full_solution.phase2
+                and full_solution.phase2.satisfiable
+                else "full_ase_rerun_failed"
+            )
+        return selected
+
+    def _run_architecture_repair_full_ase(self, candidate: dict) -> SolutionResult:
+        """Run the full ASE pipeline on a selected architecture repair model."""
+        baseline_model = self.network_model
+        candidate_model = candidate["model"]
+        strategy = str(candidate.get("source_strategy") or "balanced")
+        try:
+            self.network_model = candidate_model
+            instance_facts = ASPGenerator(candidate_model).generate()
+            sol = self._run_strategy(strategy, instance_facts)
+            sol.label = f"{candidate.get('source_label', strategy)} (repair rerun)"
+            return sol
+        finally:
+            self.network_model = baseline_model
 
     def _post(self, level: str, msg: str) -> None:
         try:

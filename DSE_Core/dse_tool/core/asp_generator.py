@@ -1746,6 +1746,26 @@ def make_pixhawk6x_platform() -> NetworkModel:
             criticality="important",
         ),
     ]
+    model.function_supports = [
+        FunctionSupport("stabilization", "imu_1", "inertial", 88, bus="imu_bus_1"),
+        FunctionSupport("stabilization", "imu_2", "inertial", 86, bus="imu_bus_2"),
+        FunctionSupport("stabilization", "imu_3", "inertial", 84, bus="imu_bus_3"),
+        FunctionSupport("state_estimation", "imu_1", "inertial", 72, bus="imu_bus_1"),
+        FunctionSupport("state_estimation", "imu_2", "inertial", 70, bus="imu_bus_2"),
+        FunctionSupport("state_estimation", "imu_3", "inertial", 68, bus="imu_bus_3"),
+        FunctionSupport("state_estimation", "baro_1", "pressure", 45, bus="baro_bus_1"),
+        FunctionSupport("state_estimation", "baro_2", "pressure", 45, bus="baro_bus_2"),
+        FunctionSupport("altitude_estimation", "baro_1", "pressure", 86, bus="baro_bus_1"),
+        FunctionSupport("altitude_estimation", "baro_2", "pressure", 84, bus="baro_bus_2"),
+        FunctionSupport("altitude_estimation", "imu_1", "inertial", 35, bus="imu_bus_1"),
+        FunctionSupport("altitude_estimation", "imu_2", "inertial", 35, bus="imu_bus_2"),
+        FunctionSupport("altitude_estimation", "imu_3", "inertial", 35, bus="imu_bus_3"),
+    ]
+    model.function_thresholds = {
+        "stabilization": {"ok": 80, "degraded": 60},
+        "state_estimation": {"ok": 80, "degraded": 50},
+        "altitude_estimation": {"ok": 80, "degraded": 50},
+    }
 
     return model
 
@@ -1999,6 +2019,20 @@ def make_pixhawk6x_uav_network() -> NetworkModel:
             mission_phases=["operational", "maintenance"],
         ),
     ]
+    model.function_supports.extend([
+        FunctionSupport("state_estimation", "gps_1", "satellite", 90, bus="gps1_port"),
+        FunctionSupport("state_estimation", "gps_2", "satellite", 88, bus="gps2_port"),
+        FunctionSupport("navigation", "gps_1", "satellite", 92, bus="gps1_port"),
+        FunctionSupport("navigation", "gps_2", "satellite", 90, bus="gps2_port"),
+        FunctionSupport("navigation", "imu_1", "inertial", 62, bus="imu_bus_1"),
+        FunctionSupport("navigation", "imu_2", "inertial", 60, bus="imu_bus_2"),
+        FunctionSupport("navigation", "imu_3", "inertial", 58, bus="imu_bus_3"),
+        FunctionSupport("navigation", "baro_1", "pressure", 42, bus="baro_bus_1"),
+        FunctionSupport("navigation", "baro_2", "pressure", 42, bus="baro_bus_2"),
+    ])
+    model.function_thresholds.update({
+        "navigation": {"ok": 85, "degraded": 55},
+    })
 
     return model
 

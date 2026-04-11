@@ -120,6 +120,11 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
     for ps in model.cand_ps:
         _add(f"{ps}_compromise", [ps], [])
 
+    # PEP bypass / compromise (always).  A design that depends on one
+    # firewall should not look resilient under the default core scenario set.
+    for fw in model.cand_fws:
+        _add(f"{fw}_bypass", [fw], [])
+
     # Redundancy group full compromise (always)
     for grp in model.redundancy_groups:
         _add(f"group_{grp.group_id}_compromise", list(grp.members), [])
@@ -154,10 +159,6 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
         # Single-receiver compromises
         for r in receivers:
             _add(f"{r.name}_compromise", [r.name], [])
-
-        # PEP bypass (compromise the firewall)
-        for fw in model.cand_fws:
-            _add(f"{fw}_bypass", [fw], [])
 
         # Combined: master compromise + bus failure
         for m in masters:
@@ -199,6 +200,21 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
                     _add(f"{b1}_{b2}_dual_fail", [], [b1, b2])
 
     return scenarios
+
+
+def resolve_phase3_backend(requested_backend: str | None, model: "NetworkModel") -> str:
+    """
+    Return the Phase 3 backend that can faithfully evaluate the model.
+
+    The ASP backend remains the default for legacy/topology-only models, but
+    function-support semantics currently live in the Python Phase 3 evaluator.
+    Routing those models through ASP would silently ignore modality-failure
+    scenarios and overstate resilience.
+    """
+    backend = (requested_backend or "asp").lower()
+    if backend == "asp" and getattr(model, "function_supports", None):
+        return "python"
+    return backend
 
 
 # Legacy scenario lists (kept for backwards compatibility only)
