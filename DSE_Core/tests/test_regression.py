@@ -1007,10 +1007,27 @@ class TestComparisonEngine(unittest.TestCase):
 
     def test_report_generation(self):
         sols = self._make_sols()
+        sols[0].scenarios = [
+            ScenarioResult(
+                name="sensor_bus_failure",
+                compromised=[],
+                failed=["sensor_bus"],
+                failed_buses=["sensor_bus"],
+                satisfiable=True,
+                function_scores={"state_estimation": 0},
+                function_statuses={"state_estimation": "lost"},
+                functions_lost=["state_estimation"],
+                function_findings=["state_estimation_lost_under_bus_failure"],
+            )
+        ]
         report = generate_report_text(sols, network_name="test_net")
         self.assertIn("DSE SECURITY ANALYSIS REPORT", report)
         self.assertIn("test_net", report)
         self.assertIn("COMPARISON TABLE", report)
+        self.assertIn("FUNCTION SUPPORT FINDINGS", report)
+        self.assertIn("Function Deficiencies", report)
+        self.assertIn("state_estimation", report)
+        self.assertIn("lost_under_domain_failure", report)
         self.assertIn("RECOMMENDATIONS", report)
 
 

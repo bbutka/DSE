@@ -16,6 +16,37 @@ from .solution_parser import SolutionResult
 from .solution_ranker import SolutionRanker, MAX_LUTS, MAX_POWER_MW
 
 
+def _function_deficiencies(sol: SolutionResult) -> List[dict]:
+    """Return structured function-support findings available for reporting."""
+    deficiencies: List[dict] = []
+    for sc in sol.scenarios or []:
+        if not sc.satisfiable:
+            continue
+        if sc.function_deficiencies:
+            deficiencies.extend(sc.function_deficiencies)
+        else:
+            deficiencies.extend(sc.derive_function_deficiencies())
+    return deficiencies
+
+
+def _format_function_deficiency(deficiency: dict) -> str:
+    function = deficiency.get("function", "unknown")
+    issue = deficiency.get("issue", deficiency.get("finding", "unknown"))
+    scenario = deficiency.get("scenario", "unknown")
+    status = deficiency.get("status", "")
+    score = deficiency.get("score", 0)
+    domain = deficiency.get("failed_domain", "")
+    values = deficiency.get("failed_domain_values", [])
+    domain_text = ""
+    if domain:
+        value_text = ",".join(str(v) for v in values) if values else "n/a"
+        domain_text = f" under {domain}={value_text}"
+    return (
+        f"{function}: {issue}{domain_text} "
+        f"in {scenario} (status={status or 'unknown'}, score={score})"
+    )
+
+
 class ComparisonEngine:
     """
     Generates pros/cons lists for each solution variant.
@@ -489,6 +520,16 @@ def generate_report_text(
                     )
                 lines.append("")
 
+            function_defs = _function_deficiencies(sol)
+            if function_defs:
+                lines.append("  FUNCTION SUPPORT FINDINGS")
+                lines.append(SEP2)
+                for deficiency in function_defs[:8]:
+                    lines.append(f"    - {_format_function_deficiency(deficiency)}")
+                if len(function_defs) > 8:
+                    lines.append(f"    - ... {len(function_defs) - 8} more finding(s)")
+                lines.append("")
+
         # Pros and cons
         pros, cons = all_pros_cons[i]
         lines.append("  PROS")
@@ -551,6 +592,9 @@ def generate_report_text(
     metrics_rows.append(("Non-Func Scenarios",
                           [_nonfunc(s) for s in solutions]))
 
+    metrics_rows.append(("Function Deficiencies",
+                          [str(len(_function_deficiencies(s))) for s in solutions]))
+
     for label, vals in metrics_rows:
         v1 = vals[0] if len(vals) > 0 else "N/A"
         v2 = vals[1] if len(vals) > 1 else "N/A"
@@ -609,6 +653,15 @@ def generate_report_text(
             f"  {rec_num}. Critical: essential capabilities ({', '.join(sorted(ess_at_risk))}) "
             f"are lost\n"
             f"     under some scenarios — add redundancy or alternative access paths."
+        )
+        rec_num += 1
+
+    function_defs = _function_deficiencies(best) if best else []
+    if function_defs:
+        sample = _format_function_deficiency(function_defs[0])
+        lines.append(
+            f"  {rec_num}. Review {len(function_defs)} function-support finding(s);\n"
+            f"     first finding: {sample}."
         )
         rec_num += 1
 

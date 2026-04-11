@@ -195,6 +195,12 @@ class ResultsPanel(ttk.Frame):
                     scenario_parts.append(f"NON-FUNC:{non_func}")
                 elif degraded:
                     scenario_parts.append(f"DEGRADED:{degraded}")
+                function_def_count = sum(
+                    len(getattr(s, "function_deficiencies", []) or getattr(s, "function_findings", []))
+                    for s in sat_scenarios
+                )
+                if function_def_count:
+                    scenario_parts.append(f"FUNC-DEF:{function_def_count}")
                 phase3_lbl.config(text="; ".join(scenario_parts))
             else:
                 phase3_lbl.config(text="—")
@@ -858,6 +864,37 @@ class _Phase3DetailDialog(tk.Toplevel):
                     for r in cap_reasons:
                         lines.append(f"    - {r}")
 
+        # Function-support findings are separate from mission capabilities.
+        function_statuses = getattr(sc, "function_statuses", {})
+        function_scores = getattr(sc, "function_scores", {})
+        function_deficiencies = getattr(sc, "function_deficiencies", []) or []
+        if not function_deficiencies and getattr(sc, "function_findings", []):
+            function_deficiencies = sc.derive_function_deficiencies()
+
+        if function_statuses or function_deficiencies:
+            lines.append("")
+            lines.append("Function Support:")
+            lines.append("=" * 56)
+            for function_name, status in sorted(function_statuses.items()):
+                score = function_scores.get(function_name, 0)
+                lines.append(f"  {function_name:<24} {status:<9} score={score}")
+            if function_deficiencies:
+                lines.append("")
+                lines.append("  Structured findings:")
+                for deficiency in function_deficiencies:
+                    domain = deficiency.get("failed_domain", "")
+                    values = deficiency.get("failed_domain_values", [])
+                    if domain:
+                        value_text = ",".join(str(v) for v in values) if values else "n/a"
+                        domain_text = f" under {domain}={value_text}"
+                    else:
+                        domain_text = ""
+                    lines.append(
+                        f"    - {deficiency.get('function', 'unknown')}: "
+                        f"{deficiency.get('issue', deficiency.get('finding', 'unknown'))}"
+                        f"{domain_text}"
+                    )
+
         body = "\n".join(lines)
         self._detail.configure(state=tk.NORMAL)
         self._detail.delete("1.0", tk.END)
@@ -1250,6 +1287,17 @@ class _StrategyComparisonDialog(tk.Toplevel):
 
         rows.append(("Non-Func Scenarios",
                       [_nonfunc_count(s) for s in solutions],
+                      True))
+
+        def _function_def_count(sol):
+            sat = [sc for sc in sol.scenarios if sc.satisfiable] if sol and sol.scenarios else []
+            return str(sum(
+                len(getattr(sc, "function_deficiencies", []) or getattr(sc, "function_findings", []))
+                for sc in sat
+            )) if sat else "—"
+
+        rows.append(("Function Defs",
+                      [_function_def_count(s) for s in solutions],
                       True))
         return rows
 
