@@ -15,6 +15,7 @@ class ResultsPanel(ttk.Frame):
         self._cards: List[ttk.LabelFrame] = []
         self._report_window: tk.Toplevel | None = None
         self._system_caps: dict = {}
+        self._report_text: str = ""
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -102,6 +103,10 @@ class ResultsPanel(ttk.Frame):
     def set_system_caps(self, caps: dict) -> None:
         """Store system resource caps for use by the executive summary."""
         self._system_caps = dict(caps) if caps else {}
+
+    def set_report_text(self, report_text: str) -> None:
+        """Store the orchestrator-generated report for later viewing."""
+        self._report_text = report_text or ""
 
     def set_results(self, solutions: List["SolutionResult"]) -> None:
         """Populate the cards with solution data."""
@@ -212,6 +217,7 @@ class ResultsPanel(ttk.Frame):
     def clear(self) -> None:
         """Reset all cards to empty state."""
         self._solutions = []
+        self._report_text = ""
         strategy_keys = ["strategy_1", "strategy_2", "strategy_3"]
         for i, card in enumerate(self._cards):
             card.configure(text=f"Strategy {i+1}")
@@ -277,7 +283,7 @@ class ResultsPanel(ttk.Frame):
         from dse_tool.core.comparison import generate_report_text
         if not self._solutions:
             return
-        report_text = generate_report_text(self._solutions)
+        report_text = self._report_text or generate_report_text(self._solutions)
         self.view_report(report_text)
 
     def view_report(self, report_text: str) -> None:

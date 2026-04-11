@@ -326,6 +326,8 @@ class MainWindow(tk.Tk):
         self._progress_panel.set_phase_state(2, "done")
         self._progress_panel.set_phase_state(3, "done")
         self._results_panel.set_results(solutions)
+        if self._orchestrator and getattr(self._orchestrator, "report_text", ""):
+            self._results_panel.set_report_text(self._orchestrator.report_text)
         # Pass system resource caps so Executive Summary can use them
         if self._orchestrator and hasattr(self._orchestrator, "network_model"):
             self._results_panel.set_system_caps(
