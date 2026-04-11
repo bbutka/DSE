@@ -1041,7 +1041,7 @@ class TestComparisonEngine(unittest.TestCase):
             {
                 "source_label": sols[0].label,
                 "source_strategy": sols[0].strategy,
-                "promotion_status": "promoted_for_next_ase_iteration",
+                "promotion_status": "promoted_candidate_for_export",
                 "repair_intents": sols[0].phase2.closed_loop_repair_intents,
                 "delta": compare_network_models(baseline, candidate),
                 "reevaluation": {
@@ -1076,7 +1076,7 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
         self.assertIn("Added components", report)
-        self.assertIn("Promotion: promoted_for_next_ase_iteration", report)
+        self.assertIn("Promotion: promoted_candidate_for_export", report)
         self.assertIn("Re-evaluation", report)
         self.assertIn("lost@0 -> degraded@70", report)
         self.assertIn("Function Deficiencies", report)
@@ -1340,7 +1340,7 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertIs(promoted, candidates[0])
         self.assertEqual(
             candidates[0]["promotion_status"],
-            "promoted_for_next_ase_iteration",
+            "promoted_candidate_for_export",
         )
         self.assertIs(orch.next_iteration_network_model, candidates[0]["model"])
 
@@ -1421,7 +1421,7 @@ class TestArchitectureRepair(unittest.TestCase):
     def test_serializes_precomputed_candidate_dict_fields(self):
         candidate = {
             "source_strategy": "balanced",
-            "promotion_status": "promoted_for_next_ase_iteration",
+            "promotion_status": "promoted_candidate_for_export",
             "repair_intents": [],
             "model": {"name": "already_serialized"},
             "delta": {"added_buses": ["bus_a"]},
@@ -1431,7 +1431,7 @@ class TestArchitectureRepair(unittest.TestCase):
 
         self.assertEqual(serialized["model"], {"name": "already_serialized"})
         self.assertEqual(serialized["delta"], {"added_buses": ["bus_a"]})
-        self.assertEqual(serialized["promotion_status"], "promoted_for_next_ase_iteration")
+        self.assertEqual(serialized["promotion_status"], "promoted_candidate_for_export")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

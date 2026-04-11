@@ -233,6 +233,8 @@ class NetworkEditor(ttk.Frame):
         self._model_roles:              List[tuple] = []
         self._model_policy_exceptions:  list        = []
         self._model_capabilities:       list        = []
+        self._model_function_supports: list        = []
+        self._model_function_thresholds: dict      = {}
 
         # Analysis results overlay
         self._analysis_results: Optional[dict] = None
@@ -776,6 +778,12 @@ class NetworkEditor(ttk.Frame):
         self._model_capabilities = (
             list(model.capabilities) if model.capabilities else []
         )
+        self._model_function_supports = (
+            list(model.function_supports) if model.function_supports else []
+        )
+        self._model_function_thresholds = (
+            dict(model.function_thresholds) if model.function_thresholds else {}
+        )
 
         # Auto-generate scenarios from the loaded topology
         from ..agents.phase3_agent import generate_scenarios
@@ -1007,6 +1015,12 @@ class NetworkEditor(ttk.Frame):
         if self._model_capabilities:
             model.capabilities = list(self._model_capabilities)
 
+        # ── Function supports (diversity-aware resilience) ──────────────
+        if self._model_function_supports:
+            model.function_supports = list(self._model_function_supports)
+        if self._model_function_thresholds:
+            model.function_thresholds = dict(self._model_function_thresholds)
+
         # ── Build explicit asset list ────────────────────────────────────────
         SKIP = {"bus", "processor", "dma", "policy_server", "firewall"}
         explicit: List[Asset] = []
@@ -1062,6 +1076,13 @@ class NetworkEditor(ttk.Frame):
             "mission_phases": self.mission_phases,
             "policy_exceptions": self.policy_exceptions,
             "scenarios": self.scenarios,
+            "function_supports": [
+                {"function": fs.function, "component": fs.component,
+                 "modality": fs.modality, "quality": fs.quality,
+                 "bus": getattr(fs, "bus", "")}
+                for fs in self._model_function_supports
+            ],
+            "function_thresholds": dict(self._model_function_thresholds),
         }
         for name, nd in self.nodes.items():
             data["nodes"].append({
@@ -1111,6 +1132,13 @@ class NetworkEditor(ttk.Frame):
             self.policy_exceptions = list(data["policy_exceptions"])
         if "scenarios" in data:
             self.scenarios = list(data["scenarios"])
+        if "function_supports" in data:
+            from ..core.asp_generator import FunctionSupport
+            self._model_function_supports = [
+                FunctionSupport(**fs) for fs in data["function_supports"]
+            ]
+        if "function_thresholds" in data:
+            self._model_function_thresholds = dict(data["function_thresholds"])
         self._draw_all()
         self._notify_changed()
 
@@ -1983,7 +2011,9 @@ class NetworkEditor(ttk.Frame):
         self._model_trust_anchors     = {}
         self._model_roles             = []
         self._model_policy_exceptions = []
-        self._model_capabilities      = []
+        self._model_capabilities         = []
+        self._model_function_supports    = []
+        self._model_function_thresholds  = {}
         self._canvas.delete("node", "link", "label", "redund", "overlay", "badge")
         self._notify_changed()
 

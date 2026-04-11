@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List, Tuple
 
-from .asp_generator import ASPGenerator, NetworkModel
+from .asp_generator import ASPGenerator, Component, NetworkModel
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +90,12 @@ def _split_function_support_buses(model: NetworkModel, *, function: str, min_dom
         new_bus = _unique_bus_name(model, support.component, used_buses)
         used_buses.add(new_bus)
         model.buses.append(new_bus)
+        # Also create a bus Component so model.components stays consistent.
+        model.components.append(Component(
+            name=new_bus, comp_type="bus", domain="normal",
+            impact_read=1, impact_write=1, latency_read=1000, latency_write=1000,
+            is_master=False, is_receiver=False,
+        ))
         support.bus = new_bus
 
         links.discard((old_bus, support.component))

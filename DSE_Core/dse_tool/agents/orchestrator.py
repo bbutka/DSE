@@ -459,6 +459,13 @@ class DSEOrchestrator:
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
         phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
+        # Auto-switch to Python backend when function_supports exist,
+        # because the ASP encoding does not handle modality/bus diversity.
+        if phase3_backend == "asp" and getattr(self.network_model, "function_supports", None):
+            phase3_backend = "python"
+            self._post("INFO",
+                "[Orchestrator] Auto-switching Phase 3 to Python backend "
+                "(model has function_supports; ASP backend does not evaluate them).")
         if phase3_backend == "python":
             p3_agent = Phase3FastAgent(
                 network_model=self.network_model,
@@ -648,6 +655,12 @@ class DSEOrchestrator:
             "repaired_function_summary": repaired_summary,
             "improved_functions": improved_functions,
             "scenarios": repaired_scenarios,
+            "caveat": (
+                "This reevaluation reuses the source solution's Phase 1 security "
+                "assignments and Phase 2 control-plane placement.  It proves a "
+                "Phase 3 resilience improvement only.  A full ASE re-run is "
+                "required to validate feasibility of the repaired topology."
+            ),
         }
 
     def _promote_architecture_repair_candidate(self) -> Optional[dict]:
@@ -677,7 +690,10 @@ class DSEOrchestrator:
             return (-improved, worst_severity, -worst_score)
 
         promoted = sorted(improving, key=_score)[0]
-        promoted["promotion_status"] = "promoted_for_next_ase_iteration"
+        promoted["promotion_status"] = "promoted_candidate_for_export"
+        # Store the repaired model for callers that want to start a new
+        # ASE iteration.  Note: this does NOT automatically re-run Phase 1/2
+        # on the repaired topology — the caller must do that explicitly.
         self.next_iteration_network_model = promoted["model"]
         return promoted
 
