@@ -551,8 +551,17 @@ class Phase3FastAgent:
                 statuses[function_name] = "lost"
                 functions_lost.append(function_name)
 
-            modalities = {support.modality for support in supports}
-            if len(modalities) < 2:
+            # Count surviving modalities (not all defined) for diversity diagnostic
+            available_modalities = {
+                support.modality for support in supports
+                if support.component not in failed
+                and support.component not in compromised
+                and support.component not in cut_off
+                and support.modality not in failed_modalities
+                and (not getattr(support, "bus", "") or (
+                    support.bus not in failed_buses and support.bus not in compromised_buses))
+            }
+            if len(available_modalities) < 2:
                 findings.append(f"{function_name}_lacks_modality_diversity")
             if (
                 function_name == "state_estimation"
@@ -563,8 +572,17 @@ class Phase3FastAgent:
             if failed_modalities and score < degraded_threshold:
                 findings.append(f"{function_name}_fallback_below_degraded_threshold")
 
-            support_buses = {support.bus for support in supports if getattr(support, "bus", "")}
-            if support_buses and len(support_buses) < 2:
+            all_support_buses = {support.bus for support in supports if getattr(support, "bus", "")}
+            available_buses = {
+                support.bus for support in supports
+                if getattr(support, "bus", "")
+                and support.component not in failed
+                and support.component not in compromised
+                and support.component not in cut_off
+                and support.bus not in failed_buses
+                and support.bus not in compromised_buses
+            }
+            if all_support_buses and len(available_buses) < 2:
                 findings.append(f"{function_name}_lacks_bus_diversity")
             if (
                 function_name == "state_estimation"

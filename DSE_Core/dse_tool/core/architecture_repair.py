@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List, Tuple
 
-from .asp_generator import NetworkModel
+from .asp_generator import ASPGenerator, NetworkModel
+
+log = logging.getLogger(__name__)
 
 
 def apply_architecture_repair_intents(model: NetworkModel, intents: List[dict]) -> NetworkModel:
@@ -25,6 +28,13 @@ def apply_architecture_repair_intents(model: NetworkModel, intents: List[dict]) 
             ) or changed
     if changed:
         candidate.name = f"{model.name} (repaired)"
+        # Validate that the repair didn't break the topology.
+        warnings = ASPGenerator(candidate).validate_topology()
+        if warnings:
+            log.warning(
+                "Repaired architecture '%s' has topology issues: %s",
+                candidate.name, warnings,
+            )
     return candidate
 
 
