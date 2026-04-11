@@ -104,7 +104,7 @@ def _default_solver_threads() -> int:
 DEFAULT_SOLVER_CONFIG = {
     "phase1_backend": "cpsat",
     "ilp_solver": "cpsat",
-    "phase3_backend": "python",
+    "phase3_backend": "asp",
     "cpsat_threads": _default_solver_threads(),
     "cbc_threads": _default_solver_threads(),
     "clingo_threads": _default_solver_threads(),
@@ -356,7 +356,7 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
-        phase3_backend = (self.solver_config.get("phase3_backend") or "python").lower()
+        phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
         if phase3_backend == "python":
             p3_agent = Phase3FastAgent(
                 network_model=self.network_model,

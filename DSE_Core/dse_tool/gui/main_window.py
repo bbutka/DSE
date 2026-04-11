@@ -536,7 +536,8 @@ class MainWindow(tk.Tk):
             "and Phase 3 (resilience) analysis across three strategy variants.\n\n"
             "Phase 1 and Phase 3 values are design-time proxy scores, not calibrated "
             "probabilities. Phase 3 covers the modeled scenario set, not all possible "
-            "attacks. Exact closed-loop Phase 2 is recommended for high-assurance studies.",
+            "attacks. Exact closed-loop Phase 2 is recommended for high-assurance studies. "
+            "Phase 3 uses ASP / Clingo by default; the Python fast backend is optional.",
         )
 
     # ------------------------------------------------------------------
@@ -572,6 +573,10 @@ class _SolverConfigDialog(tk.Toplevel):
         ("Default Cost Only", ""),
         ("Heuristic Control Plane", "control_plane"),
         ("Exact Closed Loop (Phase 3)", "phase3_closed_loop"),
+    ]
+    PHASE3_BACKENDS = [
+        ("ASP / Clingo (Default)", "asp"),
+        ("Python Fast Evaluator", "python"),
     ]
 
     def __init__(self, parent: tk.Widget, config: dict) -> None:
@@ -617,6 +622,31 @@ class _SolverConfigDialog(tk.Toplevel):
             wraplength=500,
         ).pack(anchor="w", pady=(0, 8))
 
+        phase3_row = ttk.Frame(frm)
+        phase3_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(phase3_row, text="Phase 3 backend:", width=18).pack(side=tk.LEFT)
+        phase3_current = str(config.get("phase3_backend", "asp") or "asp")
+        self._phase3_var = tk.StringVar()
+        phase3_labels = [label for label, _ in self.PHASE3_BACKENDS]
+        phase3_reverse_map = {value: label for label, value in self.PHASE3_BACKENDS}
+        self._phase3_var.set(phase3_reverse_map.get(phase3_current, phase3_labels[0]))
+        self._phase3_combo = ttk.Combobox(
+            phase3_row,
+            textvariable=self._phase3_var,
+            values=phase3_labels,
+            state="readonly",
+            width=28,
+        )
+        self._phase3_combo.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(
+            frm,
+            text=(
+                "Phase 3 uses ASP / Clingo by default. Select the Python fast evaluator "
+                "only when you explicitly want the approximate fast path."
+            ),
+            wraplength=500,
+        ).pack(anchor="w", pady=(0, 8))
+
         self._text_widgets: dict = {}
         nb = ttk.Notebook(frm)
         nb.pack(fill=tk.BOTH, expand=True)
@@ -654,6 +684,8 @@ class _SolverConfigDialog(tk.Toplevel):
                 new_overrides[strategy] = text + "\n"
         objective_map = {label: value for label, value in self.PHASE2_OBJECTIVES}
         phase2_objective = objective_map.get(self._phase2_var.get(), "")
+        phase3_map = {label: value for label, value in self.PHASE3_BACKENDS}
+        phase3_backend = phase3_map.get(self._phase3_var.get(), "asp")
         result = dict(self._base_config)
         if new_overrides:
             result["strategy_overrides"] = new_overrides
@@ -663,6 +695,7 @@ class _SolverConfigDialog(tk.Toplevel):
             result["phase2_objective"] = phase2_objective
         else:
             result.pop("phase2_objective", None)
+        result["phase3_backend"] = phase3_backend
         self.result = result
         self.destroy()
 

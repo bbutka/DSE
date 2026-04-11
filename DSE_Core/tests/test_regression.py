@@ -1014,6 +1014,13 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("RECOMMENDATIONS", report)
 
 
+class TestOrchestratorDefaults(unittest.TestCase):
+    def test_phase3_backend_defaults_to_asp(self):
+        from dse_tool.agents.orchestrator import DEFAULT_SOLVER_CONFIG
+
+        self.assertEqual(DEFAULT_SOLVER_CONFIG["phase3_backend"], "asp")
+
+
 class TestArchitectureComparisonReport(unittest.TestCase):
     def test_build_summary_without_solutions(self):
         baseline = make_pixhawk6x_platform()

@@ -51,7 +51,6 @@ _AUDIT_DISCOUNT = {
     "no_audit": 0,
 }
 
-
 @dataclass(frozen=True)
 class _CapabilityAccess:
     master: str
@@ -281,6 +280,7 @@ class Phase3FastAgent:
         scenario_action_risks: Dict[Tuple[str, str], int] = {}
         scenario_asset_risks: Dict[str, int] = {}
         scenario_asset_max_risks: Dict[str, int] = {}
+        amp_factors: Dict[str, int] = {}
         effective_risk_weights: Dict[str, int] = {}
         baseline_risks = self.phase1_result.risk_per_asset_action()
         fallback_asset_risks = self.phase1_result.max_risk_per_asset()
@@ -294,9 +294,10 @@ class Phase3FastAgent:
 
             factor_candidates = []  # sentinel removed — only real exposures contribute
             for node in compromised:
+                trust_amp = self._trust_amp(node)
                 if owner == node:
                     disc = self._protection_discount(owner)
-                    factor = max(10, 30 - disc)
+                    factor = max(10, 30 - disc + trust_amp)
                     factor_candidates.append(factor)
                     direct_exp.append((asset.asset_id, node, factor))
                     continue
@@ -306,10 +307,10 @@ class Phase3FastAgent:
                 node_domain = self._domains.get(node, "normal")
                 owner_domain = self._domains.get(owner, "normal")
                 if _DOMAIN_LEVEL.get(node_domain, 1) < _DOMAIN_LEVEL.get(owner_domain, 1):
-                    factor = max(10, 20 - disc)
+                    factor = max(10, 20 - disc + trust_amp)
                     cross_exp.append((asset.asset_id, node, factor))
                 else:
-                    factor = max(10, 15 - disc)
+                    factor = max(10, 15 - disc + trust_amp)
                     same_exp.append((asset.asset_id, node, factor))
                 factor_candidates.append(factor)
 
@@ -344,6 +345,7 @@ class Phase3FastAgent:
                 factor_candidates.append(13)
 
             factor = max(factor_candidates) if factor_candidates else 10
+            amp_factors[asset.asset_id] = factor
             weight = self.phase1_result.risk_weights.get(asset.asset_id, 1)
             effective_risk_weights[asset.asset_id] = weight
             has_action_risk = False
@@ -453,6 +455,7 @@ class Phase3FastAgent:
             cross_exp=sorted(set(cross_exp)),
             same_exp=sorted(set(same_exp)),
             unmediated_exp=sorted(set(unmediated_exp)),
+            amp_factors=amp_factors,
             satisfiable=True,
             effective_blast_radii=effective_blast_radii,
             attack_paths=sorted(attack_paths),
@@ -653,6 +656,16 @@ class Phase3FastAgent:
             + _REALTIME_DISCOUNT.get(realtime, 0)
             + _AUDIT_DISCOUNT.get(audit, 0),
         )
+
+    def _trust_amp(self, node: str) -> int:
+        """Return trust-level amplification available to the current Phase 3 contract.
+
+        Phase 3 currently consumes deployed PEP/PS placement and optional
+        mode-aware allows.  Trust-level diagnostics exist in Phase 2 results but
+        are not serialized into Phase 3 facts, so the Python evaluator must
+        ignore them to stay aligned with the ASP backend.
+        """
+        return 0
 
     def _unsigned_only_exposure(
         self,

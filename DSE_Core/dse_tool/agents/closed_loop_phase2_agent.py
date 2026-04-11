@@ -106,7 +106,7 @@ class ClosedLoopPhase2Agent:
                 continue
 
             feasible_candidates += 1
-            phase3_backend = (self.solver_config.get("phase3_backend") or "python").lower()
+            phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
             if phase3_backend == "python":
                 phase3 = Phase3FastAgent(
                     network_model=self.network_model,
