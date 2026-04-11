@@ -66,6 +66,7 @@ class MainWindow(tk.Tk):
         self._orchestrator = None
         self._poll_job: str | None = None
         self._progress_queue = queue.Queue()
+        self._architecture_repair_candidates: list = []
         self.solver_config: dict = {}  # optional solver strategy overrides
 
         self._build_ui()
@@ -193,6 +194,10 @@ class MainWindow(tk.Tk):
         # CSV export (Feature 2)
         view_menu.add_separator()
         view_menu.add_command(label="Export Results as CSV...", command=self._export_csv)
+        view_menu.add_command(
+            label="Export Repair Candidates as JSON...",
+            command=self._export_repair_candidates,
+        )
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -328,6 +333,10 @@ class MainWindow(tk.Tk):
         self._results_panel.set_results(solutions)
         if self._orchestrator and getattr(self._orchestrator, "report_text", ""):
             self._results_panel.set_report_text(self._orchestrator.report_text)
+        if self._orchestrator:
+            self._architecture_repair_candidates = list(
+                getattr(self._orchestrator, "architecture_repair_candidates", [])
+            )
         # Pass system resource caps so Executive Summary can use them
         if self._orchestrator and hasattr(self._orchestrator, "network_model"):
             self._results_panel.set_system_caps(
@@ -355,6 +364,7 @@ class MainWindow(tk.Tk):
         self._progress_panel.clear_log()
         self._progress_panel.stop_timer()
         self._results_panel.clear()
+        self._architecture_repair_candidates = []
         self._set_status("Ready")
 
     def _on_load_example(self) -> None:
@@ -478,6 +488,33 @@ class MainWindow(tk.Tk):
                 max_ffs=caps.get("max_ffs", 0),
             )
             self._set_status(f"Exported: {os.path.basename(path)}")
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e))
+
+    def _export_repair_candidates(self) -> None:
+        candidates = list(self._architecture_repair_candidates)
+        if not candidates:
+            messagebox.showwarning(
+                "No Repair Candidates",
+                "No architecture repair candidates are available. Enable candidate generation in Solver Config and run analysis first.",
+            )
+            return
+        path = filedialog.asksaveasfilename(
+            title="Export Architecture Repair Candidates",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialdir=BASE_DIR,
+        )
+        if not path:
+            return
+        try:
+            import json
+            from ..core.architecture_repair import serialize_architecture_repair_candidates
+
+            data = serialize_architecture_repair_candidates(candidates)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            self._set_status(f"Exported repair candidates: {os.path.basename(path)}")
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
 
