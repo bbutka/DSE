@@ -1243,6 +1243,49 @@ class TestArchitectureSpaceSeeds(unittest.TestCase):
         self.assertIn("stabilization", functions)
         self.assertIn("surveillance", seed.delta_from_baseline.removed_capabilities)
 
+    def test_orchestrator_can_run_seed_space_without_mutating_base_model(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        class StubSeedOrchestrator(DSEOrchestrator):
+            def _run_strategy(self, strategy: str, instance_facts: str) -> SolutionResult:
+                return SolutionResult(strategy=strategy, label=strategy, complete=True)
+
+        base = make_pixhawk6x_uav_network()
+        orch = StubSeedOrchestrator(
+            network_model=base,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp=TESTCASE_LP,
+            progress_queue=queue.Queue(),
+            solver_config={
+                "generate_architecture_seeds": True,
+                "architecture_seed_strategies": ["balanced"],
+            },
+        )
+
+        solutions = orch._run_architecture_seed_exploration()
+
+        self.assertIs(orch.network_model, base)
+        self.assertEqual(len(solutions), 5)
+        self.assertEqual({solution.strategy for solution in solutions}, {"balanced"})
+        self.assertEqual(
+            {
+                "baseline",
+                "low_resource",
+                "balanced_dual_ps",
+                "max_security",
+                "max_resilience",
+            },
+            {solution.architecture_seed for solution in solutions},
+        )
+        self.assertIn(
+            "max_resilience",
+            {
+                solution.architecture_seed
+                for solution in solutions
+                if solution.architecture_objective_bias == "max_resilience"
+            },
+        )
+
 
 class TestArchitectureRepair(unittest.TestCase):
     def _make_shared_bus_state_estimation_model(self) -> NetworkModel:

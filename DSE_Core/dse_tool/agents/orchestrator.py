@@ -33,6 +33,7 @@ from ..core.solution_parser import (
 )
 from ..core.architecture_delta import compare_network_models
 from ..core.architecture_repair import apply_architecture_repair_intents
+from ..core.architecture_space import ArchitectureSeed, generate_pixhawk6x_architecture_seeds
 from ..core.solution_ranker import SolutionRanker
 from ..core.comparison import generate_report_text
 from .phase1_mathopt_agent import Phase1MathOptAgent
@@ -107,6 +108,8 @@ DEFAULT_SOLVER_CONFIG = {
     "phase1_backend": "cpsat",
     "ilp_solver": "cpsat",
     "phase3_backend": "asp",
+    "generate_architecture_seeds": False,
+    "architecture_seed_strategies": ["balanced"],
     "cpsat_threads": _default_solver_threads(),
     "cbc_threads": _default_solver_threads(),
     "clingo_threads": _default_solver_threads(),
@@ -237,6 +240,7 @@ class DSEOrchestrator:
         self.runtime_scenarios    = runtime_scenarios
 
         self.solutions:   List[SolutionResult] = []
+        self.architecture_space_solutions: List[SolutionResult] = []
         self.architecture_repair_candidates: List[dict] = []
         self.promoted_architecture_repair_candidate: Optional[dict] = None
         self.next_iteration_network_model: Optional[NetworkModel] = None
@@ -280,8 +284,23 @@ class DSEOrchestrator:
                 sol = self._run_strategy(strategy, instance_facts)
                 self.solutions.append(sol)
 
+            if (
+                self.solver_config.get("generate_architecture_seeds")
+                and not self._stop_flag
+            ):
+                self.architecture_space_solutions = (
+                    self._run_architecture_seed_exploration()
+                )
+
             # Score all solutions
             if self.solutions:
+                if self.architecture_space_solutions:
+                    seed_ranker = SolutionRanker(
+                        self.architecture_space_solutions,
+                        max_luts=self.network_model.system_caps.get("max_luts", 0),
+                        max_power=self.network_model.system_caps.get("max_power", 0),
+                    )
+                    seed_ranker.rank()
                 caps = self.network_model.system_caps
                 ranker = SolutionRanker(
                     self.solutions,
@@ -334,6 +353,64 @@ class DSEOrchestrator:
     def stop(self) -> None:
         """Request the orchestrator to stop after the current strategy."""
         self._stop_flag = True
+
+    # ------------------------------------------------------------------
+    # Architecture-space exploration
+    # ------------------------------------------------------------------
+
+    def _run_architecture_seed_exploration(self) -> List[SolutionResult]:
+        """Run configured strategies over curated architecture seed models."""
+        if "pixhawk" not in self.network_model.name.lower():
+            self._post(
+                "WARNING",
+                "[Architecture Space] Pixhawk seed exploration requested for "
+                f"non-Pixhawk model '{self.network_model.name}'; skipping.",
+            )
+            return []
+
+        configured = self.solver_config.get("architecture_seed_strategies") or ["balanced"]
+        strategies = [str(strategy) for strategy in configured if str(strategy)]
+        if not strategies:
+            strategies = ["balanced"]
+
+        baseline_model = self.network_model
+        seeds = generate_pixhawk6x_architecture_seeds(baseline_model)
+        seed_solutions: List[SolutionResult] = []
+        self._post(
+            "PHASE",
+            f"--- Architecture Space: {len(seeds)} seed(s), "
+            f"{len(strategies)} strategy variant(s) each ---",
+        )
+
+        try:
+            for seed in seeds:
+                if self._stop_flag:
+                    break
+                self.network_model = seed.model
+                seed_facts = ASPGenerator(self.network_model).generate()
+                for strategy in strategies:
+                    if self._stop_flag:
+                        break
+                    sol = self._run_seed_strategy(seed, strategy, seed_facts)
+                    seed_solutions.append(sol)
+        finally:
+            self.network_model = baseline_model
+
+        return seed_solutions
+
+    def _run_seed_strategy(
+        self,
+        seed: ArchitectureSeed,
+        strategy: str,
+        instance_facts: str,
+    ) -> SolutionResult:
+        sol = self._run_strategy(strategy, instance_facts)
+        sol.architecture_seed = seed.name
+        sol.architecture_objective_bias = seed.objective_bias
+        sol.architecture_description = seed.description
+        seed_label = seed.name.replace("_", " ")
+        sol.label = f"{seed_label}: {STRATEGY_LABELS.get(strategy, strategy)}"
+        return sol
 
     # ------------------------------------------------------------------
     # Per-strategy execution
