@@ -202,6 +202,21 @@ def generate_scenarios(model: "NetworkModel", full: bool = False) -> List[dict]:
     return scenarios
 
 
+def resolve_phase3_backend(requested_backend: str | None, model: "NetworkModel") -> str:
+    """
+    Return the Phase 3 backend that can faithfully evaluate the model.
+
+    The ASP backend remains the default for legacy/topology-only models, but
+    function-support semantics currently live in the Python Phase 3 evaluator.
+    Routing those models through ASP would silently ignore modality-failure
+    scenarios and overstate resilience.
+    """
+    backend = (requested_backend or "asp").lower()
+    if backend == "asp" and getattr(model, "function_supports", None):
+        return "python"
+    return backend
+
+
 # Legacy scenario lists (kept for backwards compatibility only)
 CORE_SCENARIOS = [
     {"name": "baseline", "compromised": [], "failed": []},

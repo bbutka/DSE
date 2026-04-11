@@ -60,7 +60,11 @@ from dse_tool.core.executive_summary import (
     format_executive_summary,
 )
 from dse_tool.agents.phase1_mathopt_agent import Phase1MathOptAgent
-from dse_tool.agents.phase3_agent import generate_scenarios, _valid_asp_components
+from dse_tool.agents.phase3_agent import (
+    generate_scenarios,
+    _valid_asp_components,
+    resolve_phase3_backend,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1122,6 +1126,17 @@ class TestOrchestratorDefaults(unittest.TestCase):
         from dse_tool.agents.orchestrator import DEFAULT_SOLVER_CONFIG
 
         self.assertEqual(DEFAULT_SOLVER_CONFIG["phase3_backend"], "asp")
+
+    def test_function_support_models_use_python_phase3_semantics(self):
+        legacy = NetworkModel()
+        semantic = NetworkModel(
+            function_supports=[
+                FunctionSupport("state_estimation", "gps_1", "satellite", 90)
+            ]
+        )
+
+        self.assertEqual(resolve_phase3_backend("asp", legacy), "asp")
+        self.assertEqual(resolve_phase3_backend("asp", semantic), "python")
 
 
 class TestArchitectureComparisonReport(unittest.TestCase):

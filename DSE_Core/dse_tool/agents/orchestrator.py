@@ -39,7 +39,7 @@ from .phase1_mathopt_agent import Phase1MathOptAgent
 from .phase1_agent import Phase1Agent
 from .phase2_agent import Phase2Agent
 from .closed_loop_phase2_agent import ClosedLoopPhase2Agent
-from .phase3_agent import Phase3Agent, generate_scenarios
+from .phase3_agent import Phase3Agent, generate_scenarios, resolve_phase3_backend
 from .phase3_fast_agent import Phase3FastAgent
 from .runtime_agent import RuntimeAgent, RUNTIME_SCENARIOS
 
@@ -458,7 +458,10 @@ class DSEOrchestrator:
 
         # â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._post("INFO", f"[Orchestrator] Phase 3 starting for {strategy}...")
-        phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
+        phase3_backend = resolve_phase3_backend(
+            self.solver_config.get("phase3_backend"),
+            self.network_model,
+        )
         if phase3_backend == "python":
             p3_agent = Phase3FastAgent(
                 network_model=self.network_model,

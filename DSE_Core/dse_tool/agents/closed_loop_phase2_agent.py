@@ -19,7 +19,7 @@ from typing import Iterable, List, Optional, Tuple
 
 from ..core.clingo_runner import ClingoRunner
 from ..core.solution_parser import Phase1Result, Phase2Result, ScenarioResult, SolutionParser
-from .phase3_agent import Phase3Agent, generate_scenarios
+from .phase3_agent import Phase3Agent, generate_scenarios, resolve_phase3_backend
 from .phase3_fast_agent import Phase3FastAgent
 
 
@@ -106,7 +106,10 @@ class ClosedLoopPhase2Agent:
                 continue
 
             feasible_candidates += 1
-            phase3_backend = (self.solver_config.get("phase3_backend") or "asp").lower()
+            phase3_backend = resolve_phase3_backend(
+                self.solver_config.get("phase3_backend"),
+                self.network_model,
+            )
             if phase3_backend == "python":
                 phase3 = Phase3FastAgent(
                     network_model=self.network_model,
