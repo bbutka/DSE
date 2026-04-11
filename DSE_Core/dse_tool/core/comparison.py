@@ -76,6 +76,8 @@ def _format_architecture_repair_candidate(candidate: dict, idx: int) -> List[str
     source = candidate.get("source_label") or candidate.get("source_strategy") or "unknown"
     delta = candidate.get("delta")
     lines = [f"  Candidate {idx}: derived from {source}"]
+    if candidate.get("promotion_status"):
+        lines.append(f"    Promotion: {candidate['promotion_status']}")
     for intent in candidate.get("repair_intents") or []:
         lines.append(f"    Intent: {_format_repair_intent(intent)}")
     if not delta:

@@ -238,6 +238,7 @@ class DSEOrchestrator:
 
         self.solutions:   List[SolutionResult] = []
         self.architecture_repair_candidates: List[dict] = []
+        self.promoted_architecture_repair_candidate: Optional[dict] = None
         self.report_text: str                  = ""
         self.done:        bool                 = False
         self.error:       str                  = ""
@@ -290,6 +291,10 @@ class DSEOrchestrator:
 
                 if self.solver_config.get("generate_architecture_repair_candidates"):
                     self.architecture_repair_candidates = self._build_architecture_repair_candidates()
+                    if self.solver_config.get("promote_improving_architecture_repair_candidate"):
+                        self.promoted_architecture_repair_candidate = (
+                            self._promote_architecture_repair_candidate()
+                        )
 
                 # Generate report (topology-aware resource caps)
                 caps = self.network_model.system_caps
@@ -308,6 +313,11 @@ class DSEOrchestrator:
                             "[Orchestrator] Generated "
                             f"{len(self.architecture_repair_candidates)} "
                             "architecture repair candidate(s).",
+                        )
+                    if self.promoted_architecture_repair_candidate:
+                        self._post(
+                            "INFO",
+                            "[Orchestrator] Promoted architecture repair candidate for the next ASE iteration.",
                         )
 
             self._post("SUCCESS", "=== DSE Analysis Complete ===")
@@ -635,6 +645,36 @@ class DSEOrchestrator:
             "improved_functions": improved_functions,
             "scenarios": repaired_scenarios,
         }
+
+    def _promote_architecture_repair_candidate(self) -> Optional[dict]:
+        """Promote the best improving repair candidate for downstream ASE iteration."""
+        improving = [
+            candidate for candidate in self.architecture_repair_candidates
+            if candidate.get("reevaluation", {}).get("improved_functions")
+        ]
+        if not improving:
+            return None
+
+        def _score(candidate: dict) -> tuple:
+            reevaluation = candidate.get("reevaluation", {})
+            improved = len(reevaluation.get("improved_functions", []))
+            repaired = reevaluation.get("repaired_function_summary", {})
+            worst_severity = max(
+                (
+                    _FUNCTION_STATUS_SEVERITY.get(value.get("worst_status", ""), 99)
+                    for value in repaired.values()
+                ),
+                default=99,
+            )
+            worst_score = min(
+                (value.get("worst_score", 0) for value in repaired.values()),
+                default=0,
+            )
+            return (-improved, worst_severity, -worst_score)
+
+        promoted = sorted(improving, key=_score)[0]
+        promoted["promotion_status"] = "promoted_for_next_ase_iteration"
+        return promoted
 
     def _post(self, level: str, msg: str) -> None:
         try:

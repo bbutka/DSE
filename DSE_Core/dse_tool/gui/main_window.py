@@ -689,10 +689,26 @@ class _SolverConfigDialog(tk.Toplevel):
         self._repair_candidates_var = tk.BooleanVar(
             value=bool(config.get("generate_architecture_repair_candidates", False))
         )
+        self._repair_reeval_var = tk.BooleanVar(
+            value=bool(config.get("reevaluate_architecture_repair_candidates", False))
+        )
+        self._repair_promote_var = tk.BooleanVar(
+            value=bool(config.get("promote_improving_architecture_repair_candidate", False))
+        )
         ttk.Checkbutton(
             frm,
             text="Generate architecture repair candidates from closed-loop findings",
             variable=self._repair_candidates_var,
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Checkbutton(
+            frm,
+            text="Re-evaluate repair candidates with Phase 3 fast semantics",
+            variable=self._repair_reeval_var,
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Checkbutton(
+            frm,
+            text="Promote improving repair candidate for next ASE iteration",
+            variable=self._repair_promote_var,
         ).pack(anchor="w", pady=(0, 8))
 
         self._text_widgets: dict = {}
@@ -744,10 +760,18 @@ class _SolverConfigDialog(tk.Toplevel):
         else:
             result.pop("phase2_objective", None)
         result["phase3_backend"] = phase3_backend
-        if self._repair_candidates_var.get():
+        if self._repair_candidates_var.get() or self._repair_reeval_var.get() or self._repair_promote_var.get():
             result["generate_architecture_repair_candidates"] = True
         else:
             result.pop("generate_architecture_repair_candidates", None)
+        if self._repair_reeval_var.get() or self._repair_promote_var.get():
+            result["reevaluate_architecture_repair_candidates"] = True
+        else:
+            result.pop("reevaluate_architecture_repair_candidates", None)
+        if self._repair_promote_var.get():
+            result["promote_improving_architecture_repair_candidate"] = True
+        else:
+            result.pop("promote_improving_architecture_repair_candidate", None)
         self.result = result
         self.destroy()
 

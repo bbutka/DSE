@@ -1041,6 +1041,7 @@ class TestComparisonEngine(unittest.TestCase):
             {
                 "source_label": sols[0].label,
                 "source_strategy": sols[0].strategy,
+                "promotion_status": "promoted_for_next_ase_iteration",
                 "repair_intents": sols[0].phase2.closed_loop_repair_intents,
                 "delta": compare_network_models(baseline, candidate),
                 "reevaluation": {
@@ -1075,6 +1076,7 @@ class TestComparisonEngine(unittest.TestCase):
         self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("ARCHITECTURE REPAIR CANDIDATES", report)
         self.assertIn("Added components", report)
+        self.assertIn("Promotion: promoted_for_next_ase_iteration", report)
         self.assertIn("Re-evaluation", report)
         self.assertIn("lost@0 -> degraded@70", report)
         self.assertIn("Function Deficiencies", report)
@@ -1310,11 +1312,14 @@ class TestArchitectureRepair(unittest.TestCase):
             solver_config={
                 "generate_architecture_repair_candidates": True,
                 "reevaluate_architecture_repair_candidates": True,
+                "promote_improving_architecture_repair_candidate": True,
             },
         )
         orch.solutions = [sol]
 
         candidates = orch._build_architecture_repair_candidates()
+        orch.architecture_repair_candidates = candidates
+        promoted = orch._promote_architecture_repair_candidate()
 
         self.assertEqual(len(candidates), 1)
         reevaluation = candidates[0]["reevaluation"]
@@ -1332,6 +1337,11 @@ class TestArchitectureRepair(unittest.TestCase):
         serialized = serialize_architecture_repair_candidate(candidates[0])
         self.assertIn("reevaluation", serialized)
         self.assertIn("scenarios", serialized["reevaluation"])
+        self.assertIs(promoted, candidates[0])
+        self.assertEqual(
+            candidates[0]["promotion_status"],
+            "promoted_for_next_ase_iteration",
+        )
 
     def test_serializes_repair_candidate_for_export(self):
         model = self._make_shared_bus_state_estimation_model()
@@ -1364,6 +1374,7 @@ class TestArchitectureRepair(unittest.TestCase):
     def test_serializes_precomputed_candidate_dict_fields(self):
         candidate = {
             "source_strategy": "balanced",
+            "promotion_status": "promoted_for_next_ase_iteration",
             "repair_intents": [],
             "model": {"name": "already_serialized"},
             "delta": {"added_buses": ["bus_a"]},
@@ -1373,6 +1384,7 @@ class TestArchitectureRepair(unittest.TestCase):
 
         self.assertEqual(serialized["model"], {"name": "already_serialized"})
         self.assertEqual(serialized["delta"], {"added_buses": ["bus_a"]})
+        self.assertEqual(serialized["promotion_status"], "promoted_for_next_ase_iteration")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

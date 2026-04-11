@@ -33,6 +33,7 @@ def serialize_architecture_repair_candidate(candidate: dict) -> dict:
     return {
         "source_strategy": candidate.get("source_strategy", ""),
         "source_label": candidate.get("source_label", ""),
+        "promotion_status": candidate.get("promotion_status", ""),
         "repair_intents": list(candidate.get("repair_intents") or []),
         "delta": _asdict_or_none(candidate.get("delta")),
         "model": _asdict_or_none(candidate.get("model")),
