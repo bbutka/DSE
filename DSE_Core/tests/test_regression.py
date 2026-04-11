@@ -1020,12 +1020,25 @@ class TestComparisonEngine(unittest.TestCase):
                 function_findings=["state_estimation_lost_under_bus_failure"],
             )
         ]
+        sols[0].phase2.closed_loop_repair_intents = [
+            {
+                "stage": "architecture_generation",
+                "status": "pending_architecture_revision",
+                "function": "state_estimation",
+                "repair": "split_function_support_buses",
+                "required_diversity_axis": "bus",
+                "minimum_independent_domains": 2,
+            }
+        ]
         report = generate_report_text(sols, network_name="test_net")
         self.assertIn("DSE SECURITY ANALYSIS REPORT", report)
         self.assertIn("test_net", report)
         self.assertIn("COMPARISON TABLE", report)
         self.assertIn("FUNCTION SUPPORT FINDINGS", report)
+        self.assertIn("ARCHITECTURE REPAIR INTENTS", report)
         self.assertIn("Function Deficiencies", report)
+        self.assertIn("Repair Intents", report)
+        self.assertIn("split_function_support_buses", report)
         self.assertIn("state_estimation", report)
         self.assertIn("lost_under_domain_failure", report)
         self.assertIn("RECOMMENDATIONS", report)

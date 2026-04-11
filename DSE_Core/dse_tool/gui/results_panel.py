@@ -621,6 +621,20 @@ class _Phase2DetailDialog(tk.Toplevel):
                 f"Closed-loop score: {tuple(p2.closed_loop_score)} "
                 f"(candidates evaluated: {p2.closed_loop_candidates_evaluated})"
             )
+            repair_intents = getattr(p2, "closed_loop_repair_intents", [])
+            if repair_intents:
+                lines.append("")
+                lines.append(f"Architecture repair intents ({len(repair_intents)}):")
+                lines.append("─" * 50)
+                for intent in repair_intents:
+                    function = intent.get("function", "unknown")
+                    repair = intent.get("repair", "unknown")
+                    status = intent.get("status", "pending")
+                    axis = intent.get("required_diversity_axis", "")
+                    domains = intent.get("minimum_independent_domains", "")
+                    axis_text = f" on {axis}" if axis else ""
+                    domains_text = f" ({domains} independent domains)" if domains else ""
+                    lines.append(f"  {function}: {repair}{axis_text}{domains_text} [{status}]")
         elif p2.resilience_objective_penalty():
             lines.append(
                 f"Heuristic resilience penalty: {p2.resilience_objective_penalty()}"

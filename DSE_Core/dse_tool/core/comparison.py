@@ -47,6 +47,23 @@ def _format_function_deficiency(deficiency: dict) -> str:
     )
 
 
+def _repair_intents(sol: SolutionResult) -> List[dict]:
+    if sol.phase2 and sol.phase2.closed_loop_repair_intents:
+        return list(sol.phase2.closed_loop_repair_intents)
+    return []
+
+
+def _format_repair_intent(intent: dict) -> str:
+    function = intent.get("function", "unknown")
+    repair = intent.get("repair", "unknown")
+    status = intent.get("status", "pending")
+    axis = intent.get("required_diversity_axis", "")
+    domains = intent.get("minimum_independent_domains", "")
+    axis_text = f" on {axis}" if axis else ""
+    domains_text = f" ({domains} independent domains)" if domains else ""
+    return f"{function}: {repair}{axis_text}{domains_text}, {status}"
+
+
 class ComparisonEngine:
     """
     Generates pros/cons lists for each solution variant.
@@ -530,6 +547,14 @@ def generate_report_text(
                     lines.append(f"    - ... {len(function_defs) - 8} more finding(s)")
                 lines.append("")
 
+            repair_intents = _repair_intents(sol)
+            if repair_intents:
+                lines.append("  ARCHITECTURE REPAIR INTENTS")
+                lines.append(SEP2)
+                for intent in repair_intents:
+                    lines.append(f"    - {_format_repair_intent(intent)}")
+                lines.append("")
+
         # Pros and cons
         pros, cons = all_pros_cons[i]
         lines.append("  PROS")
@@ -594,6 +619,9 @@ def generate_report_text(
 
     metrics_rows.append(("Function Deficiencies",
                           [str(len(_function_deficiencies(s))) for s in solutions]))
+
+    metrics_rows.append(("Repair Intents",
+                          [str(len(_repair_intents(s))) for s in solutions]))
 
     for label, vals in metrics_rows:
         v1 = vals[0] if len(vals) > 0 else "N/A"
@@ -662,6 +690,13 @@ def generate_report_text(
         lines.append(
             f"  {rec_num}. Review {len(function_defs)} function-support finding(s);\n"
             f"     first finding: {sample}."
+        )
+        rec_num += 1
+
+    repair_intents = _repair_intents(best) if best else []
+    if repair_intents:
+        lines.append(
+            f"  {rec_num}. Queue architecture repair: {_format_repair_intent(repair_intents[0])}."
         )
         rec_num += 1
 

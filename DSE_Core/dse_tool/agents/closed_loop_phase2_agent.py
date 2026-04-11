@@ -134,6 +134,9 @@ class ClosedLoopPhase2Agent:
                 )
             scenario_results = phase3.run(model_scenarios=scenarios)
             p2.closed_loop_function_deficiencies = self._collect_function_deficiencies(scenario_results)
+            p2.closed_loop_repair_intents = self._propose_repair_intents(
+                p2.closed_loop_function_deficiencies
+            )
             score = self._score_candidate(scenario_results, p2)
             p2.closed_loop_score = score
             p2.closed_loop_candidates_evaluated = candidates_evaluated
@@ -150,6 +153,11 @@ class ClosedLoopPhase2Agent:
                     f"[Phase 2/{self.strategy}] Closed-loop new best: "
                     f"score={score} cost={p2.total_cost} FW={sorted(set(p2.placed_fws))} PS={sorted(set(p2.placed_ps))}"
                 )
+                if p2.closed_loop_repair_intents:
+                    self._post(
+                        f"[Phase 2/{self.strategy}] Pending architecture repair intents: "
+                        f"{len(p2.closed_loop_repair_intents)}"
+                    )
 
         if best_selection is None:
             p2 = Phase2Result(satisfiable=False, unsat_reason="No feasible Phase 2 placement")
@@ -266,6 +274,44 @@ class ClosedLoopPhase2Agent:
             else:
                 deficiencies.extend(scenario.derive_function_deficiencies())
         return deficiencies
+
+    @staticmethod
+    def _propose_repair_intents(deficiencies: List[dict]) -> List[dict]:
+        """Map trusted Phase 3 deficiencies to architecture-level repair intents."""
+        intents: List[dict] = []
+        seen: set[Tuple[str, str]] = set()
+        for deficiency in deficiencies:
+            function = deficiency.get("function", "")
+            failed_domain = deficiency.get("failed_domain", "")
+            issue = deficiency.get("issue", "")
+            if function != "state_estimation" or failed_domain != "bus":
+                continue
+            if issue not in {
+                "lacks_bus_diversity",
+                "lost_under_domain_failure",
+                "fallback_below_degraded_threshold",
+            }:
+                continue
+
+            key = (function, "split_function_support_buses")
+            if key in seen:
+                continue
+            seen.add(key)
+            intents.append({
+                "stage": "architecture_generation",
+                "status": "pending_architecture_revision",
+                "function": function,
+                "repair": "split_function_support_buses",
+                "required_diversity_axis": "bus",
+                "minimum_independent_domains": 2,
+                "source_finding": deficiency.get("finding", issue),
+                "source_scenario": deficiency.get("scenario", ""),
+                "rationale": (
+                    "State-estimation supports lose fallback quality under bus-domain failure; "
+                    "revise the architecture so supporting modalities are not all carried by the same bus."
+                ),
+            })
+        return intents
 
     def _build_lp_list(self) -> list[str]:
         files = []

@@ -217,6 +217,7 @@ class Phase2Result:
     closed_loop_score:      Tuple[int, ...] = field(default_factory=tuple)
     closed_loop_candidates_evaluated: int = 0
     closed_loop_function_deficiencies: List[Dict[str, Any]] = field(default_factory=list)
+    closed_loop_repair_intents: List[Dict[str, Any]] = field(default_factory=list)
     satisfiable:            bool = False
     optimal:                bool = False
     unsat_reason:           str  = ""

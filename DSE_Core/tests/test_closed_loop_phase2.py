@@ -63,6 +63,7 @@ class TestClosedLoopPhase2Agent(unittest.TestCase):
 
         deficiencies = ClosedLoopPhase2Agent._collect_function_deficiencies(scenarios)
         p2.closed_loop_function_deficiencies = deficiencies
+        p2.closed_loop_repair_intents = ClosedLoopPhase2Agent._propose_repair_intents(deficiencies)
 
         self.assertEqual(
             p2.closed_loop_function_deficiencies,
@@ -90,9 +91,44 @@ class TestClosedLoopPhase2Agent(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            p2.closed_loop_repair_intents,
+            [
+                {
+                    "stage": "architecture_generation",
+                    "status": "pending_architecture_revision",
+                    "function": "state_estimation",
+                    "repair": "split_function_support_buses",
+                    "required_diversity_axis": "bus",
+                    "minimum_independent_domains": 2,
+                    "source_finding": "state_estimation_lacks_bus_diversity",
+                    "source_scenario": "sensor_bus_failure",
+                    "rationale": (
+                        "State-estimation supports lose fallback quality under bus-domain failure; "
+                        "revise the architecture so supporting modalities are not all carried by the same bus."
+                    ),
+                }
+            ],
+        )
+        self.assertEqual(
             ClosedLoopPhase2Agent._score_candidate(scenarios, p2),
             (0, 100, 0, 0, 100, 10),
         )
+
+    def test_repair_intents_ignore_non_bus_deficiencies(self) -> None:
+        deficiencies = [
+            {
+                "function": "state_estimation",
+                "issue": "lacks_modality_diversity",
+                "finding": "state_estimation_lacks_modality_diversity",
+                "scenario": "modality_satellite_failure",
+                "status": "lost",
+                "score": 0,
+                "failed_domain": "modality",
+                "failed_domain_values": ["satellite"],
+            }
+        ]
+
+        self.assertEqual(ClosedLoopPhase2Agent._propose_repair_intents(deficiencies), [])
 
 
 if __name__ == "__main__":
