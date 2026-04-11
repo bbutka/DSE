@@ -216,6 +216,7 @@ class Phase2Result:
     control_plane_concentration_penalty: int = 0
     closed_loop_score:      Tuple[int, ...] = field(default_factory=tuple)
     closed_loop_candidates_evaluated: int = 0
+    closed_loop_function_deficiencies: List[Dict[str, Any]] = field(default_factory=list)
     satisfiable:            bool = False
     optimal:                bool = False
     unsat_reason:           str  = ""
@@ -278,6 +279,7 @@ class ScenarioResult:
     compromised:       List[str]
     failed:            List[str]
     failed_modalities: List[str]       = field(default_factory=list)
+    failed_buses:      List[str]       = field(default_factory=list)
     scenario_risks:    Dict[str, int]  = field(default_factory=dict)
     scenario_asset_max_risks: Dict[str, int] = field(default_factory=dict)
     # CIA-disaggregated scenario risk: (asset, action) → risk
@@ -343,6 +345,7 @@ class ScenarioResult:
     functions_degraded: List[str]      = field(default_factory=list)
     functions_lost:     List[str]      = field(default_factory=list)
     function_findings:  List[str]      = field(default_factory=list)
+    function_deficiencies: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def total_risk(self) -> float:
@@ -353,6 +356,46 @@ class ScenarioResult:
     def max_blast_radius(self) -> int:
         """Maximum blast radius across all components in this scenario."""
         return max(self.blast_radii.values(), default=0)
+
+    def derive_function_deficiencies(self) -> List[Dict[str, Any]]:
+        """Return structured function-level weaknesses for closed-loop handoff."""
+        deficiencies: List[Dict[str, Any]] = []
+        for finding in sorted(set(self.function_findings)):
+            function_name = ""
+            issue = finding
+            failed_domain = ""
+            failed_domain_values: List[str] = []
+
+            suffixes = (
+                ("_lacks_modality_diversity", "lacks_modality_diversity", "modality", []),
+                ("_lost_under_satellite_failure", "lost_under_domain_failure", "modality", ["satellite"]),
+                ("_lacks_bus_diversity", "lacks_bus_diversity", "bus", []),
+                ("_lost_under_bus_failure", "lost_under_domain_failure", "bus", self.failed_buses),
+                ("_bus_fallback_below_degraded_threshold", "fallback_below_degraded_threshold", "bus", self.failed_buses),
+                ("_fallback_below_degraded_threshold", "fallback_below_degraded_threshold", "modality", self.failed_modalities),
+            )
+            for suffix, parsed_issue, domain, values in suffixes:
+                if finding.endswith(suffix):
+                    function_name = finding[:-len(suffix)]
+                    issue = parsed_issue
+                    failed_domain = domain
+                    failed_domain_values = sorted(set(values))
+                    break
+            if not function_name:
+                function_name = finding.split("_", 1)[0]
+
+            status = self.function_statuses.get(function_name, "")
+            deficiencies.append({
+                "function": function_name,
+                "issue": issue,
+                "finding": finding,
+                "scenario": self.name,
+                "status": status,
+                "score": self.function_scores.get(function_name, 0),
+                "failed_domain": failed_domain,
+                "failed_domain_values": failed_domain_values,
+            })
+        return deficiencies
 
 
 # ---------------------------------------------------------------------------

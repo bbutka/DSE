@@ -420,12 +420,13 @@ class Phase3FastAgent:
         system_non_functional = bool(essential_caps_lost)
         system_functional = (not has_capabilities) or not system_non_functional
         system_degraded = system_functional and bool(capabilities_lost or capabilities_degraded)
+        failed_buses = failed.intersection(set(self.network_model.buses))
         function_eval = self._evaluate_function_supports(
             failed=failed,
             compromised=compromised,
             cut_off=set(cut_off),
             failed_modalities=failed_modalities,
-            failed_buses=failed.intersection(set(self.network_model.buses)),
+            failed_buses=failed_buses,
         )
 
         result = ScenarioResult(
@@ -433,6 +434,7 @@ class Phase3FastAgent:
             compromised=sorted(compromised),
             failed=sorted(failed),
             failed_modalities=sorted(failed_modalities),
+            failed_buses=sorted(failed_buses),
             scenario_risks=scenario_asset_risks,
             scenario_action_risks=scenario_action_risks,
             total_risk_scaled=sum(scenario_asset_risks.values()),
@@ -481,6 +483,7 @@ class Phase3FastAgent:
             functions_lost=function_eval["lost"],
             function_findings=function_eval["findings"],
         )
+        result.function_deficiencies = result.derive_function_deficiencies()
         result.scenario_asset_max_risks = scenario_asset_max_risks
         result.effective_risk_weights = effective_risk_weights
         if scenario_mode is not None:

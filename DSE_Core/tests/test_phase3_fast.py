@@ -170,6 +170,24 @@ class TestPhase3FunctionSupportSemantics(unittest.TestCase):
         self.assertIn("state_estimation_lacks_bus_diversity", result.function_findings)
         self.assertIn("state_estimation_lost_under_bus_failure", result.function_findings)
         self.assertIn("state_estimation_bus_fallback_below_degraded_threshold", result.function_findings)
+        lost = next(
+            deficiency for deficiency in result.function_deficiencies
+            if deficiency["finding"] == "state_estimation_lost_under_bus_failure"
+        )
+        self.assertEqual(lost["function"], "state_estimation")
+        self.assertEqual(lost["issue"], "lost_under_domain_failure")
+        self.assertEqual(lost["status"], "lost")
+        self.assertEqual(lost["score"], 0)
+        self.assertEqual(lost["failed_domain"], "bus")
+        self.assertEqual(lost["failed_domain_values"], ["sensor_bus"])
+        fallback = next(
+            deficiency for deficiency in result.function_deficiencies
+            if deficiency["finding"] == "state_estimation_bus_fallback_below_degraded_threshold"
+        )
+        self.assertEqual(fallback["function"], "state_estimation")
+        self.assertEqual(fallback["issue"], "fallback_below_degraded_threshold")
+        self.assertEqual(fallback["failed_domain"], "bus")
+        self.assertEqual(fallback["failed_domain_values"], ["sensor_bus"])
 
     def test_split_bus_failure_degrades_but_preserves_state_estimation(self) -> None:
         result = self._run(
@@ -187,6 +205,7 @@ class TestPhase3FunctionSupportSemantics(unittest.TestCase):
         self.assertNotIn("state_estimation_lacks_bus_diversity", result.function_findings)
         self.assertNotIn("state_estimation_lost_under_bus_failure", result.function_findings)
         self.assertNotIn("state_estimation_bus_fallback_below_degraded_threshold", result.function_findings)
+        self.assertEqual(result.failed_buses, ["gps_bus"])
 
 
 class TestPhase3FastParity(unittest.TestCase):

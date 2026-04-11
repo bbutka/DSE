@@ -133,6 +133,7 @@ class ClosedLoopPhase2Agent:
                     solver_config=self.solver_config,
                 )
             scenario_results = phase3.run(model_scenarios=scenarios)
+            p2.closed_loop_function_deficiencies = self._collect_function_deficiencies(scenario_results)
             score = self._score_candidate(scenario_results, p2)
             p2.closed_loop_score = score
             p2.closed_loop_candidates_evaluated = candidates_evaluated
@@ -254,6 +255,17 @@ class ClosedLoopPhase2Agent:
             avg_risk,
             phase2_result.total_cost,
         )
+
+    @staticmethod
+    def _collect_function_deficiencies(scenarios: List[ScenarioResult]) -> List[dict]:
+        """Collect structured function-level findings without applying repairs."""
+        deficiencies: List[dict] = []
+        for scenario in scenarios:
+            if scenario.function_deficiencies:
+                deficiencies.extend(scenario.function_deficiencies)
+            else:
+                deficiencies.extend(scenario.derive_function_deficiencies())
+        return deficiencies
 
     def _build_lp_list(self) -> list[str]:
         files = []

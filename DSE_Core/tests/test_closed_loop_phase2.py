@@ -41,6 +41,59 @@ class TestClosedLoopPhase2Agent(unittest.TestCase):
 
         self.assertLess(better_score, worse_score)
 
+    def test_collects_structured_function_deficiencies_without_changing_score(self) -> None:
+        p2 = Phase2Result(satisfiable=True, total_cost=10)
+        scenarios = [
+            ScenarioResult(
+                name="sensor_bus_failure",
+                compromised=[],
+                failed=["sensor_bus"],
+                failed_buses=["sensor_bus"],
+                satisfiable=True,
+                total_risk_scaled=100,
+                function_scores={"state_estimation": 0},
+                function_statuses={"state_estimation": "lost"},
+                functions_lost=["state_estimation"],
+                function_findings=[
+                    "state_estimation_lacks_bus_diversity",
+                    "state_estimation_lost_under_bus_failure",
+                ],
+            )
+        ]
+
+        deficiencies = ClosedLoopPhase2Agent._collect_function_deficiencies(scenarios)
+        p2.closed_loop_function_deficiencies = deficiencies
+
+        self.assertEqual(
+            p2.closed_loop_function_deficiencies,
+            [
+                {
+                    "function": "state_estimation",
+                    "issue": "lacks_bus_diversity",
+                    "finding": "state_estimation_lacks_bus_diversity",
+                    "scenario": "sensor_bus_failure",
+                    "status": "lost",
+                    "score": 0,
+                    "failed_domain": "bus",
+                    "failed_domain_values": [],
+                },
+                {
+                    "function": "state_estimation",
+                    "issue": "lost_under_domain_failure",
+                    "finding": "state_estimation_lost_under_bus_failure",
+                    "scenario": "sensor_bus_failure",
+                    "status": "lost",
+                    "score": 0,
+                    "failed_domain": "bus",
+                    "failed_domain_values": ["sensor_bus"],
+                },
+            ],
+        )
+        self.assertEqual(
+            ClosedLoopPhase2Agent._score_candidate(scenarios, p2),
+            (0, 100, 0, 0, 100, 10),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
