@@ -31,6 +31,8 @@ from ..core.solution_parser import (
     Phase1Result, Phase2Result, SolutionResult, ScenarioResult,
     RuntimeAdaptiveResult, JointPhase2RuntimeResult,
 )
+from ..core.architecture_delta import compare_network_models
+from ..core.architecture_repair import apply_architecture_repair_intents
 from ..core.solution_ranker import SolutionRanker
 from ..core.comparison import generate_report_text
 from .phase1_mathopt_agent import Phase1MathOptAgent
@@ -159,6 +161,7 @@ class DSEOrchestrator:
         self.runtime_scenarios    = runtime_scenarios
 
         self.solutions:   List[SolutionResult] = []
+        self.architecture_repair_candidates: List[dict] = []
         self.report_text: str                  = ""
         self.done:        bool                 = False
         self.error:       str                  = ""
@@ -218,6 +221,15 @@ class DSEOrchestrator:
                     max_power=caps.get("max_power", 0),
                     max_ffs=caps.get("max_ffs", 0),
                 )
+                if self.solver_config.get("generate_architecture_repair_candidates"):
+                    self.architecture_repair_candidates = self._build_architecture_repair_candidates()
+                    if self.architecture_repair_candidates:
+                        self._post(
+                            "INFO",
+                            "[Orchestrator] Generated "
+                            f"{len(self.architecture_repair_candidates)} "
+                            "architecture repair candidate(s).",
+                        )
 
             self._post("SUCCESS", "=== DSE Analysis Complete ===")
 
@@ -456,6 +468,48 @@ class DSEOrchestrator:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _build_architecture_repair_candidates(self) -> List[dict]:
+        """Build revised architecture candidates from closed-loop repair intents."""
+        candidates: List[dict] = []
+        seen_intent_sets: set[tuple] = set()
+        for sol in self.solutions:
+            p2 = sol.phase2
+            repair_intents = getattr(p2, "closed_loop_repair_intents", None) if p2 else None
+            if not repair_intents:
+                continue
+
+            intent_key = tuple(
+                sorted(
+                    (
+                        str(intent.get("repair", "")),
+                        str(intent.get("function", "")),
+                        str(intent.get("required_diversity_axis", "")),
+                    )
+                    for intent in repair_intents
+                )
+            )
+            if intent_key in seen_intent_sets:
+                continue
+            seen_intent_sets.add(intent_key)
+
+            candidate_model = apply_architecture_repair_intents(
+                self.network_model,
+                list(repair_intents),
+            )
+            delta = compare_network_models(self.network_model, candidate_model)
+            if not delta.has_changes():
+                continue
+            candidates.append(
+                {
+                    "source_strategy": sol.strategy,
+                    "source_label": sol.label,
+                    "repair_intents": list(repair_intents),
+                    "model": candidate_model,
+                    "delta": delta,
+                }
+            )
+        return candidates
 
     def _post(self, level: str, msg: str) -> None:
         try:

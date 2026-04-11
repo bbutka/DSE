@@ -1193,6 +1193,44 @@ class TestArchitectureRepair(unittest.TestCase):
         self.assertEqual(candidate.name, "Shared Bus State Estimation")
         self.assertFalse(delta.has_changes())
 
+    def test_orchestrator_builds_repair_candidate_from_intents(self):
+        from dse_tool.agents.orchestrator import DSEOrchestrator
+
+        model = self._make_shared_bus_state_estimation_model()
+        intent = {
+            "stage": "architecture_generation",
+            "status": "pending_architecture_revision",
+            "function": "state_estimation",
+            "repair": "split_function_support_buses",
+            "required_diversity_axis": "bus",
+            "minimum_independent_domains": 2,
+        }
+        p2 = Phase2Result(satisfiable=True)
+        p2.closed_loop_repair_intents = [intent]
+        sol = SolutionResult(
+            strategy="max_security",
+            label="Solution 1: Maximum Security",
+            phase2=p2,
+        )
+        orch = DSEOrchestrator(
+            network_model=model,
+            clingo_files_dir=CLINGO_DIR,
+            testcase_lp="",
+            progress_queue=queue.Queue(),
+            solver_config={"generate_architecture_repair_candidates": True},
+        )
+        orch.solutions = [sol]
+
+        candidates = orch._build_architecture_repair_candidates()
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["source_strategy"], "max_security")
+        self.assertEqual(candidates[0]["source_label"], "Solution 1: Maximum Security")
+        self.assertEqual(candidates[0]["repair_intents"], [intent])
+        self.assertIn("imu_1_repair_bus", candidates[0]["model"].buses)
+        self.assertIn("baro_1_repair_bus", candidates[0]["delta"].added_buses)
+        self.assertIn(("imu_1_repair_bus", "imu_1"), candidates[0]["delta"].added_links)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 7. Executive Summary Tests
