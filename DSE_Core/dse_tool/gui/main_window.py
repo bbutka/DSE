@@ -649,6 +649,15 @@ class _SolverConfigDialog(tk.Toplevel):
             wraplength=500,
         ).pack(anchor="w", pady=(0, 8))
 
+        self._repair_candidates_var = tk.BooleanVar(
+            value=bool(config.get("generate_architecture_repair_candidates", False))
+        )
+        ttk.Checkbutton(
+            frm,
+            text="Generate architecture repair candidates from closed-loop findings",
+            variable=self._repair_candidates_var,
+        ).pack(anchor="w", pady=(0, 8))
+
         self._text_widgets: dict = {}
         nb = ttk.Notebook(frm)
         nb.pack(fill=tk.BOTH, expand=True)
@@ -698,6 +707,10 @@ class _SolverConfigDialog(tk.Toplevel):
         else:
             result.pop("phase2_objective", None)
         result["phase3_backend"] = phase3_backend
+        if self._repair_candidates_var.get():
+            result["generate_architecture_repair_candidates"] = True
+        else:
+            result.pop("generate_architecture_repair_candidates", None)
         self.result = result
         self.destroy()
 
